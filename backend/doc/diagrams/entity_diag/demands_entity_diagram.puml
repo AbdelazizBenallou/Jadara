@@ -1,0 +1,124 @@
+@startuml
+' JADARA - Registration Demands Entity Diagram
+title Registration Demands - Entity Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 12
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+skinparam entityFontStyle bold
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum DemandStatus {
+    pending
+    approved
+    rejected
+}
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+together {
+  entity "users" as users {
+    * **id : Int (PK)**
+    * **email : String (UNIQUE)**
+    * password : String
+    * status : UserStatus
+    * **role_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "roles" as roles {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    is_selectable : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "demands" as demands {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **role_id : Int (FK)**
+    * status : DemandStatus
+    **reviewed_by : Int (FK)**
+    review_note : String
+    reviewed_at : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "demand_domains" as demand_domains {
+    * **id : Int (PK)**
+    * **demand_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (demand_id, domain_id) (UNIQUE)
+  }
+
+  entity "domains" as domains {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "documents" as documents {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * name : String
+    * type : String
+    * file_url : String
+    * file_size : Int
+    * mime_type : String
+    status : String
+    **demand_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "cv_generation_requests" as cv_generation_requests {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * status : String
+    missing_fields : Json
+    data_hash : String
+    file_url : String
+    file_size : Int
+    error_message : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+}
+
+' =========================================================
+' RELATIONSHIPS (crow's foot notation)
+' =========================================================
+
+users ||--o{ demands : applies
+roles ||--o{ demands : requests
+demands ||--o{ demand_domains : has
+domains ||--o{ demand_domains : classified_by
+demands |o--o{ documents : proof_files
+users ||--o{ cv_generation_requests : has
+
+legend right
+  |= Symbol |= Meaning |
+  | `||` | exactly one |
+  | `o|` | zero or one |
+  | `o{` | zero or many |
+endlegend
+
+@enduml

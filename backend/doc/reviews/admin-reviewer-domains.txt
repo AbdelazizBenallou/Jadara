@@ -1,0 +1,59 @@
+================================================================
+  ADMIN: ASSIGN REVIEWER DOMAINS — /v1/users/:id/review-domains
+  Base URL: http://localhost:3001
+  Auth: Admin ONLY (permission: manage_users)
+  Rate limits: read 60/min, write 20/min
+================================================================
+
+Admin manages which domains a reviewer is assigned to
+(after these routes are under the admin-only router.use).
+
+--------------------------------------------------
+1. GET — GET /v1/users/:id/review-domains
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/users/18/review-domains" | python3 -m json.tool
+
+Expected: 200
+{ "success": true, "message": "Reviewer domains retrieved",
+  "data": [ { "id": 1, "name": "Web Development" }, { "id": 8, "name": "Databases" } ] }
+
+
+--------------------------------------------------
+2. SET (REPLACE ALL) — PUT /v1/users/:id/review-domains
+--------------------------------------------------
+Replaces the reviewer's full domain set (deletes + recreates).
+
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X PUT http://localhost:3001/v1/users/18/review-domains \
+  -H "Content-Type: application/json" \
+  -d '{"domain_ids":[1,8,3]}'
+
+Expected: 200 "Reviewer domains updated" with the new domains array.
+
+If a domain id does not exist:
+Expected: 400 {"success":false,"message":"Domains not found: 3"} (or list)
+
+
+--------------------------------------------------
+3. REMOVE ONE — DELETE /v1/users/:id/review-domains/:domainId
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X DELETE http://localhost:3001/v1/users/18/review-domains/3
+
+Expected: 200 "Reviewer domain removed" with the remaining domains.
+Not assigned: 404 {"success":false,"message":"Reviewer domain assignment not found"}
+
+
+--------------------------------------------------
+4. ERRORS
+--------------------------------------------------
+invalid id        -> 400 "Invalid reviewer or domain ID"
+no auth           -> 401
+non-admin         -> 403 (manage_users)
+
+
+NOTES
+- These are the admin replacement for auto-assignment upon demand
+  approval. Approving a reviewer creates reviewer_domains from the
+  requested domains automatically (no manual step needed).

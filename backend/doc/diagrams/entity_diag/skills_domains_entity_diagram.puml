@@ -1,0 +1,82 @@
+@startuml
+' JADARA - Skills & Domains Entity Diagram
+title Skills & Domains - Entity Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 12
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+skinparam entityFontStyle bold
+hide empty members
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+together {
+  entity "domains" as domains {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skills" as skills {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skill_domains" as skill_domains {
+    * **id : Int (PK)**
+    * **skill_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (skill_id, domain_id) (UNIQUE)
+  }
+
+  entity "users" as users {
+    * **id : Int (PK)**
+    * **email : String (UNIQUE)**
+    * password : String
+    * status : UserStatus
+    * **role_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "reviewer_domains" as reviewer_domains {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (user_id, domain_id) (UNIQUE)
+  }
+}
+
+' =========================================================
+' RELATIONSHIPS (crow's foot notation)
+' =========================================================
+
+domains ||--o{ skill_domains : classified_by
+skills ||--o{ skill_domains : classified_by
+users ||--o{ reviewer_domains : has
+domains ||--o{ reviewer_domains : assigned_to
+
+legend right
+  |= Symbol |= Meaning |
+  | `||` | exactly one |
+  | `o|` | zero or one |
+  | `o{` | zero or many |
+endlegend
+
+@enduml

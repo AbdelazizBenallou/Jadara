@@ -1,0 +1,115 @@
+================================================================
+  CREATE SKILL API — POST /v1/skills
+  Base URL: http://localhost:3001
+  Permission required: create_skill (Admin only)
+================================================================
+
+Setup:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Rust" }'
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Beneficiary/Reviewer/Company have no create_skill:
+
+curl -i -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/user-cookies.txt \
+  -d '{ "name": "Rust" }'
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. VALIDATION ERRORS — Zod (422)
+--------------------------------------------------
+
+--- Missing name ---
+-d '{ "description": "no name" }'
+Expected: 422 {"success":false,"message":"Validation failed"}
+
+--- Empty name ---
+-d '{ "name": "" }'
+Expected: 422
+
+--- Name > 100 chars ---
+LONG=$(python3 -c "print('a'*101)")
+-d "{ \"name\": \"$LONG\" }"
+Expected: 422
+
+--- Invalid status value ---
+-d '{ "name": "Rust", "status": "banana" }'
+Expected: 422   (only "active" | "inactive" accepted)
+
+
+--------------------------------------------------
+4. DUPLICATE NAME (409)
+--------------------------------------------------
+curl -i -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "React", "description": "already seeded" }'
+
+Expected: 409
+Response: { "success": false, "message": "Skill name already exists" }
+
+
+--------------------------------------------------
+5. SUCCESS — MINIMAL (201)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Rust" }'
+
+Expected: 201
+Response:
+{
+  "success": true,
+  "message": "Skill created successfully",
+  "data": {
+    "id": 36,
+    "name": "Rust",
+    "description": null,
+    "status": "active",
+    ...
+  }
+}
+
+
+--------------------------------------------------
+6. SUCCESS — FULL BODY (201)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Vue.js", "description": "Progressive JS framework", "status": "active" }'
+
+Expected: 201
+
+
+--------------------------------------------------
+7. SUCCESS — CREATED AS INACTIVE (201)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Legacy ASP", "status": "inactive" }'
+
+Expected: 201, data.status === "inactive"

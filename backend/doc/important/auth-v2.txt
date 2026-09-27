@@ -1,0 +1,59 @@
+================================================================
+  AUTH MODULE — PLANNED FOR NEXT VERSION
+  Priority: High / Medium / Low
+================================================================
+
+
+--------------------------------------------------
+HIGH PRIORITY
+--------------------------------------------------
+
+1. REFRESH TOKEN REUSE DETECTION
+   - If a stolen refresh token is used after rotation,
+     revoke the entire token family for that user
+   - Detects replay attacks
+
+
+--------------------------------------------------
+MEDIUM PRIORITY
+--------------------------------------------------
+
+2. ACCOUNT LOCKOUT AFTER N FAILED PASSWORDS
+   - Lock account after 5 consecutive failed logins
+   - Auto-unlock after 15 minutes or manual unlock
+   - Add lock status to users table
+
+3. EMAIL VERIFICATION ON REGISTER
+   - Send verification email on registration
+   - User must verify before account becomes active
+   - Add email_verified field to users table
+
+4. CSRF TOKENS
+   - Add CSRF token to state-changing requests
+   - Validate token on server side
+   - SameSite=strict is not enough alone
+
+5. CORS ORIGIN WHITELIST
+   - Only allow requests from known frontend URLs
+   - Block all other origins
+
+
+--------------------------------------------------
+LOW PRIORITY
+--------------------------------------------------
+
+6. PASSWORD HISTORY
+   - Store last N password hashes per user
+   - Prevent user from reusing old passwords
+
+7. SESSION LIMIT PER USER
+   - Max 3-5 active sessions per user
+   - Force logout oldest session on new login
+
+8. PHONE NUMBER VALIDATION
+   - Validate format (e.g. +213XXXXXXXXX)
+   - Reject invalid phone numbers
+
+9. 2FA / MFA
+   - TOTP authenticator (Google Authenticator)
+   - Backup recovery codes

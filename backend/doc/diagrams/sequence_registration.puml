@@ -1,0 +1,86 @@
+@startuml
+' JADARA - Registration Sequence Diagram
+title Registration - Sequence Diagram (POST /v1/auth/register)
+
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam participant {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+
+actor "Client" as client
+
+participant "RateLimit\n+ Upload\n+ zodValidate\n(middlewares)" as mid
+participant "AuthController" as ctrl
+participant "AuthService" as svc
+participant "Hash\n(argon2)" as hash
+participant "Prisma / DB" as db
+participant "RefreshTokenRepo" as rtr
+participant "MinIO\nstorage" as minio
+participant "JWT\n(jwtUtils)" as jwt
+
+client -> mid : POST /v1/auth/register\n(email, password, first_name,\nlast_name, role_id, domain_ids?, files)
+alt 429 rate limit exceeded / 400 file error / 400 validation error
+    mid --> client : 429/400\n(rate limit, upload, zod errors)
+end
+
+mid -> ctrl : authController.register\n(req, files)
+ctrl -> svc : register(data, files)
+
+svc -> db : users.findUnique({ email })
+alt email exists
+    svc --> ctrl : AppError 409
+    ctrl --> client : 409 "Email already registered"
+end
+alt role not selectable
+    svc --> ctrl : AppError 400
+    ctrl --> client : 400 "Invalid role"
+end
+
+svc -> hash : hash.password(password)
+
+alt role == "Beneficiary"
+    svc -> db : $transaction - users.create\n(status=active) + profiles.create
+    db --> svc : user
+    svc -> jwt : signAccessToken + signRefreshToken
+    jwt --> svc : tokens
+    svc -> rtr : create(userId, refreshToken)\n(store hashed, 7 days)
+    rtr -> db : refresh_tokens.create
+    svc --> ctrl : { pending: false, user, accessToken, refreshToken }
+    ctrl -> ctrl : set cookies\n(accessToken 15m, refreshToken 7d,\nhttpOnly)
+    ctrl --> client : 201 "Registration successful"\n{ user, demand: null }
+else role == "Reviewer" / "Company"
+    alt no domain_ids (Reviewer)
+        svc --> ctrl : AppError 400
+        ctrl --> client : 400 "Reviewer must select at least one domain"
+    end
+    alt no files
+        svc --> ctrl : AppError 400
+        ctrl --> client : 400 "At least one document is required"
+    end
+    alt invalid domain_ids
+        svc --> ctrl : AppError 400
+        ctrl --> client : 400 "Some domains do not exist"
+    end
+
+    svc -> db : $transaction - users.create(status=pending)\n+ profiles.create + demands.create\n+ demand_domains.createMany
+    db --> svc : { user, demandId }
+
+    loop each uploaded file
+        svc -> minio : storage.upload(files, BUCKETS.documents)
+        minio --> svc : objectName, fileSize, mimeType
+        svc -> db : documents.create\n(type="demand", demand_id)
+    end
+
+    svc --> ctrl : { pending: true, user, demandId, documents }
+    note over ctrl : NO cookies set - user cannot login yet
+    ctrl --> client : 201 "Registration submitted for review"\n{ user, demand: { id }, documents }
+end
+
+@enduml

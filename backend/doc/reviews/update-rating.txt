@@ -1,0 +1,66 @@
+================================================================
+  UPDATE RATING — PUT /v1/reviews/:projectId/rate
+  Base URL: http://localhost:3001
+  Auth: Reviewer ONLY (permission: review_projects)
+  Rate limit: 10 requests per minute
+================================================================
+
+Updates the reviewer's OWN existing rating for a project
+(does NOT change project_status).
+
+Body (JSON):
+  rating     int   required, 1-10
+  feedback   string optional, max 2000
+
+
+--------------------------------------------------
+1. UPDATE MY RATING
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  -X PUT http://localhost:3001/v1/reviews/8/rate \
+  -H "Content-Type: application/json" \
+  -d '{"rating":9,"feedback":"even better after update"}'
+
+Expected: 200
+{
+  "success": true,
+  "message": "Rating updated successfully",
+  "data": {
+    "project_id": 8,
+    "rating": 9,
+    "feedback": "even better after update",
+    "project_status": "verified",
+    "rating_average": 9,
+    "rating_count": 1
+  }
+}
+
+rating_average / rating_count are recomputed after the update.
+
+
+--------------------------------------------------
+2. NEVER RATED BEFORE (404)
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  -X PUT http://localhost:3001/v1/reviews/999/rate \
+  -H "Content-Type: application/json" -d '{"rating":7}'
+
+If no review exists yet for you on that project:
+Expected: 404 {"success":false,"message":"You have not rated this project yet"}
+
+
+--------------------------------------------------
+3. NOT IN YOUR DOMAINS (403)
+--------------------------------------------------
+Expected: 403 {"success":false,"message":"This project is not in your assigned domains"}
+
+
+--------------------------------------------------
+4. NO DOMAIN (400) / VALIDATION (422) / AUTH (401/403)
+--------------------------------------------------
+Same as POST /rate.
+
+
+NOTES
+- Unlike POST, PUT never flips project status.
+- Use POST for the first rating, PUT for corrections.

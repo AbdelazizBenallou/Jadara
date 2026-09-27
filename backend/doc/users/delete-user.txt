@@ -1,0 +1,88 @@
+================================================================
+  DELETE USER API — DELETE /v1/users/:id
+  Base URL: http://localhost:3001
+  Auth: manage_users permission required
+================================================================
+
+
+--------------------------------------------------
+1. NO ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X DELETE http://localhost:3001/v1/users/2
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WRONG PERMISSION (403)
+--------------------------------------------------
+curl -X DELETE http://localhost:3001/v1/users/2 \
+  -b beneficiary-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. INVALID USER ID (NaN) (400)
+--------------------------------------------------
+curl -X DELETE http://localhost:3001/v1/users/abc \
+  -b admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid user ID" }
+
+
+--------------------------------------------------
+4. USER NOT FOUND (404)
+--------------------------------------------------
+curl -X DELETE http://localhost:3001/v1/users/999 \
+  -b admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "User not found" }
+
+
+--------------------------------------------------
+5. ADMIN DELETES OWN ACCOUNT (400)
+--------------------------------------------------
+curl -X DELETE http://localhost:3001/v1/users/1 \
+  -b admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Cannot delete your own account" }
+
+
+--------------------------------------------------
+6. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..11}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X DELETE http://localhost:3001/v1/users/2 \
+    -b admin-cookies.txt
+done
+
+Expected: first 10 return 200/404, 11th returns 429
+
+
+--------------------------------------------------
+7. SUCCESSFUL DELETE (200)
+--------------------------------------------------
+curl -X DELETE http://localhost:3001/v1/users/2 \
+  -b admin-cookies.txt
+
+Expected: 200
+Response: { "success": true, "message": "User deleted", "data": null }
+
+DB: user + profile + refresh_tokens + login_history + devices all deleted (cascade)
+
+
+--------------------------------------------------
+8. VERIFY USER DELETED (404)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/2 \
+  -b admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "User not found" }

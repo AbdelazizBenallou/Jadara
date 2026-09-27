@@ -1,0 +1,335 @@
+@startuml
+' Entity Relationship Diagram derived from schema.prisma
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide circle
+hide empty members
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam nodeFontSize 12
+skinparam classAttributeFontSize 10
+
+together {
+  entity "users" as users {
+    * id : Int <<PK>>
+    * email : String <<UQ>>
+    * password : String
+    * status : UserStatus
+    * role_id : Int <<FK>>
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "profiles" as profiles {
+    * id : Int <<PK>>
+    * user_id : Int <<FK,UQ>>
+    * first_name : String
+    * last_name : String
+    phone : String
+    date_of_birth : DateTime
+    gender : String
+    avatar : String
+    bio : String
+    location : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "roles" as roles {
+    * id : Int <<PK>>
+    * name : String <<UQ>>
+    is_selectable : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "permissions" as permissions {
+    * id : Int <<PK>>
+    * name : String <<UQ>>
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "role_permissions" as role_permissions {
+    * id : Int <<PK>>
+    * role_id : Int <<FK>>
+    * permission_id : Int <<FK>>
+    created_at : DateTime
+    -- (role_id, permission_id) <<UQ>>
+  }
+
+  entity "refresh_tokens" as refresh_tokens {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * token : String <<UQ>>
+    * expires_at : DateTime
+    created_at : DateTime
+  }
+
+  entity "login_history" as login_history {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    ip_address : String
+    user_agent : String
+    login_at : DateTime
+    * success : Boolean
+  }
+
+  entity "devices" as devices {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * device_fingerprint : String <<UQ>>
+    * device_name : String
+    last_active : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "work_experience" as work_experience {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * company : String
+    * job_title : String
+    description : String
+    start_date : DateTime
+    end_date : DateTime
+    is_current : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "education" as education {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * school : String
+    * degree : String
+    field_of_study : String
+    description : String
+    start_date : DateTime
+    end_date : DateTime
+    is_current : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "certifications" as certifications {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * name : String
+    issuer : String
+    issue_date : DateTime
+    expiry_date : DateTime
+    credential_url : String
+    file_url : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_languages" as user_languages {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * language_id : Int <<FK>>
+    * proficiency : LanguageProficiency
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, language_id) <<UQ>>
+  }
+
+  entity "languages" as languages {
+    * id : Int <<PK>>
+    * name : String <<UQ>>
+    code : String <<UQ>>
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "cv_generation_requests" as cv_generation_requests {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * status : String
+    missing_fields : Json
+    data_hash : String
+    file_url : String
+    file_size : Int
+    error_message : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "documents" as documents {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * name : String
+    * type : String
+    * file_url : String
+    * file_size : Int
+    * mime_type : String
+    * status : String
+    demand_id : Int <<FK>>
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_socials" as user_socials {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * platform : String
+    * url : String
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, platform) <<UQ>>
+  }
+
+  entity "domains" as domains {
+    * id : Int <<PK>>
+    * name : String <<UQ>>
+    description : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skills" as skills {
+    * id : Int <<PK>>
+    * name : String <<UQ>>
+    description : String
+    * status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skill_domains" as skill_domains {
+    * id : Int <<PK>>
+    * skill_id : Int <<FK>>
+    * domain_id : Int <<FK>>
+    created_at : DateTime
+    -- (skill_id, domain_id) <<UQ>>
+  }
+
+  entity "user_skills" as user_skills {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * skill_id : Int <<FK>>
+    * level : SkillLevel
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, skill_id) <<UQ>>
+  }
+
+  entity "projects" as projects {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * title : String
+    description : String
+    * status : ProjectStatus
+    github_url : String
+    live_url : String
+    figma_url : String
+    domain_id : Int <<FK>>
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "evidence" as evidence {
+    * id : Int <<PK>>
+    * project_id : Int <<FK>>
+    * type : String
+    * title : String
+    description : String
+    file_url : String
+    external_url : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "project_reviews" as project_reviews {
+    * id : Int <<PK>>
+    * project_id : Int <<FK>>
+    * reviewer_id : Int <<FK>>
+    * rating : Int
+    feedback : String
+    created_at : DateTime
+    updated_at : DateTime
+    -- (project_id, reviewer_id) <<UQ>>
+  }
+
+  entity "reviewer_domains" as reviewer_domains {
+    * id : Int <<PK>>
+    * user_id : Int <<FK>>
+    * domain_id : Int <<FK>>
+    created_at : DateTime
+    -- (user_id, domain_id) <<UQ>>
+  }
+
+  entity "demands" as demands {
+    * id : Int <<PK>>
+    * user_id : Int <<FK (applicant)>>
+    * role_id : Int <<FK>>
+    * status : DemandStatus
+    reviewed_by : Int <<FK (reviewer)>>
+    review_note : String
+    reviewed_at : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "demand_domains" as demand_domains {
+    * id : Int <<PK>>
+    * demand_id : Int <<FK>>
+    * domain_id : Int <<FK>>
+    created_at : DateTime
+    -- (demand_id, domain_id) <<UQ>>
+  }
+}
+
+' ===== Relationships =====
+
+users }o--|| roles : "belongs to"
+users ||--o| profiles : "has one"
+users ||--o{ refresh_tokens : "has"
+users ||--o{ login_history : "has"
+users ||--o{ devices : "has"
+users ||--o{ work_experience : "has"
+users ||--o{ education : "has"
+users ||--o{ certifications : "has"
+users ||--o{ cv_generation_requests : "has"
+users ||--o{ documents : "has"
+users ||--o{ user_socials : "has"
+users ||--o{ user_languages : "has"
+users ||--o{ user_skills : "has"
+
+roles ||--o{ role_permissions : "has"
+permissions ||--o{ role_permissions : "assigned to"
+
+languages ||--o{ user_languages : "spoken as"
+
+skills ||--o{ user_skills : "in"
+skills ||--o{ skill_domains : "categorized"
+domains ||--o{ skill_domains : "belongs to"
+domains }o--o{ projects : "tagged"
+
+domains }o--o{ reviewer_domains : "assigned"
+users ||--o{ reviewer_domains : "is reviewer for"
+
+users ||--o{ projects : "owns"
+projects ||--o{ evidence : "has"
+projects ||--o{ project_reviews : "reviewed via"
+users ||--o{ project_reviews : "reviews (reviewer)"
+
+users ||--o{ demands : "applies (applicant)"
+users }o--o{ demands : "reviews (reviewer)"
+roles ||--o{ demands : "targets"
+demands ||--o{ documents : "attached to"
+demands ||--o{ demand_domains : "covers"
+domains ||--o{ demand_domains : "requested"
+
+@enduml

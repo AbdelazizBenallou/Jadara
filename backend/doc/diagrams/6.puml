@@ -1,0 +1,500 @@
+@startuml
+title JADARA - Education & Courses
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide empty members
+
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum CourseTypeCode {
+    SELF_PACED
+    LIVE
+    COHORT
+    WORKSHOP
+    BOOTCAMP
+    WEBINAR
+}
+
+enum CourseLevel {
+    BEGINNER
+    INTERMEDIATE
+    ADVANCED
+    EXPERT
+}
+
+enum CourseStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
+    CANCELLED
+}
+
+enum CourseAccessType {
+    OPEN
+    APPROVAL_REQUIRED
+    INVITE_ONLY
+}
+
+enum TrainerVerificationStatus {
+    PENDING
+    VERIFIED
+    REJECTED
+}
+
+enum CourseTrainerRole {
+    PRIMARY
+    CO_TRAINER
+    ASSISTANT
+}
+
+enum LessonContentType {
+    VIDEO
+    ARTICLE
+    PDF
+    LIVE_SESSION
+    QUIZ
+    ASSIGNMENT
+}
+
+enum LessonScheduleType {
+    LIVE
+    WORKSHOP
+}
+
+enum LessonScheduleStatus {
+    SCHEDULED
+    LIVE
+    COMPLETED
+    CANCELLED
+}
+
+enum EnrollmentStatus {
+    ENROLLED
+    IN_PROGRESS
+    COMPLETED
+    DROPPED
+}
+
+enum LessonProgressStatus {
+    NOT_STARTED
+    IN_PROGRESS
+    COMPLETED
+}
+
+enum AssessmentType {
+    QUIZ
+    EXAM
+    FINAL
+}
+
+enum QuestionType {
+    SINGLE_CHOICE
+    MULTIPLE_CHOICE
+    TRUE_FALSE
+    TEXT
+}
+
+enum AssessmentAttemptStatus {
+    IN_PROGRESS
+    COMPLETED
+    PASSED
+    FAILED
+}
+
+
+' =========================================================
+' SHARED TABLES
+' =========================================================
+
+class Users {
+    + id : UUID
+}
+
+class Documents {
+    + id : UUID
+    --
+    user_id : UUID
+    name : VARCHAR(255)
+    original_name : VARCHAR(255)
+    storage_path : VARCHAR(500)
+    mime_type : VARCHAR(100)
+    file_size : BIGINT
+    document_type : VARCHAR(50)
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class SubDomains {
+    + id : UUID
+    --
+    domain_id : UUID
+    name : VARCHAR(100)
+}
+
+class Skills {
+    + id : UUID
+    --
+    category_id : UUID
+    name : VARCHAR(100)
+}
+
+class Languages {
+    + id : UUID
+    --
+    name : VARCHAR(100)
+}
+
+
+' =========================================================
+' COURSES
+' =========================================================
+
+class Courses {
+    + id : UUID
+    --
+    course_type_id : UUID
+    subdomain_id : UUID
+    title : VARCHAR(200)
+    description : TEXT
+    level : CourseLevel
+    status : CourseStatus
+    access_type : CourseAccessType
+    requirements : JSON
+    max_students : INT
+    enrollment_start : TIMESTAMP
+    enrollment_end : TIMESTAMP
+    thumbnail_document_id : UUID
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class CourseTypes {
+    + id : UUID
+    --
+    code : CourseTypeCode
+    name : VARCHAR(100)
+    description : TEXT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' TRAINERS
+' =========================================================
+
+class TrainerProfiles {
+    + id : UUID
+    --
+    user_id : UUID
+    headline : VARCHAR(200)
+    bio : TEXT
+    experience_years : INT
+    verification_status : TrainerVerificationStatus
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class CourseTrainers {
+    + id : UUID
+    --
+    course_id : UUID
+    trainer_id : UUID
+    role : CourseTrainerRole
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' COURSE STRUCTURE
+' =========================================================
+
+class CourseSections {
+    + id : UUID
+    --
+    course_id : UUID
+    title : VARCHAR(200)
+    description : TEXT
+    position : INT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class Lessons {
+    + id : UUID
+    --
+    section_id : UUID
+    title : VARCHAR(200)
+    description : TEXT
+    content_type : LessonContentType
+    content : TEXT
+    position : INT
+    duration_minutes : INT
+    is_required : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class LessonDocuments {
+    + id : UUID
+    --
+    lesson_id : UUID
+    document_id : UUID
+    document_role : VARCHAR(50)
+    created_at : TIMESTAMP
+}
+
+
+' =========================================================
+' LIVE / SCHEDULED LESSONS
+' =========================================================
+
+class ExternalServices {
+    + id : UUID
+    --
+    name : VARCHAR(100)
+    provider : VARCHAR(100)
+    service_type : VARCHAR(50)
+    is_active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class LessonSchedules {
+    + id : UUID
+    --
+    lesson_id : UUID
+    external_service_id : UUID
+    schedule_type : LessonScheduleType
+    starts_at : TIMESTAMP
+    ends_at : TIMESTAMP
+    timezone : VARCHAR(100)
+    external_url : VARCHAR(500)
+    external_meeting_id : VARCHAR(255)
+    recording_document_id : UUID
+    status : LessonScheduleStatus
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' ENROLLMENT & PROGRESS
+' =========================================================
+
+class CourseEnrollments {
+    + id : UUID
+    --
+    course_id : UUID
+    user_id : UUID
+    status : EnrollmentStatus
+    progress_percent : DECIMAL(5,2)
+    enrolled_at : TIMESTAMP
+    completed_at : TIMESTAMP
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class LessonProgress {
+    + id : UUID
+    --
+    enrollment_id : UUID
+    lesson_id : UUID
+    status : LessonProgressStatus
+    progress_percent : DECIMAL(5,2)
+    started_at : TIMESTAMP
+    completed_at : TIMESTAMP
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' COURSE REVIEWS
+' =========================================================
+
+class CourseReviews {
+    + id : UUID
+    --
+    course_id : UUID
+    user_id : UUID
+    rating : INT
+    review : TEXT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' LESSON COMMENTS
+' =========================================================
+
+class LessonComments {
+    + id : UUID
+    --
+    lesson_id : UUID
+    user_id : UUID
+    parent_comment_id : UUID
+    content : TEXT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' ASSESSMENTS
+' =========================================================
+
+class Assessments {
+    + id : UUID
+    --
+    course_id : UUID
+    title : VARCHAR(200)
+    description : TEXT
+    type : AssessmentType
+    passing_score : DECIMAL(5,2)
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class AssessmentQuestions {
+    + id : UUID
+    --
+    assessment_id : UUID
+    question : TEXT
+    type : QuestionType
+    points : DECIMAL(5,2)
+    position : INT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class AssessmentOptions {
+    + id : UUID
+    --
+    question_id : UUID
+    option_text : TEXT
+    is_correct : BOOLEAN
+    position : INT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class AssessmentAttempts {
+    + id : UUID
+    --
+    assessment_id : UUID
+    user_id : UUID
+    score : DECIMAL(5,2)
+    status : AssessmentAttemptStatus
+    started_at : TIMESTAMP
+    completed_at : TIMESTAMP
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' CERTIFICATES
+' =========================================================
+
+class CourseCertificates {
+    + id : UUID
+    --
+    course_id : UUID
+    user_id : UUID
+    certificate_number : VARCHAR(100)
+    document_id : UUID
+    issued_at : TIMESTAMP
+    created_at : TIMESTAMP
+}
+
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+' Course
+CourseTypes "1" -- "0..*" Courses : type
+SubDomains "1" -- "0..*" Courses : classifies
+
+' Trainer
+Users "1" -- "0..1" TrainerProfiles : profile
+Courses "1" -- "0..*" CourseTrainers : has trainers
+TrainerProfiles "1" -- "0..*" CourseTrainers : teaches
+
+' Course structure
+Courses "1" -- "0..*" CourseSections : contains
+CourseSections "1" -- "0..*" Lessons : contains
+
+' Lesson documents
+Lessons "1" -- "0..*" LessonDocuments : resources
+Documents "1" -- "0..*" LessonDocuments : attached documents
+
+' External services / live lessons
+Lessons "1" -- "0..*" LessonSchedules : schedules
+ExternalServices "1" -- "0..*" LessonSchedules : provider
+Documents "1" -- "0..*" LessonSchedules : recordings
+
+' Enrollment
+Courses "1" -- "0..*" CourseEnrollments : has students
+Users "1" -- "0..*" CourseEnrollments : enrolls
+
+' Progress
+CourseEnrollments "1" -- "0..*" LessonProgress : tracks
+Lessons "1" -- "0..*" LessonProgress : progress
+
+' Course reviews
+Courses "1" -- "0..*" CourseReviews : receives
+Users "1" -- "0..*" CourseReviews : writes
+
+' Lesson comments
+Lessons "1" -- "0..*" LessonComments : has comments
+Users "1" -- "0..*" LessonComments : writes
+
+' Recursive comments / replies
+LessonComments "0..1" --> "0..*" LessonComments : replies
+
+' Assessments
+Courses "1" -- "0..*" Assessments : has
+Assessments "1" -- "0..*" AssessmentQuestions : contains
+AssessmentQuestions "1" -- "0..*" AssessmentOptions : options
+Assessments "1" -- "0..*" AssessmentAttempts : attempts
+Users "1" -- "0..*" AssessmentAttempts : takes
+
+' Certificates
+Courses "1" -- "0..*" CourseCertificates : awards
+Users "1" -- "0..*" CourseCertificates : receives
+Documents "1" -- "0..*" CourseCertificates : certificate file
+
+
+' =========================================================
+' NOTES
+' =========================================================
+
+' Courses.requirements stored as JSON:
+' { "skills": [{"skill_id": 12, "level": "INTERMEDIATE"}], "languages": ["English"], "other": [...] }
+
+' LessonSchedules: only for lessons requiring a specific date/time (e.g. Friday 18:00-20:00, Google Meet).
+' recording_document_id can point to the recording after the session.
+
+' CourseEnrollments: student enrolls when access rules allow.
+' Course completion can require required lessons/assignments completed + required assessment passed.
+' Then: status = COMPLETED, completed_at = timestamp.
+
+' CourseReviews: only enrolled students can review. UNIQUE(course_id, user_id).
+
+' LessonComments: parent_comment_id nullable. NULL = top-level, non-null = reply (recursive threads).
+
+' CourseCertificates: generated after successful completion. UNIQUE(course_id, user_id).
+
+@enduml

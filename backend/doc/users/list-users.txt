@@ -1,0 +1,85 @@
+================================================================
+  LIST USERS API — GET /v1/users/
+  Base URL: http://localhost:3001
+  Auth: manage_users permission required
+================================================================
+
+
+--------------------------------------------------
+1. NO ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WRONG PERMISSION (403)
+--------------------------------------------------
+-- Login as a user without manage_users permission:
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -c beneficiary-cookies.txt \
+  -d '{ "email": "user@jadara.com", "password": "Secret123" }'
+
+curl -X GET http://localhost:3001/v1/users/ \
+  -b beneficiary-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..31}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X GET http://localhost:3001/v1/users/ \
+    -b admin-cookies.txt
+done
+
+Expected: first 30 return 200, 31st returns 429
+Response: { "success": false, "message": "Too many requests, please try again later" }
+
+
+--------------------------------------------------
+4. DEFAULT PAGINATION (page=1, limit=10)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/ \
+  -b admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Users retrieved",
+  "data": [ ... ],
+  "meta": {
+    "total": 3,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "nextCursor": null
+  }
+}
+
+
+--------------------------------------------------
+5. CUSTOM PAGINATION (?page=1&limit=2)
+--------------------------------------------------
+curl -X GET "http://localhost:3001/v1/users/?page=1&limit=2" \
+  -b admin-cookies.txt
+
+Expected: 200
+Response: { "success": true, ..., "meta": { "total": 3, "page": 1, "limit": 2, "totalPages": 2, "nextCursor": 2 } }
+
+
+--------------------------------------------------
+6. PAGE BEYOND TOTAL (?page=99)
+--------------------------------------------------
+curl -X GET "http://localhost:3001/v1/users/?page=99" \
+  -b admin-cookies.txt
+
+Expected: 200
+Response: { "success": true, "data": [], "meta": { "total": 3, "page": 99, "limit": 10, "totalPages": 1, "nextCursor": null } }

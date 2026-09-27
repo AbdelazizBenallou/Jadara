@@ -1,0 +1,205 @@
+@startuml
+' JADARA - Users & Auth Class Diagram
+title Users & Auth - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Object
+    + findById(id) : Object
+    + findByEmail(email) : Object
+    + findRoleById(id) : Object
+    + update(id, data, adminUserId) : Object
+    + delete(id, adminUserId) : void
+    + updateAvatar(userId, avatarUrl) : void
+    + findPublicProfileById(id) : Object
+    + findProfileById(id) : Object
+    + getActivity(userId) : Object
+}
+
+class profiles {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK, UNIQUE)
+    + first_name : String
+    + last_name : String
+    + phone : String
+    + date_of_birth : DateTime
+    + gender : String
+    + avatar : String
+    + bio : String
+    + location : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findProfileById(id) : Object
+    + findPublicProfileById(id) : Object
+    + updateAvatar(userId, avatarUrl) : void
+}
+
+class roles {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + is_selectable : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll() : Role[]
+    + findById(id) : Role
+    + findByName(name) : Role
+    + create(name) : Role
+    + update(id, name) : Role
+    + countUsersByRoleId(roleId) : number
+    + getUsersByRoleId(roleId) : User[]
+}
+
+class permissions {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAllPermissions() : Permission[]
+    + findPermissionById(id) : Permission
+    + findPermissionByName(name) : Permission
+    + createPermission(name) : Permission
+    + updatePermission(id, name) : Permission
+    + deletePermission(id) : void
+    + countRolesByPermissionId(id) : number
+    + getRolesByPermissionId(id) : Role[]
+}
+
+class role_permissions {
+    + **id** : Int (PK)
+    + **role_id** : Int (FK)
+    + **permission_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getPermissionsByRoleId(roleId) : Permission[]
+    + addPermissionToRole(roleId, permissionId) : void
+    + removePermissionFromRole(roleId, permissionId) : void
+    + isPermissionAssignedToRole(roleId, permissionId) : boolean
+    + findRolesByPermissionId(permissionId) : Role[]
+}
+
+class refresh_tokens {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **token** : String (UNIQUE)
+    + expires_at : DateTime
+    + created_at : DateTime
+    ..
+    + create(userId, rawToken, tx?) : RefreshToken
+    + revokeAllByUserId(userId) : void
+    + deleteExpired() : void
+}
+
+class login_history {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + ip_address : String
+    + user_agent : String
+    + login_at : DateTime
+    + success : Boolean
+    ..
+    + create(userId, ipAddress, userAgent, success, tx?) : LoginHistory
+    + findByUserId(userId, limit) : LoginHistory[]
+}
+
+class devices {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **device_fingerprint** : String (UNIQUE)
+    + device_name : String
+    + last_active : DateTime
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + upsert(userId, ip, userAgent, tx?) : Device
+}
+
+class companies {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK, UNIQUE)
+    + **slug** : String (UNIQUE)
+    + **name** : String
+    + legal_name : String
+    + description : String
+    + logo : String
+    + website : String
+    + email : String
+    + phone : String
+    + industry : String
+    + size : String
+    + location : String
+    + country : String
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+roles "1" -- "0..*" users
+users "1" -- "1" profiles
+users "1" -- "0..*" refresh_tokens
+users "1" -- "0..*" login_history
+users "1" -- "0..*" devices
+roles "1" -- "0..*" role_permissions
+permissions "1" -- "0..*" role_permissions
+users "0..1" -- "1" companies : company role only
+
+users ..> UserStatus : uses
+
+note right of companies
+  PROPOSED. Not in prisma/schema.prisma yet,
+  and no repository exists, so it has no
+  methods.
+
+  Used only by users whose role_id points to
+  the company role. The 0..1 side means a
+  company account has at most one company
+  profile; a beneficiary or reviewer user
+  has none.
+
+  user_id is UNIQUE, so one company profile
+  per user. name is indexed but not unique
+  to allow shared or trading names;
+  slug is the unique public identifier.
+end note
+
+@enduml

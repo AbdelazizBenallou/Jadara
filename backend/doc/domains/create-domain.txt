@@ -1,0 +1,134 @@
+================================================================
+  CREATE DOMAIN API — POST /v1/domains
+  Base URL: http://localhost:3001
+  Permission required: create_domain
+================================================================
+
+Setup — get an admin token first:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Robotics" }'
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Login as a user whose role lacks create_domain:
+
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/user-cookies.txt \
+  -d '{ "name": "Robotics" }'
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. VALIDATION ERRORS — Zod (422)
+--------------------------------------------------
+
+--- Missing name ---
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "description": "no name given" }'
+
+Expected: 422
+Response: { "success": false, "message": "Validation failed" }
+
+--- Empty name ---
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "" }'
+
+Expected: 422
+
+--- Name longer than 100 chars ---
+-- 101 characters:
+LONG=$(python3 -c "print('a'*101)")
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d "{ \"name\": \"$LONG\" }"
+
+Expected: 422
+
+--- Description longer than 500 chars ---
+LONGDESC=$(python3 -c "print('b'*501)")
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d "{ \"name\": \"Valid Name\", \"description\": \"$LONGDESC\" }"
+
+Expected: 422
+
+--- Empty body ---
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{}'
+
+Expected: 422
+
+
+--------------------------------------------------
+4. DUPLICATE NAME (409)
+--------------------------------------------------
+-- "Web Development" already exists in seed:
+
+curl -i -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Web Development", "description": "duplicate test" }'
+
+Expected: 409
+Response: { "success": false, "message": "Domain name already exists" }
+
+
+--------------------------------------------------
+5. SUCCESS — NAME ONLY (201)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Robotics" }'
+
+Expected: 201
+Response:
+{
+  "success": true,
+  "message": "Domain created successfully",
+  "data": {
+    "id": 9,
+    "name": "Robotics",
+    "description": null,
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}
+
+
+--------------------------------------------------
+6. SUCCESS — NAME + DESCRIPTION (201)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Embedded Systems", "description": "Hardware and IoT development" }'
+
+Expected: 201
+Response: same shape as above with description filled

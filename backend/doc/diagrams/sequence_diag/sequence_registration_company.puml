@@ -1,0 +1,86 @@
+@startuml
+' JADARA - Company Registration Sequence (pending + demand + documents)
+title Company Registration - Sequence Diagram (POST /v1/auth/register)
+
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam participant {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+
+actor "Company" as client
+
+participant "RateLimit\n+ Upload\n+ zodValidate\n(middlewares)" as mid
+participant "AuthController" as ctrl
+participant "AuthService" as svc
+participant "Hash\n(argon2)" as hash
+participant "Prisma / DB" as db
+participant "MinIO\nstorage" as minio
+
+client -> mid : POST /v1/auth/register\n(email, password, first_name,\nlast_name, role_id, domain_ids?, files[1..5])
+alt 429 rate limit exceeded (30 requests / hour per IP)
+    mid --> client : 429 "Too many requests, please try again later"
+end
+alt 400 upload error (MIME not allowed / file over 10MB)
+    mid --> client : 400 file error
+end
+alt 400 zod validation error
+    mid --> client : 400 validation errors
+end
+
+mid -> ctrl : authController.register(req, files)
+ctrl -> svc : register(data, files)
+
+svc -> db : users.findUnique({ email })
+alt email already exists
+    svc --> ctrl : AppError 409
+    ctrl --> client : 409 "Email already registered"
+end
+
+svc -> db : roles.findFirst({ id: role_id, is_selectable: true })
+alt role missing or not selectable
+    svc --> ctrl : AppError 400
+    ctrl --> client : 400 "Invalid role"
+end
+
+svc -> hash : hash.password(password)\n(argon2id)
+hash --> svc : passwordHash
+
+note over svc : domain_ids are OPTIONAL for a Company\n(no "at least one domain" gate)
+
+alt files.length == 0
+    svc --> ctrl : AppError 400
+    ctrl --> client : 400 "At least one document is required"
+end
+
+alt domain_ids provided
+    svc -> db : domains.findMany({ id: { in: domain_ids } })
+    alt returned count != domain_ids.length
+        svc --> ctrl : AppError 400
+        ctrl --> client : 400 "Some domains do not exist"
+    end
+end
+
+svc -> db : $transaction\nusers.create(status=pending) + profiles.create\ndemands.create(status=pending)
+note over svc : demand_domains.createMany\nonly if domain_ids were sent
+db --> svc : { user, demandId }
+
+loop each uploaded file (1..5)
+    svc -> minio : storage.upload(BUCKETS.documents,\n"demands", file, userId)
+    minio --> svc : objectName "demands/{userId}/{uuid}{ext}",\nfileSize, mimeType
+    svc -> db : documents.create(type="demand", demand_id)
+end
+
+svc --> ctrl : { pending: true, user, demandId, documents }
+note over ctrl : NO cookies set - no access/refresh token issued
+ctrl --> client : 201 "Registration submitted for review"\n{ user, demand: { id } }
+
+note over svc : On approval, demand_domains are copied to\nreviewer_domains only when role == "Reviewer"\n(demands.service.ts:46) - a Company keeps none
+
+@enduml

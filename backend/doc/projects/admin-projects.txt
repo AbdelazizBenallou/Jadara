@@ -1,0 +1,75 @@
+================================================================
+  ADMIN PROJECT APIS — GET/POST/PATCH/DELETE /v1/projects/...
+  Base URL: http://localhost:3001
+  Auth: Admin only (permission: manage_projects)
+  Rate limits: read 60/min, write 20/min
+================================================================
+
+Admin variants of the project endpoints + status forcing.
+
+--------------------------------------------------
+1. LIST ALL PROJECTS — GET /v1/projects/all
+--------------------------------------------------
+Includes the project owner (users + profiles).
+
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/projects/all?page=1&limit=10" | python3 -m json.tool
+
+Expected: 200 (data array + meta)
+  item: id, user_id, ..., users: { id, email, profiles: {...} },
+        rating: {average,count}|null, evidence_count
+
+NOTE: /all must come BEFORE /:id in the router — it is defined first,
+so GET /v1/projects/all won't be shadowed by /:id.
+
+
+--------------------------------------------------
+2. GET ONE PROJECT — GET /v1/projects/:id/admin
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/projects/8/admin" | python3 -m json.tool
+
+Expected: 200 — same as owner detail + "users" object.
+Includes: reviews[] (full list), rating {average,count}, evidence.
+No ownership check (admin can view anyone).
+
+
+--------------------------------------------------
+3. GET ALL PROJECTS OF A USER — GET /v1/projects/user/:userId
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/projects/user/10?page=1&limit=5"
+
+Expected: 200 paginated — same shape as GET /v1/projects
+(user's own list but triggered by admin for any user).
+
+
+--------------------------------------------------
+4. FORCE STATUS — PATCH /v1/projects/:id/status
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X PATCH http://localhost:3001/v1/projects/8/status \
+  -H "Content-Type: application/json" \
+  -d '{"status":"draft"}'
+
+Expected: 200 {"success":true,"message":"Project status updated",
+  "data":{"id":8,"status":"draft"}}
+Status allowed: draft | submitted | under_review | verified.
+status missing -> 400 "status is required".
+
+
+--------------------------------------------------
+5. DELETE ANY PROJECT — DELETE /v1/projects/:id/admin
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt -X DELETE http://localhost:3001/v1/projects/7/admin
+
+Expected: 200 "Project deleted successfully" (no status lock, unlike user delete).
+
+
+--------------------------------------------------
+6. ERRORS (shared)
+--------------------------------------------------
+not found          -> 404 Project not found
+invalid id         -> 400 Invalid project ID
+no auth            -> 401
+non-admin cookie   -> 403 Forbidden (manage_projects required)

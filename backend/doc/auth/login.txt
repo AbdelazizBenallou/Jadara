@@ -1,0 +1,161 @@
+================================================================
+  LOGIN API — POST /v1/auth/login
+  Base URL: http://localhost:3001
+================================================================
+
+
+--------------------------------------------------
+1. VALIDATION ERRORS (Zod)
+--------------------------------------------------
+
+--- Missing email ---
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "password": "Secret123" }'
+
+Expected: 422
+{"success":false,"message":"Validation failed"}
+
+--- Missing password ---
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "patrik@jadara.com" }'
+
+Expected: 422
+{"success":false,"message":"Validation failed"}
+
+--- Invalid email format ---
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "notanemail", "password": "Secret123" }'
+
+Expected: 422
+{"success":false,"message":"Validation failed"}
+
+--- Empty body ---
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+Expected: 422
+
+
+--- Empty password string ---
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "patrik@jadara.com", "password": "" }'
+
+Expected: 422
+
+--------------------------------------------------
+2. EMAIL NOT FOUND (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "nobody@jadara.com", "password": "Secret123" }'
+
+Expected: 401
+Response: { "success": false, "message": "Invalid email or password" }
+DB: login_history NOT created (no user_id to reference)
+
+
+--------------------------------------------------
+3. WRONG PASSWORD (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "patrik@jadara.com", "password": "WrongPass1" }'
+
+Expected: 401
+Response: { "success": false, "message": "Invalid email or password" }
+DB: login_history inserted (user_id, ip, user_agent, success=false)
+
+
+--------------------------------------------------
+4. INACTIVE ACCOUNT (403)
+--------------------------------------------------
+-- First set user status to inactive in DB:
+-- UPDATE users SET status = 'inactive' WHERE id = 1;
+
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "patrik@jadara.com", "password": "Secret123" }'
+
+Expected: 403
+Response: { "success": false, "message": "Account is not active" }
+
+
+--------------------------------------------------
+5. INACTIVE USER + CORRECT PASSWORD (403)
+--------------------------------------------------
+-- Verify: status check happens BEFORE password check
+-- UPDATE users SET status = 'inactive' WHERE id = 1;
+
+curl -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "patrik@jadara.com", "password": "Secret123" }'
+
+Expected: 403
+Response: { "success": false, "message": "Account is not active" }
+
+
+--------------------------------------------------
+6. RATE LIMIT (429)
+--------------------------------------------------
+-- Send 11+ requests within 60 seconds:
+
+for i in {1..11}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST http://localhost:3001/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{ "email": "patrik@jadara.com", "password": "WrongPass1" }'
+done
+
+Expected: first 10 return 401, 11th returns 429
+Response: { "success": false, "message": "Too many requests, please try again later" }
+Headers: X-RateLimit-Limit: 10
+         X-RateLimit-Remaining: 0
+         Retry-After: 59
+
+
+--------------------------------------------------
+7. SUCCESSFUL LOGIN (200)
+--------------------------------------------------
+curl -v -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "patrik@jadara.com", "password": "Secret123" }'
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": 2,
+      "email": "patrik@jadara.com",
+      "status": "active",
+      "profile": {
+        "id": 2,
+        "user_id": 2,
+        "first_name": "Patrik",
+        "last_name": "Jadara",
+        "phone": "+213558340669",
+        "date_of_birth": null,
+        "gender": "Male",
+        "avatar": null,
+        "created_at": "2026-08-20T19:19:31.482Z",
+        "updated_at": "2026-08-20T19:19:31.482Z"
+      },
+      "role": "Beneficiary"
+    }
+  }
+}
+
+Cookies set:
+  Set-Cookie: accessToken=...; Path=/; HttpOnly; ...
+  Set-Cookie: refreshToken=...; Path=/v1/auth; HttpOnly; ...
+
+DB: refresh_tokens inserted (hashed, expires 7d)
+    login_history inserted (success=true)
+

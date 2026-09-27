@@ -1,0 +1,120 @@
+================================================================
+  LIST DEMANDS API — GET /v1/demands
+  Base URL: http://localhost:3001
+  Auth: Admin only (permission: manage_users)
+  Rate limit: 30 requests per minute
+================================================================
+
+Lists all registration demands (Reviewer / Company applications).
+
+Query params:
+  status  -> optional: pending | approved | rejected (filter)
+  page    -> optional, default 1
+  limit   -> optional, default 10, max 100
+
+Documents include a download_url (MinIO presigned link, valid 1 hour).
+
+
+--------------------------------------------------
+1. LIST ALL DEMANDS
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/demands" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Demands fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "status": "pending",
+      "role": { "id": 2, "name": "Reviewer" },
+      "applicant": {
+        "id": 5,
+        "email": "reviewer@jadara.com",
+        "status": "pending",
+        "profiles": {
+          "first_name": "Review",
+          "last_name": "Er",
+          "phone": null,
+          "avatar": null
+        }
+      },
+      "domains": [
+        { "id": 1, "name": "Web Development" },
+        { "id": 8, "name": "Databases" }
+      ],
+      "documents": [
+        {
+          "id": 3,
+          "name": "cv.pdf",
+          "type": "demand",
+          "file_url": "demands/5/uuid.pdf",
+          "file_size": 12345,
+          "mime_type": "application/pdf",
+          "created_at": "...",
+          "download_url": "http://localhost:9000/documents/demands/5/uuid.pdf?X-Amz-Algorithm=..."
+        }
+      ],
+      "review_note": null,
+      "reviewed_at": null,
+      "created_at": "...",
+      "updated_at": "..."
+    },
+    { "id": 2, "status": "pending", "role": { "id": 3, "name": "Company" }, "applicant": { "email": "company@jadara.com", ... }, "domains": [], "documents": [...], ... }
+  ],
+  "meta": {
+    "total": 2,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "nextCursor": null
+  }
+}
+
+
+--------------------------------------------------
+2. FILTER BY STATUS
+--------------------------------------------------
+Only pending:
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands?status=pending"
+
+Only rejected:
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands?status=rejected"
+
+Only approved:
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands?status=approved"
+
+With pagination:
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands?page=1&limit=20"
+
+
+--------------------------------------------------
+3. INVALID STATUS (422)
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands?status=foo"
+
+Expected: 422 {"success":false,"message":"Validation failed"}
+
+
+--------------------------------------------------
+4. NOT ADMIN (403)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/demands"
+
+Expected: 403 Forbidden (permission manage_users required)
+
+--------------------------------------------------
+5. NO AUTH (401)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/demands"
+
+Expected: 401 Unauthorized (verifyAccessToken)
+
+
+NOTES
+- Response 'data' is the array; pagination is in 'meta'.
+- applicant = user row + profiles (first_name/last_name/phone/avatar).
+- domains = requested domains via demand_domains (empty for Company).
+- documents = uploaded proof files + download_url to open/download the PDF.

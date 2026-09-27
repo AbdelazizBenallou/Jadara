@@ -1,0 +1,64 @@
+================================================================
+  LIST MY PROJECTS API — GET /v1/projects
+  Base URL: http://localhost:3001
+  Auth: any authenticated user (verifyAccessToken)
+  Rate limit: 60 requests per minute
+================================================================
+
+Lists ONLY the logged-in user's projects (paginated). Each item
+includes evidence_count and a rating summary.
+
+Query params:
+  page   -> optional, default 1
+  limit  -> optional, default 10, max 100
+
+
+--------------------------------------------------
+1. LIST MY PROJECTS
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  "http://localhost:3001/v1/projects?page=1&limit=10" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Projects fetched successfully",
+  "data": [
+    {
+      "id": 8,
+      "user_id": 10,
+      "domain_id": 1,
+      "title": "Ben Project",
+      "description": null,
+      "github_url": null,
+      "live_url": null,
+      "figma_url": null,
+      "status": "verified",
+      "created_at": "...",
+      "updated_at": "...",
+      "domains": { "id": 1, "name": "Web Development" },
+      "evidence": [],
+      "evidence_count": 0,
+      "rating": { "average": 8, "count": 1 }
+    }
+  ],
+  "meta": { "total": 3, "page": 1, "limit": 10, "totalPages": 1, "nextCursor": null }
+}
+
+
+--------------------------------------------------
+2. NO PROJECTS
+--------------------------------------------------
+Response: { "success": true, "message": "...", "data": [], "meta": { "total": 0, ... } }
+
+
+--------------------------------------------------
+3. NO AUTH (401)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/projects"  -> 401
+
+
+NOTES
+- rating: { average, count } or null if no reviews yet.
+- This list does NOT include the full reviews array — use
+  GET /v1/projects/:id for that (see doc/projects/get-project.txt).

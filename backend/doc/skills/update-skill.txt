@@ -1,0 +1,109 @@
+================================================================
+  UPDATE SKILL API — PATCH /v1/skills/:id
+  Base URL: http://localhost:3001
+  Permission required: update_skill (Admin only)
+================================================================
+
+Setup:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401) / WITHOUT PERMISSION (403)
+--------------------------------------------------
+Same as create — verifyAccessToken then checkPermission("update_skill")
+
+Expected: 401 {"success":false,"message":"Unauthorized"}
+          403 {"success":false,"message":"Forbidden"}
+
+
+--------------------------------------------------
+2. INVALID ID — NOT A NUMBER (400)
+--------------------------------------------------
+curl -i -X PATCH http://localhost:3001/v1/skills/abc \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "X" }'
+
+Expected: 400
+Response: { "success": false, "message": "Invalid skill ID" }
+
+
+--------------------------------------------------
+3. VALIDATION ERRORS (422)
+--------------------------------------------------
+
+--- Invalid status ---
+-d '{ "status": "archived" }'
+Expected: 422   (only "active" | "inactive")
+
+--- Name > 100 / empty name ---
+Expected: 422 {"success":false,"message":"Validation failed"}
+
+
+--------------------------------------------------
+4. SKILL NOT FOUND (404)
+--------------------------------------------------
+curl -i -X PATCH http://localhost:3001/v1/skills/9999 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Ghost" }'
+
+Expected: 404
+Response: { "success": false, "message": "Skill not found" }
+
+
+--------------------------------------------------
+5. DUPLICATE NAME (409)
+--------------------------------------------------
+-- Rename id=36 to an existing name:
+
+curl -i -X PATCH http://localhost:3001/v1/skills/36 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "React" }'
+
+Expected: 409
+Response: { "success": false, "message": "Skill name already exists" }
+
+NOTE: renaming a skill to ITS OWN current name is a no-op success.
+
+
+--------------------------------------------------
+6. SUCCESS — TOGGLE STATUS (200)
+--------------------------------------------------
+curl -s -X PATCH http://localhost:3001/v1/skills/36 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "status": "inactive" }'
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Skill updated successfully",
+  "data": {
+    "id": 36,
+    "name": "Rust",
+    "description": null,
+    "status": "inactive",
+    ...
+  }
+}
+
+
+--------------------------------------------------
+7. SUCCESS — SET DESCRIPTION TO NULL (200)
+--------------------------------------------------
+-d '{ "description": null }'
+Expected: 200, data.description === null
+
+
+--------------------------------------------------
+8. EMPTY BODY (200 — NO-OP)
+--------------------------------------------------
+-d '{}'
+Expected: 200, nothing changed

@@ -1,0 +1,65 @@
+================================================================
+  SUBMIT PROJECT API — POST /v1/projects/:id/submit
+  Base URL: http://localhost:3001
+  Auth: project owner only (verifyAccessToken)
+  Rate limit: 20 requests per minute
+================================================================
+
+Submits a project for verification. Only draft projects can be
+submitted. Status changes draft/submitted -> under_review.
+
+NOTE: behavior of "submitted" status: the check allows both
+draft and submitted to be re-submitted (both set under_review).
+
+Flow:  draft -> under_review -> (reviews) -> verified
+
+
+--------------------------------------------------
+1. SUBMIT A DRAFT PROJECT
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X POST http://localhost:3001/v1/projects/7/submit
+
+Expected: 200
+{
+  "success": true,
+  "message": "Project submitted for verification",
+  "data": { "project_id": 7, "status": "under_review" }
+}
+
+DB: projects.status = 'under_review'
+
+
+--------------------------------------------------
+2. ALREADY UNDER REVIEW / VERIFIED (400)
+--------------------------------------------------
+Submitting a project already under_review or verified:
+
+curl -s -b /tmp/jadara/ben_cookies.txt -X POST http://localhost:3001/v1/projects/8/submit
+(user project 8 is already verified)
+
+Expected: 400 {"success":false,"message":"Only draft projects can be submitted"}
+
+
+--------------------------------------------------
+3. NOT OWNER (403)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt -X POST http://localhost:3001/v1/projects/6/submit
+(belongs to user 6)
+
+Expected: 403 Forbidden
+
+
+--------------------------------------------------
+4. NOT FOUND (404) / INVALID ID (400) / NO AUTH (401)
+--------------------------------------------------
+/projects/999/submit  -> 404 Project not found
+/projects/abc/submit  -> 400 Invalid project ID
+(no cookie)           -> 401
+
+
+NOTES
+- Only after submission (under_review) can a reviewer rate it.
+- After the FIRST rating, status becomes "verified" automatically.
+- Admin can force any status via PATCH /v1/projects/:id/status
+  (see doc/projects/admin-projects.txt).

@@ -1,0 +1,158 @@
+@startuml
+title Users & Auth
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide empty members
+
+' ========== ENUMS ==========
+
+enum LoginResult {
+    SUCCESS
+    FAILED
+}
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum Gender {
+    male
+    female
+}
+
+' ========== USERS & AUTH ==========
+
+class Users {
+    + id: INT (PK) {field}
+    + email: VARCHAR (UNIQUE) {field}
+    + password_hash: VARCHAR (bcrypt) {field}
+    + status: VARCHAR (UserStatus) {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+}
+
+class Profiles {
+    + id: INT (PK) {field}
+    + user_id: INT (FK, UNIQUE) {field}
+    + first_name: VARCHAR {field}
+    + last_name: VARCHAR {field}
+    + phone: VARCHAR {field}
+    + date_of_birth: DATE {field}
+    + gender: VARCHAR (Gender) {field}
+    + avatar: VARCHAR {field}
+    + bio: VARCHAR {field}
+    + location: VARCHAR {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+}
+
+class Roles {
+    + id: INT (PK) {field}
+    + name: VARCHAR (UNIQUE) {field}
+    + is_selectable: BOOLEAN {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+}
+
+class UserRoles {
+    + id: INT (PK) {field}
+    + user_id: INT (FK) {field}
+    + role_id: INT (FK) {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+    ' @@unique (user_id, role_id)
+}
+
+class Permissions {
+    + id: INT (PK) {field}
+    + name: VARCHAR (UNIQUE) {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+}
+
+class RolePermissions {
+    + id: INT (PK) {field}
+    + role_id: INT (FK) {field}
+    + permission_id: INT (FK) {field}
+    + created_at: TIMESTAMP {field}
+    ' @@unique (role_id, permission_id)
+}
+
+class RefreshTokens {
+    + id: INT (PK) {field}
+    + user_id: INT (FK) {field}
+    + token: VARCHAR (UNIQUE) {field}
+    + expires_at: TIMESTAMP {field}
+    + created_at: TIMESTAMP {field}
+}
+
+class LoginHistory {
+    + id: INT (PK) {field}
+    + user_id: INT (FK) {field}
+    + ip_address: VARCHAR {field}
+    + user_agent: VARCHAR {field}
+    + login_at: TIMESTAMP {field}
+    + result: VARCHAR (LoginResult) {field}
+    + failure_reason: VARCHAR (wrong_password, locked, not_verified...) {field}
+}
+
+class Devices {
+    + id: INT (PK) {field}
+    + user_id: INT (FK) {field}
+    + device_fingerprint: VARCHAR (UNIQUE) {field}
+    + device_name: VARCHAR {field}
+    + last_active: TIMESTAMP {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+}
+
+class UserSocials {
+    + id: INT (PK) {field}
+    + user_id: INT (FK) {field}
+    + platform_id: INT (FK) {field}
+    + url: VARCHAR {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+    ' @@unique (user_id, platform_id)
+}
+
+class Platforms {
+    + id: INT (PK) {field}
+    + name: VARCHAR (UNIQUE) (linkedin, github, twitter, behance...) {field}
+    + created_at: TIMESTAMP {field}
+    + updated_at: TIMESTAMP {field}
+}
+
+class Verifications {
+    + id: INT (PK) {field}
+    + user_id: INT (FK) {field}
+    + code: VARCHAR (UNIQUE, hashed) {field}
+    + type: VARCHAR (email_verify, password_reset) {field}
+    + expires_at: TIMESTAMP {field}
+    + used_at: TIMESTAMP {field}
+    + created_at: TIMESTAMP {field}
+}
+
+' ========== RELATIONSHIPS ==========
+
+Users "1" -- "0..*" UserRoles
+Roles "1" -- "0..*" UserRoles
+Users "1" -- "0..1" Profiles
+Users "1" -- "0..*" RefreshTokens
+Users "1" -- "0..*" LoginHistory
+Users "1" -- "0..*" Devices
+Users "1" -- "0..*" UserSocials
+Users "1" -- "0..*" Verifications
+Platforms "1" -- "0..*" UserSocials
+
+Roles "1" -- "0..*" RolePermissions
+Permissions "1" -- "0..*" RolePermissions
+
+@enduml

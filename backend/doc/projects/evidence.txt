@@ -1,0 +1,73 @@
+================================================================
+  PROJECT EVIDENCE APIS
+  Base URL: http://localhost:3001
+  Auth: project owner only (verifyAccessToken)
+  Rate limits: 10 requests per minute (evidence routes)
+================================================================
+
+Evidence = proof attachments on a project (files or links). Shown to
+reviewers via GET /v1/reviews/:id (with download_url).
+
+--------------------------------------------------
+1. UPLOAD EVIDENCE FILE — POST /v1/projects/:id/evidence
+--------------------------------------------------
+multipart/form-data, field "file" (single), plus optional:
+  type        (default "evidence")
+  title       (default = original filename)
+  description
+
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X POST http://localhost:3001/v1/projects/8/evidence \
+  -F "type=screenshot" \
+  -F "title=Homepage" \
+  -F "description=Front preview" \
+  -F "file=@/path/to/screenshot.png"
+
+Expected: 201 "Evidence uploaded successfully"
+{
+  "id": 2,
+  "type": "screenshot",
+  "title": "Homepage",
+  "description": "Front preview",
+  "file_url": "evidence/10/uuid.png",
+  "external_url": null,
+  "created_at": "..."
+}
+Stored in MinIO bucket "evidence" folder "evidence/<userId>/".
+
+
+--------------------------------------------------
+2. LINK A DOCUMENT — POST /v1/projects/:id/evidence/link
+--------------------------------------------------
+Links one of your own existing documents (see doc: document module)
+as evidence without re-uploading.
+
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X POST http://localhost:3001/v1/projects/8/evidence/link \
+  -H "Content-Type: application/json" \
+  -d '{"document_id": 3}'
+
+Expected: 201 "Evidence linked successfully"
+  type "linked_document", title = document name,
+  external_url "document:<id>". Requires the document to be YOURS
+  (else 403), else 404 if document missing.
+
+
+--------------------------------------------------
+3. REMOVE EVIDENCE — DELETE /v1/projects/:id/evidence/:evidenceId
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X DELETE http://localhost:3001/v1/projects/8/evidence/2
+
+Expected: 200 "Evidence removed successfully"
+  Deletes the MinIO file too (except linked documents).
+
+
+--------------------------------------------------
+4. ERRORS
+--------------------------------------------------
+No file attached            -> 400 "File is required"
+Not owner of project        -> 403 Forbidden
+Evidence not on this project-> 404 "Evidence not found"
+Invalid project/evidence id -> 400
+document_id missing         -> 400 "document_id is required"

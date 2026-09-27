@@ -1,0 +1,160 @@
+@startuml
+' JADARA - CV & Profile Data Entity Diagram
+title CV & Profile Data - Entity Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 12
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+skinparam entityFontStyle bold
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum LanguageProficiency {
+    native
+    fluent
+    advanced
+    intermediate
+    beginner
+}
+
+enum SkillLevel {
+    beginner
+    intermediate
+    advanced
+    expert
+}
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+together {
+  entity "users" as users {
+    * **id : Int (PK)**
+    * **email : String (UNIQUE)**
+    * password : String
+    * status : UserStatus
+    * **role_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "work_experience" as work_experience {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * company : String
+    * job_title : String
+    description : String
+    start_date : DateTime
+    end_date : DateTime
+    is_current : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "education" as education {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * school : String
+    * degree : String
+    field_of_study : String
+    description : String
+    start_date : DateTime
+    end_date : DateTime
+    is_current : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "certifications" as certifications {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * name : String
+    issuer : String
+    issue_date : DateTime
+    expiry_date : DateTime
+    credential_url : String
+    file_url : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_languages" as user_languages {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **language_id : Int (FK)**
+    * proficiency : LanguageProficiency
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, language_id) (UNIQUE)
+  }
+
+  entity "languages" as languages {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    code : String (UNIQUE)
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_skills" as user_skills {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **skill_id : Int (FK)**
+    level : SkillLevel
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, skill_id) (UNIQUE)
+  }
+
+  entity "skills" as skills {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_socials" as user_socials {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * platform : String
+    * url : String
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, platform) (UNIQUE)
+  }
+}
+
+' =========================================================
+' RELATIONSHIPS (crow's foot notation)
+' =========================================================
+
+users ||--o{ work_experience : has
+users ||--o{ education : has
+users ||--o{ certifications : has
+users ||--o{ user_languages : has
+languages ||--o{ user_languages : classified_by
+users ||--o{ user_skills : has
+skills ||--o{ user_skills : classified_by
+users ||--o{ user_socials : has
+
+legend right
+  |= Symbol |= Meaning |
+  | `||` | exactly one |
+  | `o|` | zero or one |
+  | `o{` | zero or many |
+endlegend
+
+@enduml

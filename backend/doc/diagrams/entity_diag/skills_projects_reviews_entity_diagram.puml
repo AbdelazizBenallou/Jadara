@@ -1,0 +1,150 @@
+@startuml
+' JADARA - Skills, Domains, Projects & Reviews Entity Diagram
+title Skills, Domains, Projects & Reviews - Entity Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 12
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+skinparam entityFontStyle bold
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum ProjectStatus {
+    draft
+    submitted
+    under_review
+    verified
+}
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+together {
+  entity "domains" as domains {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skills" as skills {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skill_domains" as skill_domains {
+    * **id : Int (PK)**
+    * **skill_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (skill_id, domain_id) (UNIQUE)
+  }
+
+  entity "users" as users {
+    * **id : Int (PK)**
+    * **email : String (UNIQUE)**
+    * password : String
+    * status : UserStatus
+    * **role_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "reviewer_domains" as reviewer_domains {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (user_id, domain_id) (UNIQUE)
+  }
+
+  entity "projects" as projects {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * title : String
+    description : String
+    status : ProjectStatus
+    github_url : String
+    live_url : String
+    figma_url : String
+    **domain_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "evidence" as evidence {
+    * **id : Int (PK)**
+    * **project_id : Int (FK)**
+    * type : String
+    * title : String
+    description : String
+    file_url : String
+    external_url : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "project_reviews" as project_reviews {
+    * **id : Int (PK)**
+    * **project_id : Int (FK)**
+    * **reviewer_id : Int (FK)**
+    * rating : Int
+    feedback : String
+    created_at : DateTime
+    updated_at : DateTime
+    -- (project_id, reviewer_id) (UNIQUE)
+  }
+
+  entity "documents" as documents {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * name : String
+    * type : String
+    * file_url : String
+    * file_size : Int
+    * mime_type : String
+    status : String
+    **demand_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+}
+
+' =========================================================
+' RELATIONSHIPS (crow's foot notation)
+' =========================================================
+
+domains ||--o{ skill_domains : classified_by
+skills ||--o{ skill_domains : classified_by
+users ||--o{ reviewer_domains : has
+domains ||--o{ reviewer_domains : assigned_to
+users ||--o{ projects : owns
+domains |o--o{ projects : classified_by
+projects ||--o{ evidence : has
+projects ||--o{ project_reviews : receives
+users ||--o{ project_reviews : reviews
+users ||--o{ documents : owns
+
+legend right
+  |= Symbol |= Meaning |
+  | `||` | exactly one |
+  | `o|` | zero or one |
+  | `o{` | zero or many |
+endlegend
+
+@enduml

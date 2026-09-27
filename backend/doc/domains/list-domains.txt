@@ -1,0 +1,145 @@
+================================================================
+  LIST DOMAINS API — GET /v1/domains
+  Base URL: http://localhost:3001
+  Permission required: view_domains
+================================================================
+
+Setup — get an admin token first:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+Auth works via cookie (accessToken) or header:
+  -H "Authorization: Bearer <token>"
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. EXPIRED TOKEN (401)
+--------------------------------------------------
+-- Wait for access token to expire, then:
+
+curl -i http://localhost:3001/v1/domains -b /tmp/admin-cookies.txt
+
+Expected: 401
+Response: { "success": false, "message": "Access token expired" }
+
+
+--------------------------------------------------
+3. INVALID TOKEN (401)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains \
+  -H "Authorization: Bearer garbage.token.here"
+
+Expected: 401
+Response: { "success": false, "message": "Invalid token" }
+
+
+--------------------------------------------------
+4. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Login as Beneficiary user (has no view_domains):
+
+curl -i http://localhost:3001/v1/domains -b /tmp/user-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+5. DEFAULT PAGINATION (200)
+--------------------------------------------------
+-- No params: page=1, limit=10
+
+curl -s http://localhost:3001/v1/domains -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Domains fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Web Development",
+      "description": "Frontend and backend web technologies",
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ],
+  "meta": {
+    "total": 8,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "nextCursor": null
+  }
+}
+
+
+--------------------------------------------------
+6. CUSTOM PAGE & LIMIT (200)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/domains?page=2&limit=3" \
+  -b /tmp/admin-cookies.txt
+
+Expected: 200
+Meta example:
+{
+  "total": 8,
+  "page": 2,
+  "limit": 3,
+  "totalPages": 3,
+  "nextCursor": 3
+}
+-- nextCursor = null when on last page
+
+
+--------------------------------------------------
+7. OUT-OF-RANGE PAGE (200, EMPTY DATA)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/domains?page=999" \
+  -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response: { "success": true, ..., "data": [], "meta": { "total": 8, "page": 999, ... } }
+
+
+--------------------------------------------------
+8. INVALID PAGE/LIMIT VALUES (200, FALLBACK TO DEFAULTS)
+--------------------------------------------------
+-- Non-numeric values fall back silently:
+--   page=abc -> 1
+--   limit=-5 -> 1
+--   limit=500 -> capped at 100
+
+curl -s "http://localhost:3001/v1/domains?page=abc&limit=500" \
+  -b /tmp/admin-cookies.txt
+
+Expected: 200 (no error, defaults applied)
+
+
+--------------------------------------------------
+9. RATE LIMIT (429)
+--------------------------------------------------
+-- Send 61+ requests within 60 seconds:
+
+for i in {1..61}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    http://localhost:3001/v1/domains -b /tmp/admin-cookies.txt
+done
+
+Expected: first 60 return 200, 61st returns 429
+Response: { "success": false, "message": "Too many requests, please try again later" }
+Headers: X-RateLimit-Limit: 60
+         X-RateLimit-Remaining: 0
+         Retry-After: <seconds>

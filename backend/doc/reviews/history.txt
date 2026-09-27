@@ -1,0 +1,68 @@
+================================================================
+  REVIEW HISTORY — GET /v1/reviews/history
+  Base URL: http://localhost:3001
+  Auth: Reviewer ONLY (permission: review_projects)
+  Rate limit: 60 requests per minute
+================================================================
+
+The reviewer's OWN past reviews (paginated), newest first, including
+the project info and current average/count on that project.
+
+Query params: page, limit (same as available).
+
+
+--------------------------------------------------
+1. MY REVIEW HISTORY
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  "http://localhost:3001/v1/reviews/history?page=1&limit=10" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Review history fetched successfully",
+  "data": [
+    {
+      "id": 5,
+      "project_id": 8,
+      "rating": 8,
+      "feedback": "looks good",
+      "created_at": "...",
+      "updated_at": "...",
+      "project_average": 8,
+      "project_rating_count": 1,
+      "project": {
+        "id": 8,
+        "title": "Ben Project",
+        "description": null,
+        "status": "verified",
+        "user": {
+          "id": 10,
+          "email": "ben@test.com",
+          "profile": { "first_name": "Ben", "last_name": "User", "avatar": null }
+        },
+        "domain": { "id": 1, "name": "Web Development" }
+      }
+    }
+  ],
+  "meta": { "total": 1, "page": 1, "limit": 10, "totalPages": 1, "nextCursor": null }
+}
+
+
+--------------------------------------------------
+2. NO REVIEWS YET
+--------------------------------------------------
+data: [], meta.total: 0
+
+
+--------------------------------------------------
+3. AUTH
+--------------------------------------------------
+no cookie     -> 401
+non-reviewer  -> 403 (review_projects)
+
+
+NOTES
+- Updated ratings (PUT /rate) reflect here with updated_at changed.
+- project_average/project_rating_count are for the whole project
+  (all reviewers), not just yours.

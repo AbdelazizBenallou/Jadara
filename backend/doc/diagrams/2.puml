@@ -1,0 +1,151 @@
+@startuml
+title JADARA - Skills, Domains & Languages
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide empty members
+
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum SkillLevel {
+    BEGINNER
+    INTERMEDIATE
+    ADVANCED
+    EXPERT
+}
+
+enum LanguageProficiency {
+    BEGINNER
+    INTERMEDIATE
+    ADVANCED
+    EXPERT
+}
+
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+class Domains {
+    + id : UUID
+    --
+    name : VARCHAR(100)
+    description : TEXT
+    is_active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class SubDomains {
+    + id : UUID
+    --
+    domain_id : UUID
+    name : VARCHAR(100)
+    description : TEXT
+    is_active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class SkillCategories {
+    + id : UUID
+    --
+    name : VARCHAR(50) (Technical / Soft)
+    description : TEXT
+    is_active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class Skills {
+    + id : UUID
+    --
+    category_id : UUID
+    name : VARCHAR(100)
+    description : TEXT
+    is_active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class SkillDomains {
+    + id : UUID
+    --
+    skill_id : UUID
+    subdomain_id : UUID
+    created_at : TIMESTAMP
+}
+
+class UserSubDomains {
+    + id : UUID
+    --
+    user_id : UUID
+    subdomain_id : UUID
+    created_at : TIMESTAMP
+}
+
+class UserSkills {
+    + id : UUID
+    --
+    user_id : UUID
+    skill_id : UUID
+    level : SkillLevel
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class Languages {
+    + id : UUID
+    --
+    name : VARCHAR(100)
+    code : VARCHAR(10)
+    is_active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class UserLanguages {
+    + id : UUID
+    --
+    user_id : UUID
+    language_id : UUID
+    proficiency_level : LanguageProficiency
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+' Domain hierarchy
+Domains "1" --> "0..*" SubDomains : contains
+
+' Skill classification
+SkillCategories "1" --> "0..*" Skills : categorizes
+
+' Skills ↔ SubDomains
+Skills "1" --> "0..*" SkillDomains : mapped through
+SubDomains "1" --> "0..*" SkillDomains : contains
+
+' Users ↔ SubDomains
+Users "1" --> "0..*" UserSubDomains : joined
+SubDomains "1" --> "0..*" UserSubDomains : joined
+
+' Users ↔ Skills
+Skills "1" --> "0..*" UserSkills : assigned through
+UserSkills "*" --> "1" Users : belongs to
+
+' Users ↔ Languages
+Languages "1" --> "0..*" UserLanguages : assigned through
+UserLanguages "*" --> "1" Users : belongs to
+
+@enduml

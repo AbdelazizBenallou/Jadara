@@ -1,0 +1,216 @@
+@startuml
+' JADARA - Registration Demands Class Diagram
+title Registration Demands - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum DemandStatus {
+    pending
+    approved
+    rejected
+}
+
+enum CVLanguage {
+    AR
+    EN
+    FR
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findByEmail(email) : Object
+    + findById(id) : Object
+    + findRoleById(id) : Object
+    + update(id, data) : Object
+    + addSocial(userId, platform, url) : Object
+    + removeSocial(userId, socialId) : void
+}
+
+class roles {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + is_selectable : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll() : Role[]
+    + findById(id) : Role
+    + findByName(name) : Role
+    + countUsersByRoleId(roleId) : number
+}
+
+class domains {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Domain[]
+    + findById(id) : Domain
+    + findByName(name) : Domain
+    + create(name, description?) : Domain
+    + update(id, data) : Domain
+    + findReviewersByDomainId(id) : Object[]
+    + findAllReviewers() : Object[]
+    + remove(id) : void
+}
+
+class reviewer_domains {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK, UNIQUE)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + findReviewerDomainIds(userId) : number[]
+    + findReviewerDomains(userId) : Object[]
+    + setReviewerDomains(userId, domainIds) : void
+    + removeReviewerDomain(userId, domainId) : number
+}
+
+class demands {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **role_id** : Int (FK)
+    + **reviewed_by** : Int (FK)
+    + status : DemandStatus
+    + review_note : String
+    + reviewed_at : DateTime
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit, status?) : { demands, total }
+    + findById(id) : Demand
+    + findByUserId(userId) : Demand
+    + approve(id, adminId, note?) : void
+    + reject(id, adminId, note?) : void
+}
+
+class demand_domains {
+    + **id** : Int (PK)
+    + **demand_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + createMany(demandId, domainIds) : void
+}
+
+class documents {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **demand_id** : Int (FK)
+    + name : String
+    + type : String
+    + file_url : String
+    + file_size : Int
+    + mime_type : String
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(userId, page, limit, type?) : Document[]
+    + findById(id) : Document
+    + create(data) : Document
+    + delete(id) : void
+    + countByUserId(userId) : number
+}
+
+class cv_generation_requests {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + language : CVLanguage
+    + status : String
+    + missing_fields : Json
+    + data_hash : String
+    + file_url : String
+    + file_size : Int
+    + error_message : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getLatestRequest(userId) : Request
+    + getLatestCompleted(userId) : Request
+    + createRequest(userId, status, missingFields?, dataHash?) : Request
+    + updateRequest(id, data) : Request
+    + getRequests(userId, page, limit) : { requests, total }
+    + getAllCvData(userId) : Object
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+roles "1" -- "0..*" users
+users "1" -- "0..*" demands : applicant
+users "0..1" -- "0..*" demands : reviewer
+roles "1" -- "0..*" demands
+demands "1" -- "0..*" demand_domains
+domains "1" -- "0..*" demand_domains
+demands "0..1" -- "0..*" documents
+users "1" -- "0..*" documents
+users "1" -- "0..*" reviewer_domains
+domains "1" -- "0..*" reviewer_domains
+users "1" -- "0..*" cv_generation_requests
+
+users ..> UserStatus : uses
+demands ..> DemandStatus : uses
+cv_generation_requests ..> CVLanguage : uses
+
+note right of reviewer_domains
+  user_id is UNIQUE on its own, replacing
+  @@unique([user_id, domain_id]).
+  setReviewerDomains
+  write one row per domain, so approving a
+  reviewer with 2+ domains now fails.
+end note
+
+note right of demands
+  approve() copies the picked demand domains
+  into reviewer_domains, so it inherits that
+  same one-domain-per-reviewer limit.
+end note
+
+note right of cv_generation_requests
+  STALE: createRequest() does not pass the
+  now-required language.
+end note
+
+note right of demand_domains
+  createMany() is a Prisma client call, not a
+  repository method. It is invoked from
+  auth.service during registration, not from
+  a demands repository.
+end note
+
+@enduml

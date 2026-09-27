@@ -1,0 +1,678 @@
+@startuml
+' JADARA - Full Class Diagram (all entities)
+title JADARA - Full Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum DemandStatus {
+    pending
+    approved
+    rejected
+}
+
+enum ProjectStatus {
+    draft
+    submitted
+    under_review
+    verified
+}
+
+enum SkillLevel {
+    beginner
+    intermediate
+    advanced
+    expert
+}
+
+enum LanguageProficiency {
+    native
+    fluent
+    advanced
+    intermediate
+    beginner
+}
+
+enum AuditAction {
+    CREATE
+    UPDATE
+    DELETE
+}
+
+enum CVLanguage {
+    AR
+    EN
+    FR
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Object
+    + findById(id) : Object
+    + findByEmail(email) : Object
+    + findRoleById(id) : Object
+    + update(id, data, adminUserId) : Object
+    + delete(id, adminUserId) : void
+    + updateAvatar(userId, avatarUrl) : void
+    + findPublicProfileById(id) : Object
+    + findProfileById(id) : Object
+    + getActivity(userId) : Object
+    + addSocial(userId, platform, url) : Object
+    + removeSocial(userId, socialId) : void
+}
+
+class profiles {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK, UNIQUE)
+    + first_name : String
+    + last_name : String
+    + phone : String
+    + date_of_birth : DateTime
+    + gender : String
+    + avatar : String
+    + bio : String
+    + location : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findProfileById(id) : Object
+    + findPublicProfileById(id) : Object
+    + updateAvatar(userId, avatarUrl) : void
+}
+
+class roles {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + is_selectable : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll() : Role[]
+    + findById(id) : Role
+    + findByName(name) : Role
+    + create(name) : Role
+    + update(id, name) : Role
+    + countUsersByRoleId(roleId) : number
+    + getUsersByRoleId(roleId) : User[]
+}
+
+class permissions {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAllPermissions() : Permission[]
+    + findPermissionById(id) : Permission
+    + findPermissionByName(name) : Permission
+    + createPermission(name) : Permission
+    + updatePermission(id, name) : Permission
+    + deletePermission(id) : void
+    + countRolesByPermissionId(id) : number
+    + getRolesByPermissionId(id) : Role[]
+}
+
+class role_permissions {
+    + **id** : Int (PK)
+    + **role_id** : Int (FK)
+    + **permission_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getPermissionsByRoleId(roleId) : Permission[]
+    + addPermissionToRole(roleId, permissionId) : void
+    + removePermissionFromRole(roleId, permissionId) : void
+    + isPermissionAssignedToRole(roleId, permissionId) : boolean
+    + findRolesByPermissionId(permissionId) : Role[]
+}
+
+class refresh_tokens {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **token** : String (UNIQUE)
+    + expires_at : DateTime
+    + created_at : DateTime
+    ..
+    + create(userId, rawToken, tx?) : RefreshToken
+    + revokeAllByUserId(userId) : void
+    + deleteExpired() : void
+}
+
+class login_history {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + ip_address : String
+    + user_agent : String
+    + login_at : DateTime
+    + success : Boolean
+    ..
+    + create(userId, ipAddress, userAgent, success, tx?) : LoginHistory
+    + findByUserId(userId, limit) : LoginHistory[]
+}
+
+class devices {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **device_fingerprint** : String (UNIQUE)
+    + device_name : String
+    + last_active : DateTime
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + upsert(userId, ip, userAgent, tx?) : Device
+}
+
+class work_experience {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + company : String
+    + job_title : String
+    + description : String
+    + start_date : DateTime
+    + end_date : DateTime
+    + is_current : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getWorkExperience(userId) : Object[]
+    + createWorkExperience(userId, data) : Object
+    + updateWorkExperience(userId, id, data) : Object
+    + deleteWorkExperience(userId, id) : void
+}
+
+class education {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + school : String
+    + degree : String
+    + field_of_study : String
+    + description : String
+    + start_date : DateTime
+    + end_date : DateTime
+    + is_current : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getEducation(userId) : Object[]
+    + createEducation(userId, data) : Object
+    + updateEducation(userId, id, data) : Object
+    + deleteEducation(userId, id) : void
+}
+
+class certifications {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + name : String
+    + issuer : String
+    + issue_date : DateTime
+    + expiry_date : DateTime
+    + credential_url : String
+    + file_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getCertifications(userId) : Object[]
+    + createCertification(userId, data) : Object
+    + updateCertification(userId, id, data) : Object
+    + deleteCertification(userId, id) : void
+}
+
+class languages {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **code** : String (UNIQUE)
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Language[]
+    + findById(id) : Language
+    + findByName(name) : Language
+    + create(name, code?, status?) : Language
+    + update(id, data) : Language
+    + countUserLanguages(id) : number
+    + remove(id) : void
+}
+
+class user_languages {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **language_id** : Int (FK)
+    + proficiency : LanguageProficiency
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getLanguages(userId) : Object[]
+    + createLanguage(userId, data) : Object
+    + updateLanguage(userId, id, data) : Object
+    + deleteLanguage(userId, id) : void
+}
+
+class skill_categories {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class skills {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **category_id** : Int (FK)
+    + description : String
+    + status : String
+    ..
+    + findAll(page, limit) : Skill[]
+    + findById(id) : Skill
+    + findByName(name) : Skill
+    + create(name, description?, status?) : Skill
+    + update(id, data) : Skill
+    + countUserSkills(id) : number
+    + countDomainLinks(id) : number
+    + remove(id) : void
+}
+
+class skill_domains {
+    + **id** : Int (PK)
+    + **skill_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + getSkillsByDomainId(domainId) : Skill[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, domainId) : number[]
+    + addSkillsToDomain(skillIds, domainId) : void
+    + remove(domainId) : void
+}
+
+class user_skills {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **skill_id** : Int (FK)
+    + level : SkillLevel
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findUserById(id) : User
+    + getSkills(userId) : Object[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, userId) : number[]
+    + addSkills(rows, userId) : void
+    + findLink(userId, skillId) : Object
+    + updateLevel(userId, skillId, level) : void
+    + removeLink(userId, skillId) : void
+}
+
+class social_platforms {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class user_socials {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **platform_id** : Int (FK)
+    + url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + addSocial(userId, platform, url) : Object
+    + removeSocial(userId, socialId) : void
+}
+
+class domains {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Domain[]
+    + findById(id) : Domain
+    + findByName(name) : Domain
+    + create(name, description?) : Domain
+    + update(id, data) : Domain
+    + countSkillsByDomainId(id) : number
+    + countProjectsByDomainId(id) : number
+    + getSkillsByDomainId(id) : Skill[]
+    + findReviewersByDomainId(id) : Object[]
+    + findAllReviewers() : Object[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, domainId) : number[]
+    + addSkillsToDomain(skillIds, domainId) : void
+    + remove(id) : void
+}
+
+class sub_domains {
+    + **id** : Int (PK)
+    + **domain_id** : Int (FK)
+    + name : String
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class reviewer_domains {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK, UNIQUE)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + findReviewerDomainIds(userId) : number[]
+    + findReviewerDomains(userId) : Object[]
+    + setReviewerDomains(userId, domainIds) : void
+    + removeReviewerDomain(userId, domainId) : number
+}
+
+class projects {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **sub_domain_id** : Int (FK)
+    + title : String
+    + description : String
+    + status : ProjectStatus
+    + github_url : String
+    + live_url : String
+    + figma_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAllByUserId(userId, page, limit) : Project[]
+    + findAll(page, limit) : Object
+    + findById(id) : Project
+    + findByIdWithUser(id) : Object
+    + create(userId, data) : Project
+    + update(id, data) : Project
+    + updateStatus(id, status) : Project
+    + delete(id) : void
+    + findExistingDomain(id) : Domain
+    + addEvidence(projectId, data) : void
+    + removeEvidence(evidenceId, projectId) : void
+    + findEvidenceById(evidenceId) : Evidence
+    + ratingsSummary(projectIds) : Map
+}
+
+class evidence {
+    + **id** : Int (PK)
+    + **project_id** : Int (FK)
+    + type : String
+    + title : String
+    + description : String
+    + file_url : String
+    + external_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + addEvidence(projectId, data) : void
+    + removeEvidence(evidenceId, projectId) : void
+    + findEvidenceById(evidenceId) : Evidence
+}
+
+class project_reviews {
+    + **id** : Int (PK)
+    + **project_id** : Int (FK)
+    + **reviewer_id** : Int (FK)
+    + rating : Int
+    + feedback : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAvailable(reviewerId, domainIds, page, limit) : Object
+    + findMine(reviewerId, page, limit) : Object
+    + findProjectDetail(projectId) : Project
+    + findReviewsByProject(projectId) : Review[]
+    + findReview(projectId, reviewerId) : Review
+    + createReview(projectId, reviewerId, rating, feedback?) : void
+    + updateReview(projectId, reviewerId, rating, feedback?) : void
+    + ratingsSummary(projectIds) : Map
+}
+
+class demands {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **role_id** : Int (FK)
+    + **reviewed_by** : Int (FK)
+    + status : DemandStatus
+    + review_note : String
+    + reviewed_at : DateTime
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit, status?) : { demands, total }
+    + findById(id) : Demand
+    + findByUserId(userId) : Demand
+    + approve(id, adminId, note?) : void
+    + reject(id, adminId, note?) : void
+}
+
+class demand_domains {
+    + **id** : Int (PK)
+    + **demand_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + createMany(demandId, domainIds) : void
+}
+
+class documents {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **demand_id** : Int (FK)
+    + name : String
+    + type : String
+    + file_url : String
+    + file_size : Int
+    + mime_type : String
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(userId, page, limit, type?) : Document[]
+    + findById(id) : Document
+    + create(data) : Document
+    + delete(id) : void
+    + countByUserId(userId) : number
+}
+
+class cv_generation_requests {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + language : CVLanguage
+    + status : String
+    + missing_fields : Json
+    + data_hash : String
+    + file_url : String
+    + file_size : Int
+    + error_message : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getLatestRequest(userId) : Request
+    + getLatestCompleted(userId) : Request
+    + createRequest(userId, status, missingFields?, dataHash?) : Request
+    + updateRequest(id, data) : Request
+    + getRequests(userId, page, limit) : { requests, total }
+    + getAllCvData(userId) : Object
+}
+
+class cv_versions {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + language : CVLanguage
+    + version : Int
+    + last_audit_id : Int
+    + file_url : String
+    + file_size : Int
+    + created_at : DateTime
+}
+
+class audit_logs {
+    + **id** : Int (PK)
+    + user_id : Int
+    + action : AuditAction
+    + entity : String
+    + entity_id : Int
+    + old_values : Json
+    + new_values : Json
+    + ip_address : String
+    + user_agent : String
+    + created_at : DateTime
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+roles "1" -- "0..*" users
+users "1" -- "1" profiles
+roles "1" -- "0..*" role_permissions
+permissions "1" -- "0..*" role_permissions
+users "1" -- "0..*" refresh_tokens
+users "1" -- "0..*" login_history
+users "1" -- "0..*" devices
+users "1" -- "0..*" work_experience
+users "1" -- "0..*" education
+users "1" -- "0..*" certifications
+users "1" -- "0..*" user_languages
+languages "1" -- "0..*" user_languages
+users "1" -- "0..*" user_skills
+skills "1" -- "0..*" user_skills
+skill_categories "1" -- "0..*" skills
+skills "1" -- "0..*" skill_domains
+domains "1" -- "0..*" skill_domains
+domains "1" -- "0..*" demand_domains
+users "1" -- "0..*" user_socials
+social_platforms "1" -- "0..*" user_socials
+domains "1" -- "0..*" sub_domains
+sub_domains "0..1" -- "0..*" projects
+users "1" -- "0..*" projects
+projects "1" -- "0..*" evidence
+projects "1" -- "0..*" project_reviews
+users "1" -- "0..*" project_reviews : reviewer
+users "1" -- "0..*" reviewer_domains
+domains "1" -- "0..*" reviewer_domains
+users "1" -- "0..*" demands : applicant
+users "0..1" -- "0..*" demands : reviewer
+roles "1" -- "0..*" demands
+demands "1" -- "0..*" demand_domains
+demands "0..1" -- "0..*" documents
+users "1" -- "0..*" documents
+users "1" -- "0..*" cv_generation_requests
+users "1" -- "0..*" cv_versions
+
+users ..> UserStatus : uses
+demands ..> DemandStatus : uses
+projects ..> ProjectStatus : uses
+user_skills ..> SkillLevel : uses
+user_languages ..> LanguageProficiency : uses
+audit_logs ..> AuditAction : uses
+cv_generation_requests ..> CVLanguage : uses
+cv_versions ..> CVLanguage : uses
+
+note right of reviewer_domains
+  user_id UNIQUE alone replaced
+  @@unique([user_id, domain_id]).
+  STALE: setReviewerDomains() writes one row
+  per domain, so a 2-domain call now
+  violates this constraint.
+end note
+
+note right of projects
+  STALE: findExistingDomain(id) and create()
+  still use domain_id, now sub_domain_id.
+  updateStatus() already matches the new
+  ProjectStatus enum.
+end note
+
+note right of skills
+  skill_domains[] was restored, so
+  countDomainLinks() resolves again.
+  create() still does not set the new
+  required category_id.
+end note
+
+note right of user_socials
+  STALE: addSocial() still takes a platform
+  string, not a platform_id.
+end note
+
+note right of cv_generation_requests
+  STALE: createRequest() does not pass the
+  now-required language. status also lost
+  its default.
+end note
+
+note right of sub_domains
+  NEW table, no repository yet.
+
+  AUTHORIZATION GAP
+  reviewer_domains -> domains
+  projects -> sub_domains
+  No path from a reviewer's authorized
+  domain to a project's domain, so
+  findAvailable(reviewerId, domainIds)
+  can no longer filter by reviewer scope.
+end note
+
+note right of skill_categories
+  NEW table, no repository yet.
+end note
+
+note right of social_platforms
+  NEW table, no repository yet.
+end note
+
+note right of cv_versions
+  NEW table, no repository yet.
+  last_audit_id has no @relation
+  to audit_logs.
+end note
+
+note right of audit_logs
+  No repository exists. user_id has no
+  @relation to users, so no edge is drawn.
+  action changed from String to the
+  AuditAction enum, needing a USING cast.
+end note
+
+note right of demand_domains
+  createMany() is a Prisma client call, not a
+  repository method. It is invoked from
+  auth.service during registration, not from
+  a demands repository.
+end note
+
+@enduml

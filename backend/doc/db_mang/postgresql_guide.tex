@@ -1,0 +1,539 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{multicol}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+% Colors
+\definecolor{codebg}{gray}{0.95}
+\definecolor{codeframe}{gray}{0.8}
+\definecolor{linkblue}{rgb}{0.13,0.29,0.53}
+\definecolor{sectionblue}{rgb}{0.13,0.29,0.53}
+\definecolor{cmdgreen}{rgb}{0.0,0.4,0.0}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=linkblue,
+    urlcolor=linkblue,
+    pdftitle={PostgreSQL Setup Guide - Jadara Project},
+    pdfauthor={Jadara Team},
+}
+
+% Header/Footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small PostgreSQL Setup Guide}
+\fancyhead[R]{\small Jadara Project}
+\fancyfoot[C]{\small Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Section styling
+\titleformat{\section}{\Large\bfseries\color{sectionblue}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\large\bfseries\color{sectionblue}}{}{0em}{}
+
+% Listings setup
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    breaklines=true,
+    breakatwhitespace=true,
+    columns=flexible,
+    keepspaces=true,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    numbersep=8pt,
+    tabsize=4,
+}
+
+\lstdefinestyle{shell}{
+    language=bash,
+    keywordstyle=\color{cmdgreen}\bfseries,
+    commentstyle=\color{gray},
+    stringstyle=\color{purple},
+}
+
+\lstdefinestyle{sql}{
+    language=SQL,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+}
+
+% Custom boxes
+\newtcolorbox{warningbox}{
+    colback=red!5!white,
+    colframe=red!75!black,
+    fonttitle=\bfseries,
+    title={Warning},
+    breakable
+}
+
+\newtcolorbox{tipbox}{
+    colback=green!5!white,
+    colframe=green!50!black,
+    fonttitle=\bfseries,
+    title={Tip},
+    breakable
+}
+
+\newtcolorbox{notebox}{
+    colback=blue!5!white,
+    colframe=blue!50!black,
+    fonttitle=\bfseries,
+    title={Note},
+    breakable
+}
+
+% Document
+\begin{document}
+
+% Title page
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries PostgreSQL Setup Guide\par}
+\vspace{1cm}
+{\Large Jadara Project\par}
+\vspace{2cm}
+{\large Version 1.0 -- August 2026\par}
+\vspace{3cm}
+{\large\texttt{PostgreSQL 16.14 on Ubuntu 24.04}\par}
+\vfill
+{\small Generated for Jadara project database setup\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+% SECTION 1: INSTALLATION
+% ============================================================
+\section{Installation}
+
+\subsection{Install PostgreSQL}
+
+\begin{lstlisting}[style=shell]
+sudo apt update
+sudo apt install postgresql postgresql-client
+\end{lstlisting}
+
+\subsection{Verify Installation}
+
+\begin{lstlisting}[style=shell]
+psql --version
+\end{lstlisting}
+
+Expected output:
+\begin{lstlisting}[style=shell]
+psql (PostgreSQL) 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
+\end{lstlisting}
+
+\subsection{Check Installed Packages}
+
+\begin{lstlisting}[style=shell]
+dpkg -l | grep postgresql
+\end{lstlisting}
+
+Key packages:
+\begin{itemize}[noitemsep]
+    \item \texttt{postgresql} -- Main server package
+    \item \texttt{postgresql-16} -- Server binaries
+    \item \texttt{postgresql-client-16} -- Client tools (psql)
+    \item \texttt{postgresql-common} -- Cluster manager
+\end{itemize}
+
+% ============================================================
+% SECTION 2: SERVICE MANAGEMENT
+% ============================================================
+\section{Service Management}
+
+PostgreSQL runs as a systemd service on Ubuntu.
+
+\subsection{Start / Stop / Restart}
+
+\begin{lstlisting}[style=shell]
+sudo systemctl start postgresql
+sudo systemctl stop postgresql
+sudo systemctl restart postgresql
+sudo systemctl reload postgresql
+\end{lstlisting}
+
+\subsection{Check Status}
+
+\begin{lstlisting}[style=shell]
+sudo systemctl status postgresql
+\end{lstlisting}
+
+Expected output (running):
+\begin{lstlisting}[style=shell]
+* postgresql.service - PostgreSQL RDBMS
+     Loaded: loaded
+     Active: active (exited) since ...
+   Main PID: ...
+\end{lstlisting}
+
+\subsection{Enable on Boot}
+
+\begin{lstlisting}[style=shell]
+sudo systemctl enable postgresql
+sudo systemctl disable postgresql
+\end{lstlisting}
+
+\subsection{Check Listening Port}
+
+\begin{lstlisting}[style=shell]
+sudo ss -tlnp | grep 5432
+\end{lstlisting}
+
+% ============================================================
+% SECTION 3: CONFIGURATION
+% ============================================================
+\section{Configuration}
+
+\subsection{Configuration File Locations}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{File} & \textbf{Purpose} \\
+\midrule
+\texttt{/etc/postgresql/16/main/postgresql.conf} & Main server config \\
+\texttt{/etc/postgresql/16/main/pg\_hba.conf} & Client authentication \\
+\texttt{/etc/postgresql/16/main/pg\_ident.conf} & User name mapping \\
+\bottomrule
+\end{tabular}
+\caption{PostgreSQL configuration files}
+\end{table}
+
+\subsection{Key Settings in postgresql.conf}
+
+\begin{lstlisting}[style=shell]
+sudo nano /etc/postgresql/16/main/postgresql.conf
+\end{lstlisting}
+
+Common settings:
+\begin{lstlisting}
+listen_addresses = 'localhost'
+port = 5432
+max_connections = 100
+shared_buffers = '256MB'
+work_mem = '4MB'
+\end{lstlisting}
+
+\subsection{Authentication (pg\_hba.conf)}
+
+\begin{lstlisting}[style=shell]
+sudo nano /etc/postgresql/16/main/pg_hba.conf
+\end{lstlisting}
+
+Local connection (default):
+\begin{lstlisting}
+TYPE  DATABASE    USER        ADDRESS         METHOD
+local   all         postgres                    peer
+local   all         all                         scram-sha-256
+\end{lstlisting}
+
+\begin{notebox}
+After changing \texttt{pg\_hba.conf}, reload PostgreSQL:
+\begin{lstlisting}[style=shell]
+sudo systemctl reload postgresql
+\end{lstlisting}
+\end{notebox}
+
+% ============================================================
+% SECTION 4: DATABASE \& USER CREATION
+% ============================================================
+\section{Database \& User Creation}
+
+\subsection{Step 1: Connect as PostgreSQL Superuser}
+
+\begin{lstlisting}[style=shell]
+sudo -u postgres psql
+\end{lstlisting}
+
+This opens the PostgreSQL prompt:
+
+\subsection{Step 2: Create a New User}
+
+\begin{lstlisting}[style=sql]
+CREATE USER jadara_user WITH PASSWORD 'your_password_here';
+\end{lstlisting}
+
+Replace \texttt{your\_password\_here} with your actual password.
+
+\begin{tipbox}
+To generate a random 64-character password in the terminal (outside psql):
+\begin{lstlisting}[style=shell]
+openssl rand -hex 32
+\end{lstlisting}
+This produces a 64-character hexadecimal string.
+\end{tipbox}
+
+\subsection{Step 3: Create the Database}
+
+\begin{lstlisting}[style=sql]
+CREATE DATABASE jadara;
+\end{lstlisting}
+
+\subsection{Step 4: Grant Privileges}
+
+\begin{lstlisting}[style=sql]
+GRANT ALL PRIVILEGES ON DATABASE jadara TO jadara_user;
+ALTER USER jadara_user CREATEDB;
+\end{lstlisting}
+
+Connect to the jadara database and grant schema permissions:
+\begin{lstlisting}[style=sql]
+\c jadara
+GRANT ALL ON SCHEMA public TO jadara_user;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO jadara_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO jadara_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO jadara_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO jadara_user;
+\end{lstlisting}
+
+\begin{notebox}
+The \texttt{ALTER DEFAULT PRIVILEGES} commands ensure that tables and sequences created by the \texttt{postgres} superuser during \texttt{prisma migrate} are automatically accessible to \texttt{jadara\_user}. Without these, Prisma migrations may fail with permission errors on the shadow database.
+\end{notebox}
+
+\subsection{Step 5: Verify Setup}
+
+\begin{lstlisting}[style=sql]
+SELECT current_user;
+\q
+\end{lstlisting}
+
+\subsection{Step 6: Test Connection}
+
+\begin{lstlisting}[style=shell]
+psql -U jadara_user -d jadara -h localhost
+\end{lstlisting}
+
+\subsection{Complete SQL Script}
+
+Here is the full script to run inside \texttt{psql} as the \texttt{postgres} user:
+
+\begin{lstlisting}[style=sql]
+CREATE USER jadara_user WITH PASSWORD 'your_password_here';
+CREATE DATABASE jadara;
+GRANT ALL PRIVILEGES ON DATABASE jadara TO jadara_user;
+ALTER USER jadara_user CREATEDB;
+\c jadara
+GRANT ALL ON SCHEMA public TO jadara_user;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO jadara_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO jadara_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO jadara_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO jadara_user;
+\end{lstlisting}
+
+% ============================================================
+% SECTION 5: BACKUP & RESTORE
+% ============================================================
+\section{Backup \& Restore}
+
+\subsection{Backup a Single Database}
+
+\begin{lstlisting}[style=shell]
+pg_dump -U jadara_user -h localhost jadara > jadara_backup.sql
+pg_dump -U jadara_user -h localhost -Fc jadara > jadara_backup.dump
+sudo -u postgres pg_dump jadara > jadara_backup.sql
+\end{lstlisting}
+
+\subsection{Backup All Databases}
+
+\begin{lstlisting}[style=shell]
+sudo -u postgres pg_dumpall > full_backup.sql
+sudo -u postgres pg_dumpall --globals-only > globals.sql
+\end{lstlisting}
+
+\subsection{Restore a Database}
+
+\begin{lstlisting}[style=shell]
+psql -U jadara_user -d jadara -h localhost -f jadara_backup.sql
+pg_restore -U jadara_user -d jadara -h localhost jadara_backup.dump
+sudo -u postgres psql -f full_backup.sql
+\end{lstlisting}
+
+\subsection{Scheduled Backup with Cron}
+
+\begin{lstlisting}[style=shell]
+crontab -e
+\end{lstlisting}
+
+\begin{warningbox}
+Always test your backups by restoring them to a test database!
+\end{warningbox}
+
+% ============================================================
+% SECTION 6: USEFUL COMMANDS
+% ============================================================
+\section{Useful Commands}
+
+\subsection{psql Meta-Commands}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Command} & \textbf{Description} \\
+\midrule
+\texttt{\textbackslash l} & List all databases \\
+\texttt{\textbackslash c dbname} & Connect to database \\
+\texttt{\textbackslash c} & Show current connection \\
+\texttt{\textbackslash du} & List all users/roles \\
+\texttt{\textbackslash dt} & List tables in schema \\
+\texttt{\textbackslash ds} & List sequences \\
+\texttt{\textbackslash di} & List indexes \\
+\texttt{\textbackslash dv} & List views \\
+\texttt{\textbackslash dn} & List schemas \\
+\texttt{\textbackslash df} & List functions \\
+\texttt{\textbackslash d tablename} & Describe table structure \\
+\texttt{\textbackslash dp} & List table privileges \\
+\texttt{\textbackslash x} & Toggle expanded output \\
+\texttt{\textbackslash timing} & Toggle query timing \\
+\texttt{\textbackslash i filename} & Execute SQL from file \\
+\texttt{\textbackslash o filename} & Pipe output to file \\
+\texttt{\textbackslash q} & Quit psql \\
+\bottomrule
+\end{tabular}
+\caption{psql meta-commands}
+\end{table}
+
+\subsection{Useful SQL Queries}
+
+\begin{lstlisting}[style=sql]
+SELECT current_database();
+SELECT current_user;
+SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+SELECT pg_size_pretty(pg_total_relation_size('table_name'));
+SELECT pg_size_pretty(pg_database_size('jadara'));
+SELECT * FROM pg_stat_activity;
+SELECT pid, now() - pg_stat_activity.query_start AS duration, query, state
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY duration DESC;
+\end{lstlisting}
+
+\subsection{Connection Information}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Host & \texttt{localhost} (or \texttt{127.0.0.1}) \\
+Port & \texttt{5432} \\
+Database & \texttt{jadara} \\
+User & \texttt{jadara\_user} \\
+\bottomrule
+\end{tabular}
+\caption{Connection parameters}
+\end{table}
+
+\subsection{Connection String Format}
+
+\begin{lstlisting}
+postgresql://user:password@host:port/database
+\end{lstlisting}
+
+% ============================================================
+% SECTION 7: QUICK REFERENCE CARD
+% ============================================================
+\newpage
+\section{Quick Reference Card}
+
+\begin{multicols}{2}
+
+\subsection*{Installation}
+\begin{lstlisting}[style=shell,numbers=none]
+sudo apt install postgresql
+psql --version
+\end{lstlisting}
+
+\subsection*{Service}
+\begin{lstlisting}[style=shell,numbers=none]
+sudo systemctl start postgresql
+sudo systemctl stop postgresql
+sudo systemctl status postgresql
+sudo systemctl restart postgresql
+\end{lstlisting}
+
+\columnbreak
+
+\subsection*{Connect}
+\begin{lstlisting}[style=shell,numbers=none]
+sudo -u postgres psql
+psql -U user -d db -h localhost
+\end{lstlisting}
+
+\subsection*{User \& DB}
+\begin{lstlisting}[style=sql,numbers=none]
+CREATE USER name WITH PASSWORD 'pass';
+CREATE DATABASE dbname;
+GRANT ALL ON DATABASE dbname TO name;
+ALTER USER name CREATEDB;
+\c dbname
+GRANT ALL ON SCHEMA public TO name;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO name;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO name;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON TABLES TO name;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON SEQUENCES TO name;
+\end{lstlisting}
+
+\end{multicols}
+
+\vspace{1em}
+
+\begin{multicols}{2}
+
+\subsection*{psql Commands}
+\begin{lstlisting}[style=shell,numbers=none]
+\l          -- list databases
+\du         -- list users
+\c dbname   -- connect to db
+\dt         -- list tables
+\d tablename -- describe table
+\q          -- quit
+\end{lstlisting}
+
+\columnbreak
+
+\subsection*{Backup}
+\begin{lstlisting}[style=shell,numbers=none]
+pg_dump db > backup.sql
+pg_dump -Fc db > backup.dump
+pg_dumpall > full_backup.sql
+psql -f backup.sql db
+pg_restore -d db backup.dump
+\end{lstlisting}
+
+\end{multicols}
+
+\vspace{1em}
+
+\begin{notebox}
+\textbf{Password placeholder:} Throughout this guide, \texttt{your\_password\_here} represents the actual password for \texttt{jadara\_user}. Generate one with: \texttt{openssl rand -hex 32}
+\end{notebox}
+
+\end{document}

@@ -1,0 +1,23 @@
+Here's what the JADARA backend can do today, by module:
+1. Authentication (auth)
+- Register: Beneficiary is active immediately (no files) with JWT cookies set; Reviewer/Company registers pending → creates a demand with chosen domains + uploaded proof documents (MinIO).
+- Login: validates credentials (401 invalid / 403 if status pending/inactive/locked), records login history (success/fail) + upserts device; sets access (15min) + refresh (7d, argon2-hashed) cookies.
+- Me / refresh token / logout (revokes all refresh tokens).
+2. Users & profile
+- Admin: list (paginated), view, update, delete (deactivated + audit) any user.
+- User: view own/public profile, update my profile + upload avatar, view activity (login history + devices), add/remove social links.
+- CV MD: full CRUD for work experience, education, certifications, and spoken languages (with proficiency) per profile.
+3. RBAC (admin)
+- Manage roles (view/create/update/delete), manage permissions, assign/remove permissions to roles. 4 roles (Admin, Beneficiary, Reviewer, Company), 19 permissions gate all endpoints.
+4. Catalog management (admin)
+- Doins admin: CRUD domains, CRUD skills, CRUD languages; link/unlink skills to domain.
+- Admin assigns reviewer → domains (which domains each reviewer may review).
+5. Projects & reviews
+- User: create/update/delete own project (title, desc, domain, status, github/live/figma URLs), add/remove evidence files, submit for review (status flow draft → under_review → verified/rejected).
+- Reviewer: view projects in assigned domains, review (rating 1–10 + feedback), update own review, see own reviews, average rating summaries.
+6. Documents
+- User: upload/list/delete own documents (MinIO storage), per registration or CV.
+7. Registration demands
+- Admin: list demands (filter by status), approve (user → active; reviewer automatically gets the demand's domains linked) or reject (with note).
+8. CV generation (PDF)
+- User: request CV generation, check latest/status, list request history. Service collects profile + education + experience + skills + languages + certifications + socials + projects and produces a PDF (status pending → completed/failed with file_url).

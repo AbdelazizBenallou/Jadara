@@ -1,0 +1,92 @@
+================================================================
+  PROJECT DETAIL FOR REVIEWER — GET /v1/reviews/:id
+  Base URL: http://localhost:3001
+  Auth: Reviewer ONLY (permission: review_projects)
+  Rate limit: 60 requests per minute
+================================================================
+
+Full detail of ONE project for a reviewer:
+  - status, rating summary, all reviews on it
+  - project fields + evidence with download_url
+  - project owner (users + profiles)
+
+Access allowed if: the project is in your assigned domains, OR you
+already reviewed it, OR it is your own project.
+
+
+--------------------------------------------------
+1. GET PROJECT DETAIL BY ID
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  "http://localhost:3001/v1/reviews/8" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Project review fetched successfully",
+  "data": {
+    "id": 8,
+    "project_id": 8,
+    "status": "verified",
+    "rating": { "average": 8, "count": 1 },
+    "reviews": [
+      {
+        "id": 5,
+        "rating": 8,
+        "feedback": "looks good",
+        "created_at": "...",
+        "reviewer": {
+          "id": 8,
+          "email": "web.reviewer@test.com",
+          "profile": { "first_name": "Web", "last_name": "Reviewer", "avatar": null }
+        }
+      }
+    ],
+    "project": {
+      "id": 8,
+      "user_id": 10,
+      "title": "Ben Project",
+      "description": null,
+      "status": "verified",
+      "github_url": null,
+      "live_url": null,
+      "figma_url": null,
+      "domain_id": 1,
+      "created_at": "...",
+      "updated_at": "...",
+      "domains": { "id": 1, "name": "Web Development" },
+      "users": { "id": 10, "email": "ben@test.com", "profiles": { "first_name": "Ben", "last_name": "User", "avatar": null } },
+      "evidence": [
+        { "id": 1, "type": "screenshot", "title": "Home", "description": null, "file_url": "evidence/10/uuid.png", "external_url": null, "created_at": "...", "download_url": "http://localhost:9000/evidence/evidence/10/uuid.png?...presigned" }
+      ]
+    }
+  }
+}
+
+
+--------------------------------------------------
+2. NO ACCESS (403)
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt "http://localhost:3001/v1/reviews/999"
+
+Project not in your domains + not yours + not reviewed by you:
+Expected: 403 {"success":false,"message":"This project is not in your assigned domains"}
+
+Project id does not exist:
+Expected: 404 {"success":false,"message":"Project not found"}
+
+
+--------------------------------------------------
+3. INVALID ID (400) / AUTH
+--------------------------------------------------
+/reviews/abc  -> 400 Invalid project ID
+no cookie     -> 401
+ben cookie    -> 403 (review_projects)
+
+
+NOTES
+- This is the reviewer's "project review" view for a project in a
+  specific domain. Evidence file's download_url is a presigned MinIO
+  link (valid 1 hour).
+- The OWNER sees the same reviews via GET /v1/projects/:id
+  (see doc/projects/get-project.txt); admin via /admin.

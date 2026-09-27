@@ -1,0 +1,64 @@
+@startuml
+' JADARA - Beneficiary Registration Sequence (no files)
+title Beneficiary Registration - Sequence Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam participant {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+
+actor "Beneficiary" as client
+
+participant "RateLimit\n+ zodValidate\n(middlewares)" as mid
+participant "AuthController" as ctrl
+participant "AuthService" as svc
+participant "Hash\n(argon2)" as hash
+participant "Prisma / DB" as db
+participant "RefreshTokenRepo" as rtr
+participant "JWT\n(jwtUtils)" as jwt
+
+client -> mid : POST /v1/auth/register\n(email, password, first_name,\nlast_name, role_id)\n(no files)
+alt rate limit / validation error
+    mid --> client : 429 / 400
+end
+
+mid -> ctrl : authController.register
+ctrl -> svc : register(data, files = [])
+
+svc -> db : users.findUnique({ email })
+alt email exists
+    svc --> ctrl : AppError 409
+    ctrl --> client : 409 "Email already registered"
+end
+alt role not selectable
+    svc --> ctrl : AppError 400
+    ctrl --> client : 400 "Invalid role"
+end
+
+svc -> hash : hash.password(password)
+
+svc -> db : $transaction - users.create\n(status=active) + profiles.create\n(first_name, last_name, phone?, gender?)
+db --> svc : user (role: Beneficiary)
+
+svc -> jwt : signAccessToken({ userId, email, role })
+jwt --> svc : accessToken (15 min)
+svc -> jwt : signRefreshToken({ userId, email })
+jwt --> svc : refreshToken (7 days)
+
+svc -> rtr : create(userId, refreshToken)
+rtr -> hash : hash.token(refreshToken)
+rtr -> db : refresh_tokens.create\n(status stored hashed, 7-day expiry)
+
+svc --> ctrl : { pending: false, user, accessToken, refreshToken }
+ctrl -> ctrl : set cookies\naccessToken (httpOnly, 15m)\nrefreshToken (httpOnly, 7d)
+
+ctrl --> client : 201 "Registration successful"\n{ user: { id, email, status: "active",\nprofile, role: "Beneficiary" }, demand: null }
+
+@enduml

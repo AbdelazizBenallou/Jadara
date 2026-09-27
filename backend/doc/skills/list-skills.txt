@@ -1,0 +1,109 @@
+================================================================
+  LIST SKILLS API — GET /v1/skills
+  Base URL: http://localhost:3001
+  Permission required: view_skills
+  (granted to Admin + Beneficiary/Reviewer/Company)
+================================================================
+
+Setup:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/skills
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Only reachable by a role without view_skills
+-- (all seeded roles currently HAVE it):
+
+curl -i http://localhost:3001/v1/skills -b /tmp/noperm-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. DEFAULT PAGINATION (200)
+--------------------------------------------------
+curl -s http://localhost:3001/v1/skills -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Skills fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "JavaScript",
+      "description": null,
+      "status": "active",
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ],
+  "meta": { "total": 35, "page": 1, "limit": 10, "totalPages": 4, "nextCursor": 2 }
+}
+
+
+--------------------------------------------------
+4. CUSTOM PAGE & LIMIT (200)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/skills?page=2&limit=10" \
+  -b /tmp/admin-cookies.txt
+
+Expected: 200
+Meta example: { "total": 35, "page": 2, "limit": 10, "totalPages": 4, "nextCursor": 3 }
+
+
+--------------------------------------------------
+5. LAST PAGE (200) — nextCursor null
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/skills?page=4&limit=10" \
+  -b /tmp/admin-cookies.txt
+
+Expected: 200, meta.nextCursor === null
+
+
+--------------------------------------------------
+6. OUT-OF-RANGE PAGE (200, EMPTY DATA)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/skills?page=99" -b /tmp/admin-cookies.txt
+
+Expected: 200, data: []
+
+
+--------------------------------------------------
+7. INVALID PAGE/LIMIT (200, SILENT DEFAULTS)
+--------------------------------------------------
+page=abc -> 1 | limit=-5 -> 1 | limit=500 -> capped at 100
+
+curl -s "http://localhost:3001/v1/skills?page=abc&limit=500" \
+  -b /tmp/admin-cookies.txt
+
+Expected: 200
+
+
+--------------------------------------------------
+8. RATE LIMIT (429)
+--------------------------------------------------
+-- skillRateLimit: 60 requests / 60 seconds per route
+
+for i in {1..61}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    http://localhost:3001/v1/skills -b /tmp/admin-cookies.txt
+done
+
+Expected: 60x 200 then 429
+Response: { "success": false, "message": "Too many requests, please try again later" }

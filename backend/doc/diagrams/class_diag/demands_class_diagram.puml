@@ -1,0 +1,147 @@
+@startuml
+' JADARA - Registration Demands Class Diagram
+title Registration Demands - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum DemandStatus {
+    pending
+    approved
+    rejected
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class roles {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + is_selectable : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class domains {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **created_by** : Int (FK)
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class demands {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **role_id** : Int (FK)
+    + status : DemandStatus
+    + **reviewed_by** : Int (FK)
+    + review_note : String
+    + reviewed_at : DateTime
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit, status?) : { demands, total }
+    + findById(id) : Demand
+    + findByUserId(userId) : Demand
+    + approve(id, adminId, note?) : void
+    + reject(id, adminId, note?) : void
+}
+
+class demand_domains {
+    + **id** : Int (PK)
+    + **demand_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + createMany(demandId, domainIds) : void
+}
+
+class cv_generation_requests {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + status : String
+    + missing_fields : Json
+    + data_hash : String
+    + file_url : String
+    + file_size : Int
+    + error_message : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getLatestRequest(userId) : Request
+    + getLatestCompleted(userId) : Request
+    + createRequest(userId, status, missingFields?, dataHash?) : Request
+    + updateRequest(id, { status?, file_url?, file_size?, error_message?, data_hash? }) : Request
+    + getRequests(userId, page, limit) : { requests, total }
+    + getAllCvData(userId) : Object
+}
+
+class documents {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + name : String
+    + type : String
+    + file_url : String
+    + file_size : Int
+    + mime_type : String
+    + status : String
+    + **demand_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(userId) : Document[]
+    + findById(id) : Document
+    + create(data) : Document
+    + delete(id) : void
+    + countByUserId(userId) : number
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+users "1" -- "0..*" demands : applicant
+users "1" -- "0..*" demands : reviewed_by
+roles "1" -- "0..*" demands
+demands "1" -- "0..*" demand_domains
+domains "1" -- "0..*" demand_domains
+demands "1" -- "0..*" documents
+users "1" -- "0..*" documents
+users "1" -- "0..*" cv_generation_requests
+
+users ..> UserStatus : uses
+demands ..> DemandStatus : uses
+
+@enduml

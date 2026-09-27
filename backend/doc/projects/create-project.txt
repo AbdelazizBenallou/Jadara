@@ -1,0 +1,104 @@
+================================================================
+  CREATE PROJECT API — POST /v1/projects
+  Base URL: http://localhost:3001
+  Auth: any authenticated user (verifyAccessToken)
+  Rate limit: 20 requests per minute
+================================================================
+
+Creates a new project in status "draft" for the logged-in user.
+
+Body (JSON):
+  title        string  required (1-255 chars)
+  description  string  optional (max 2000)
+  github_url   string  optional (must be a valid URL, max 500)
+  live_url     string  optional (valid URL)
+  figma_url    string  optional (valid URL)
+  domain_id    int     optional (nullable) — project's domain
+
+domain_id must exist in the domains table (see doc/domains/list-domains).
+A project WITHOUT domain_id cannot be reviewed by reviewers later.
+
+
+--------------------------------------------------
+1. CREATE A PROJECT (201)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X POST http://localhost:3001/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My Project",
+    "description": "A showcase project",
+    "github_url": "https://github.com/user/project",
+    "live_url": "https://myproject.example.com",
+    "domain_id": 1
+  }'
+
+Expected: 201
+{
+  "success": true,
+  "message": "Project created successfully",
+  "data": {
+    "id": 9,
+    "user_id": 10,
+    "domain_id": 1,
+    "title": "My Project",
+    "description": "A showcase project",
+    "github_url": "https://github.com/user/project",
+    "live_url": "https://myproject.example.com",
+    "figma_url": null,
+    "status": "draft",
+    "created_at": "...",
+    "updated_at": "...",
+    "domains": { "id": 1, "name": "Web Development" },
+    "evidence": [],
+    "rating": null,                 // no reviews yet
+    "reviews": [],                  // full review list (owner view)
+    "evidence_count": 0
+  }
+}
+
+DB: projects row inserted with status='draft'.
+
+
+--------------------------------------------------
+2. CREATE WITHOUT DOMAIN
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X POST http://localhost:3001/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{"title":"No Domain Project"}'
+
+Expected: 201 — domain_id: null. Reviewer can never rate it
+(rate endpoint returns 400 "Project has no domain assigned").
+
+
+--------------------------------------------------
+3. INVALID DOMAIN (400)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X POST http://localhost:3001/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{"title":"X","domain_id":999}'
+
+Expected: 400 {"success":false,"message":"Domain not found: 999"}
+
+
+--------------------------------------------------
+4. VALIDATION (422)
+--------------------------------------------------
+Missing title:
+  -d '{}'                                    -> 422 Validation failed
+Bad URL: "github_url":"not-a-url"            -> 422
+domain_id negative: "domain_id":-1           -> 422 (must be positive int)
+
+
+--------------------------------------------------
+5. NO AUTH (401)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/projects ...  -> 401
+
+
+NOTES
+- Project status flow: draft -> submitted -> under_review -> verified
+  (see doc/projects/submit-project.txt).
+- Domain list: GET /v1/domains (view_domains permission, any user).

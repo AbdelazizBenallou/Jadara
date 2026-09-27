@@ -1,0 +1,234 @@
+@startuml
+title JADARA - Projects & Review
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide empty members
+
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum ProjectStatus {
+    DRAFT
+    SUBMITTED
+    UNDER_REVIEW
+    VERIFIED
+    REJECTED
+}
+
+enum ProjectMemberRole {
+    OWNER
+    DEVELOPER
+    DESIGNER
+    CONTRIBUTOR
+}
+
+enum EvidenceType {
+    GITHUB
+    LIVE_DEMO
+    FIGMA
+    DOCUMENT
+    SCREENSHOT
+    VIDEO
+    OTHER
+}
+
+enum DocumentType {
+    CV
+    CERTIFICATE
+    PROJECT
+    WORK_DOC
+    DEMAND
+    OTHER
+}
+
+
+' =========================================================
+' PROJECTS
+' =========================================================
+
+class Projects {
+    + id : UUID
+    --
+    status : ProjectStatus
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' PROJECT INFORMATION
+' =========================================================
+
+class ProjectInfo {
+    + id : UUID
+    --
+    project_id : UUID (UNIQUE)
+    title : VARCHAR(200)
+    description : TEXT
+    subdomain_id : UUID
+    requirements : JSON
+    github_url : VARCHAR(500)
+    live_url : VARCHAR(500)
+    figma_url : VARCHAR(500)
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' PROJECT EVIDENCE
+' =========================================================
+
+class Evidence {
+    + id : UUID
+    --
+    project_id : UUID
+    document_id : UUID (NULLABLE)
+    type : EvidenceType
+    title : VARCHAR(255)
+    description : TEXT
+    external_url : VARCHAR(500)
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' PROJECT MEMBERS
+' =========================================================
+
+class ProjectMembers {
+    + id : UUID
+    --
+    project_id : UUID
+    user_id : UUID
+    role : ProjectMemberRole
+    joined_at : TIMESTAMP
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+    ' @@unique (project_id, user_id)
+}
+
+
+' =========================================================
+' PROJECT REVIEWS
+' =========================================================
+
+class ProjectReviews {
+    + id : UUID
+    --
+    project_id : UUID
+    reviewer_id : UUID
+    rating : INT (1-10)
+    feedback : TEXT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+    ' @@unique (project_id, reviewer_id)
+}
+
+
+' =========================================================
+' CENTRAL DOCUMENTS TABLE
+' =========================================================
+
+class Documents {
+    + id : UUID
+    --
+    user_id : UUID
+    name : VARCHAR(255)
+    original_name : VARCHAR(255)
+    storage_path : VARCHAR(500)
+    mime_type : VARCHAR(100)
+    file_size : BIGINT
+    document_type : DocumentType
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' EXTERNAL REFERENCES
+' =========================================================
+
+class Users {
+    + id : UUID
+}
+
+class SubDomains {
+    + id : UUID
+    --
+    domain_id : UUID
+    name : VARCHAR(100)
+}
+
+class Domains {
+    + id : UUID
+    --
+    name : VARCHAR(100)
+}
+
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+' Project ↔ Project Information
+Projects "1" -- "1" ProjectInfo : has
+
+' Project ↔ Evidence
+Projects "1" -- "0..*" Evidence : has
+Documents "0..1" -- "0..*" Evidence : file backing
+
+
+' Project ↔ Users
+Projects "1" -- "0..*" ProjectMembers : has members
+Users "1" -- "0..*" ProjectMembers : participates
+
+
+' Project ↔ Reviews
+Projects "1" -- "0..*" ProjectReviews : receives
+Users "1" -- "0..*" ProjectReviews : reviews
+
+
+' Reviewer ↔ SubDomains
+SubDomains "1" -- "0..*" ProjectInfo : classifies
+
+
+' SubDomain ↔ Domain
+Domains "1" -- "0..*" SubDomains : contains
+
+
+' Documents belong to users
+Users "1" -- "0..*" Documents : owns
+
+
+' =========================================================
+' NOTES
+' =========================================================
+
+' Project lifecycle: DRAFT -> SUBMITTED -> UNDER_REVIEW -> VERIFIED / REJECTED
+
+' ProjectInfo: project's actual info. requirements stored as JSON.
+' project_id UNIQUE (one project = one info).
+
+' Evidence: replaces the old JSON evidence blob. type maps to
+' Documents when EvidenceType = DOCUMENT, otherwise external_url.
+
+' Documents: central storage metadata used by Certifications, Education,
+' Work Experience, Projects/Evidence, Demands. storage_path is an internal key.
+
+' ProjectMembers: one or many users per project (OWNER/DEVELOPER/DESIGNER/CONTRIBUTOR).
+' Unique (project_id, user_id).
+
+' ProjectReviews: a project can receive many reviews; a reviewer can review many.
+' Reviewer must have Reviewer role + SubDomain matching ProjectInfo.subdomain_id.
+' Unique (project_id, reviewer_id).
+
+@enduml

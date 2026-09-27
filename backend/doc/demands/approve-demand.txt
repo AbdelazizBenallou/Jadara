@@ -1,0 +1,123 @@
+================================================================
+  APPROVE DEMAND API — POST /v1/demands/:id/approve   (ACCEPT)
+  Base URL: http://localhost:3001
+  Auth: Admin only (permission: manage_users)
+  Rate limit: 20 requests per minute
+================================================================
+
+Accepts a pending registration demand:
+
+1. user.status            -> "active"   (applicant can now log in)
+2. Reviewer only:         -> reviewer_domains created for requested
+                            domains (skipDuplicates)
+3. demand.status          -> "approved"
+4. demand.reviewed_by     -> admin user id
+5. demand.review_note     -> note (optional)
+6. demand.reviewed_at     -> now
+
+Body (JSON, all optional): { "note": "..." }   (max 1000 chars)
+
+
+--------------------------------------------------
+1. APPROVE A REVIEWER
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/1/approve \
+  -H "Content-Type: application/json" \
+  -d '{"note":"Documents verified"}' | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Demand approved",
+  "data": {
+    "id": 1,
+    "status": "approved",
+    "role": { "id": 2, "name": "Reviewer" },
+    "applicant": {
+      "id": 5,
+      "email": "reviewer@jadara.com",
+      "status": "active",
+      "profiles": { "first_name": "Review", "last_name": "Er", "phone": null, "avatar": null }
+    },
+    "domains": [
+      { "id": 1, "name": "Web Development" },
+      { "id": 8, "name": "Databases" }
+    ],
+    "documents": [ { "id": 3, "name": "cv.pdf", "type": "demand", "download_url": "...", ... } ],
+    "review_note": "Documents verified",
+    "reviewed_at": "2026-08-28T16:00:00.000Z",
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}
+
+DB effects:
+  users.status = 'active'
+  reviewer_domains: +1 row per requested domain
+  demands.status = 'approved', reviewed_by=1, review_note set, reviewed_at set
+  (all in one transaction)
+
+
+--------------------------------------------------
+2. APPROVE A COMPANY
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/2/approve \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+Expected: 200
+  demand status -> approved, user active.
+  No reviewer_domains created (role is Company).
+
+
+--------------------------------------------------
+3. WITHOUT NOTE
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/1/approve \
+  -H "Content-Type: application/json" -d '{}'
+
+review_note -> null
+
+
+--------------------------------------------------
+4. ALREADY REVIEWED (409)
+--------------------------------------------------
+Approving an already approved/rejected demand fails:
+
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/1/approve \
+  -H "Content-Type: application/json" -d '{}'
+
+Expected: 409 {"success":false,"message":"Demand is already reviewed"}
+
+
+--------------------------------------------------
+5. DEMAND NOT FOUND (404)
+--------------------------------------------------
+Expected: 404 {"success":false,"message":"Demand not found"}
+
+
+--------------------------------------------------
+6. INVALID ID (400) / NO AUTH (401) / NOT ADMIN (403)
+--------------------------------------------------
+/demands/abc/approve        -> 400 Invalid demand ID
+(no cookie)                 -> 401
+ben_cookies                 -> 403 Forbidden
+
+
+--------------------------------------------------
+7. AFTER APPROVAL — APPLICANT LOGIN
+--------------------------------------------------
+The applicant can now log in normally with the same credentials:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"reviewer@jadara.com","password":"Secret123"}'
+
+Expected: 200 Login successful (user.status = "active")
+
+Approved reviewers appear in GET /v1/domains/reviewers and
+GET /v1/domains/:id/reviewers for their assigned domains.

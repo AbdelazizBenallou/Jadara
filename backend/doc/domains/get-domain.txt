@@ -1,0 +1,69 @@
+================================================================
+  GET DOMAIN BY ID API — GET /v1/domains/:id
+  Base URL: http://localhost:3001
+  Permission required: view_domains
+================================================================
+
+Setup — get an admin token first:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/1
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Login as a user whose role lacks view_domains:
+
+curl -i http://localhost:3001/v1/domains/1 -b /tmp/user-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. INVALID ID — NOT A NUMBER (400)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/abc -b /tmp/admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid domain ID" }
+
+
+--------------------------------------------------
+4. DOMAIN NOT FOUND (404)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/9999 -b /tmp/admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "Domain not found" }
+
+
+--------------------------------------------------
+5. SUCCESS (200)
+--------------------------------------------------
+curl -s http://localhost:3001/v1/domains/1 -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Domain fetched successfully",
+  "data": {
+    "id": 1,
+    "name": "Web Development",
+    "description": "Frontend and backend web technologies",
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}

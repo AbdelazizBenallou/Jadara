@@ -1,0 +1,359 @@
+@startuml
+' JADARA - Volunteering System Class Diagram
+title Volunteering System - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum ActivityStatus {
+    pending_review
+    published
+    rejected
+    ongoing
+    completed
+    cancelled
+}
+
+enum ApplicationStatus {
+    pending
+    accepted
+    rejected
+    completed
+}
+
+' =========================================================
+' EXISTING JADARA ENTITIES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findById(id) : Object
+}
+
+class skills {
+    + **id** : Int (PK)
+    + name : String (UNIQUE)
+    + description : String
+    ..
+    + findById(id) : Skill
+    + findByName(name) : Skill
+    + findAll() : Skill[]
+}
+
+class user_skills {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **skill_id** : Int (FK)
+    ..
+    + getSkillsByUserId(userId) : Skill[]
+    + addSkill(userId, skillId) : void
+    + removeSkill(userId, skillId) : void
+    + hasSkill(userId, skillId) : boolean
+}
+
+' =========================================================
+' ORGANIZATION
+' =========================================================
+
+class organizations {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **name** : String
+    + description : String
+    + logo : String
+    + website : String
+    + email : String
+    + phone : String
+    + location : String
+    + country : String
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Object
+    + findById(id) : Organization
+    + findByUserId(userId) : Organization
+    + create(data, userId) : Organization
+    + update(id, data, userId) : Organization
+    + delete(id, userId) : void
+    + getActivities(organizationId) : VolunteeringActivity[]
+}
+
+' =========================================================
+' ACTIVITY CATEGORY
+' =========================================================
+
+class activity_categories {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll() : ActivityCategory[]
+    + findById(id) : ActivityCategory
+    + findByName(name) : ActivityCategory
+    + create(data) : ActivityCategory
+    + update(id, data) : ActivityCategory
+    + delete(id) : void
+}
+
+' =========================================================
+' VOLUNTEERING ACTIVITY
+' =========================================================
+
+class volunteering_activities {
+    + **id** : Int (PK)
+    + **organization_id** : Int (FK)
+    + **category_id** : Int (FK)
+    + **approved_by** : Int (FK, NULL)
+    + title : String
+    + description : String
+    + location : String
+    + start_date : DateTime
+    + end_date : DateTime
+    + required_volunteers : Int
+    + requirements : String
+    + registration_deadline : DateTime
+    + status : ActivityStatus
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit, filters) : Object
+    + findById(id) : VolunteeringActivity
+    + findPublished(filters) : VolunteeringActivity[]
+    + findByOrganizationId(organizationId) : VolunteeringActivity[]
+    + findByCategoryId(categoryId) : VolunteeringActivity[]
+    + search(filters) : VolunteeringActivity[]
+    + create(data, organizationId) : VolunteeringActivity
+    + update(id, data, organizationId) : VolunteeringActivity
+    + submitForReview(id, organizationId) : VolunteeringActivity
+    + approve(id, adminUserId) : VolunteeringActivity
+    + reject(id, adminUserId) : VolunteeringActivity
+    + publish(id) : VolunteeringActivity
+    + cancel(id, organizationId) : VolunteeringActivity
+    + markAsOngoing(id) : VolunteeringActivity
+    + markAsCompleted(id) : VolunteeringActivity
+    + getRequiredSkills(activityId) : Skill[]
+    + addRequiredSkill(activityId, skillId) : void
+    + removeRequiredSkill(activityId, skillId) : void
+    + getApplications(activityId) : VolunteerApplication[]
+    + getAvailablePlaces(activityId) : Int
+}
+
+' =========================================================
+' ACTIVITY REQUIRED SKILL
+' =========================================================
+
+class activity_required_skills {
+    + **id** : Int (PK)
+    + **activity_id** : Int (FK)
+    + **skill_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + findByActivityId(activityId) : ActivityRequiredSkill[]
+    + addSkill(activityId, skillId) : void
+    + removeSkill(activityId, skillId) : void
+    + exists(activityId, skillId) : boolean
+}
+
+' =========================================================
+' VOLUNTEER APPLICATION
+' =========================================================
+
+class volunteer_applications {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **activity_id** : Int (FK)
+    + application_date : DateTime
+    + status : ApplicationStatus
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findById(id) : VolunteerApplication
+    + findByUserId(userId) : VolunteerApplication[]
+    + findByActivityId(activityId) : VolunteerApplication[]
+    + findByUserAndActivity(userId, activityId) : VolunteerApplication
+    + create(userId, activityId) : VolunteerApplication
+    + accept(id, organizationUserId) : VolunteerApplication
+    + reject(id, organizationUserId) : VolunteerApplication
+    + complete(id, organizationUserId) : VolunteerApplication
+    + getSkillMatch(id) : Object
+    + hasApplied(userId, activityId) : boolean
+    + countAccepted(activityId) : Int
+}
+
+' =========================================================
+' USER COMPLETED VOLUNTEERING
+' =========================================================
+
+class user_completed_volunteering {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **activity_id** : Int (FK)
+    + **organization_id** : Int (FK)
+    + completed_at : DateTime
+    + created_at : DateTime
+    ..
+    + findById(id) : UserCompletedVolunteering
+    + findByUserId(userId) : UserCompletedVolunteering[]
+    + findByActivityId(activityId) : UserCompletedVolunteering[]
+    + createFromCompletedApplication(applicationId) : UserCompletedVolunteering
+    + exists(userId, activityId) : boolean
+    + getUserVolunteeringExperience(userId) : UserCompletedVolunteering[]
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+' -------------------------
+' User
+' -------------------------
+
+users "1" -- "0..*" user_skills
+users "1" -- "0..*" user_completed_volunteering
+
+' Admin approval
+users "0..1" -- "0..*" volunteering_activities : approves
+
+' -------------------------
+' Skills
+' -------------------------
+
+skills "1" -- "0..*" user_skills
+skills "1" -- "0..*" activity_required_skills
+
+' -------------------------
+' Organization
+' -------------------------
+
+users "1" -- "0..1" organizations : organization account
+
+organizations "1" -- "0..*" volunteering_activities : creates / owns
+
+' -------------------------
+' Activity Category
+' -------------------------
+
+activity_categories "1" -- "0..*" volunteering_activities
+
+' -------------------------
+' Activity Required Skills
+' -------------------------
+
+volunteering_activities "1" -- "0..*" activity_required_skills
+
+' -------------------------
+' Applications
+' -------------------------
+
+volunteering_activities "1" -- "0..*" volunteer_applications
+
+users "1" -- "0..*" volunteer_applications : applies
+
+' -------------------------
+' Completed Volunteering
+' -------------------------
+
+volunteering_activities "1" -- "0..*" user_completed_volunteering
+
+organizations "1" -- "0..*" user_completed_volunteering
+
+' =========================================================
+' DEPENDENCIES / ENUM USAGE
+' =========================================================
+
+volunteering_activities ..> ActivityStatus : uses
+volunteer_applications ..> ApplicationStatus : uses
+
+' =========================================================
+' NOTES
+' =========================================================
+
+note right of users
+  Existing JADARA entity.
+
+  All users are centralized in
+  the existing users table.
+
+  Admins are users with the
+  appropriate role/permissions.
+end note
+
+note right of skills
+  Existing JADARA entity.
+
+  Skills are shared across the
+  platform and are NOT duplicated
+  for the volunteering module.
+end note
+
+note right of user_skills
+  Existing JADARA relationship.
+
+  Reused by volunteering to
+  calculate Skill Match.
+
+  No new UserSkill table is
+  created for volunteering.
+end note
+
+note right of activity_required_skills
+  Junction table between an
+  activity and its required skills.
+
+  One activity can require
+  multiple skills.
+
+  One skill can be required
+  by multiple activities.
+end note
+
+note right of volunteer_applications
+  One user can apply only once
+  to the same activity.
+
+  Recommended database constraint:
+
+  UNIQUE(user_id, activity_id)
+
+  Skill Match helps the
+  organization evaluate applicants.
+
+  Accept / Reject remains a
+  manual organization decision.
+end note
+
+note right of user_completed_volunteering
+  Created only when a volunteer
+  application reaches COMPLETED.
+
+  Used to make querying completed
+  volunteering experiences easier
+  for the CV system.
+
+  No audit system or CV versioning
+  is included here.
+end note
+
+@enduml

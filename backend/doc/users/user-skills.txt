@@ -1,0 +1,121 @@
+================================================================
+  USER <-> SKILLS APIs
+    Self-service (any logged-in user):
+      GET    /v1/users/me/skills              my skills
+      POST   /v1/users/me/skills              add 1..50 skills w/ levels
+      PATCH  /v1/users/me/skills/:skillId     change one level
+      DELETE /v1/users/me/skills/:skillId     remove one
+    Admin (manage_users permission): same four under /v1/users/:id/...
+  Base URL: http://localhost:3001
+  Levels = DB enum SkillLevel (prisma/schema.prisma):
+    beginner | intermediate | advanced | expert
+  Validator imports SkillLevel from @prisma/client (single source of truth)
+================================================================
+
+Setup:
+
+curl -s -c /tmp/u-cookies.txt -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }'
+
+=================================================
+GET /v1/users/me/skills
+=================================================
+
+-- no token -> 401 {"success":false,"message":"Unauthorized"}
+curl -i http://localhost:3001/v1/users/me/skills
+
+-- success (200), empty at first:
+{
+  "success": true,
+  "message": "Your skills fetched successfully",
+  "data": []
+}
+
+Each entry shape:
+{ "skill_id": 1, "name": "JavaScript", "level": "expert",
+  "skill_status": "active", "added_at": "...Z" }
+
+=================================================
+POST /v1/users/me/skills   (bulk, per-skill levels)
+=================================================
+Body: { "skills": [ { "skill_id": <int>, "level": <enum> }, ... ] }
+  - 1..50 items
+  - duplicate skill_id in request -> deduped, FIRST level wins
+
+Business logic (PARTIAL MODE), each id lands in ONE bucket:
+    added          = exists & new      -> inserted
+    already_linked = exists & had it   -> skipped, old level kept
+    not_found      = doesn't exist     -> refused & reported back
+Always 200 unless 401 / 404 user / 422 shape.
+
+--- bad level (422) ---
+-d '{ "skills": [ { "skill_id": 2, "level": "novice" } ] }'
+Expected: 422 errors.skills ["Invalid option: expected one of ..."]
+
+--- empty array / missing field (422) ---
+-d '{ "skills": [] }'   and   -d '{}'
+
+--- SUCCESS mixed (200) ---
+curl -s -X POST http://localhost:3001/v1/users/me/skills \
+  -H "Content-Type: application/json" -b /tmp/u-cookies.txt \
+  -d '{ "skills": [
+        { "skill_id": 1,  "level": "expert" },
+        { "skill_id": 13, "level": "beginner" },
+        { "skill_id": 9999, "level": "advanced" },
+        { "skill_id": 1,  "level": "intermediate" } ] }'
+
+Expected: 200  (dup id=1 deduped; FIRST level "expert" kept)
+{
+  "success": true,
+  "message": "Skills assigned successfully",
+  "data": {
+    "added":          [ { "skill_id": 1, "level": "expert" },
+                        { "skill_id": 13, "level": "beginner" } ],
+    "already_linked": [],
+    "not_found":      [9999],
+    "skills": [ ...full refreshed list... ]
+  }
+}
+Message = "Skill assigned successfully" when exactly 1 added.
+
+-- replay same request -> added: [], already_linked has both ids
+
+=================================================
+PATCH /v1/users/me/skills/:skillId
+=================================================
+
+curl -s -X PATCH http://localhost:3001/v1/users/me/skills/1 \
+  -H "Content-Type: application/json" -b /tmp/u-cookies.txt \
+  -d '{ "level": "intermediate" }'
+
+Expected: 200 {"success":true,"message":"Skill level updated successfully","data":null}
+
+Errors:
+  bad level "-d '{ \"level\": \"godmode\" }'"   -> 422
+  skill not linked to me (:skillId = 25)        -> 404 "Skill is not assigned to this user"
+  non-numeric :skillId                          -> 400 "Invalid skill ID"
+
+=================================================
+DELETE /v1/users/me/skills/:skillId
+=================================================
+
+curl -s -w " [%{http_code}]" -X DELETE http://localhost:3001/v1/users/me/skills/13 \
+  -b /tmp/u-cookies.txt
+
+Expected: 200 {"success":true,"message":"Skill removed successfully","data":null}
+Repeat same DELETE -> 404 "Skill is not assigned to this user"
+
+=================================================
+ADMIN variants (/v1/users/:id/skills...) — manage_users only
+=================================================
+
+curl -s http://localhost:3001/v1/users/3/skills -b /tmp/admin-cookies.txt
+Expected: 200 "User skills fetched successfully" (Aziz's list)
+
+POST/PATCH/DELETE bodies identical to /me versions.
+Non-admin token on these -> 403 Forbidden (manage_users gate).
+
+DB notes:
+- table user_skills: unique(user_id, skill_id) + level enum SkillLevel
+- migration: add_skill_level_enum

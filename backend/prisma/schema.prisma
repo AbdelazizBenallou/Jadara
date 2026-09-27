@@ -1,0 +1,535 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id                     Int                      @id @default(autoincrement())
+  email                  String                   @unique @db.VarChar(255)
+  password               String                   @db.VarChar(255)
+  status                 UserStatus               @default(active)
+  role_id                Int
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  certifications         certifications[]
+  cv_generation_requests cv_generation_requests[]
+  cv_versions cv_versions[]
+  demand_reviews         demands[]                @relation("DemandReviewer")
+  demands                demands[]                @relation("DemandApplicant")
+  devices                devices[]
+  documents              documents[]
+  educations             education[]
+  login_history          login_history[]
+  profiles               profiles?
+  project_reviews        project_reviews[]
+  projects               projects[]
+  refresh_tokens         refresh_tokens[]
+  reviewer_domains       reviewer_domains[]
+  user_languages         user_languages[]
+  user_skills            user_skills[]
+  user_socials           user_socials[]
+  roles                  roles                    @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  work_experiences       work_experience[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([role_id], map: "idx_users_role")
+}
+
+model profiles {
+  id            Int       @id @default(autoincrement())
+  user_id       Int       @unique
+  first_name    String    @db.VarChar(100)
+  last_name     String    @db.VarChar(100)
+  phone         String?   @db.VarChar(20)
+  date_of_birth DateTime? @db.Date
+  gender        String?   @db.VarChar(10)
+  avatar        String?   @db.VarChar(500)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  bio           String?   @db.VarChar(1000)
+  location      String?   @db.VarChar(255)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_profiles_user")
+}
+
+model roles {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique @db.VarChar(50)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
+  is_selectable    Boolean            @default(false)
+  demands          demands[]
+  role_permissions role_permissions[]
+  users            users[]
+}
+
+model permissions {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique @db.VarChar(100)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
+  role_permissions role_permissions[]
+}
+
+model role_permissions {
+  id            Int         @id @default(autoincrement())
+  role_id       Int
+  permission_id Int
+  created_at    DateTime?   @default(now()) @db.Timestamp(6)
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([role_id, permission_id])
+  @@index([role_id], map: "idx_role_permissions_role")
+  @@index([permission_id], map: "idx_role_permissions_permission")
+}
+
+model refresh_tokens {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token      String    @unique @db.VarChar(500)
+  expires_at DateTime  @db.Timestamp(6)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_refresh_tokens_user")
+}
+
+model login_history {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  ip_address String?   @db.VarChar(50)
+  user_agent String?   @db.VarChar(500)
+  login_at   DateTime? @default(now()) @db.Timestamp(6)
+  success    Boolean
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_login_history_user")
+}
+
+model devices {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int
+  device_fingerprint String    @unique @db.VarChar(500)
+  device_name        String    @db.VarChar(255)
+  last_active        DateTime? @db.Timestamp(6)
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  updated_at         DateTime? @default(now()) @db.Timestamp(6)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([device_fingerprint], map: "idx_devices_fingerprint")
+  @@index([user_id], map: "idx_devices_user")
+}
+
+model work_experience {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  company     String    @db.VarChar(255)
+  job_title   String    @db.VarChar(255)
+  description String?
+  start_date  DateTime? @db.Date
+  end_date    DateTime? @db.Date
+  is_current  Boolean   @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_work_experience_user")
+}
+
+model education {
+  id             Int       @id @default(autoincrement())
+  user_id        Int
+  school         String    @db.VarChar(255)
+  degree         String    @db.VarChar(255)
+  field_of_study String?   @db.VarChar(255)
+  description    String?
+  start_date     DateTime? @db.Date
+  end_date       DateTime? @db.Date
+  is_current     Boolean   @default(false)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_education_user")
+}
+
+model certifications {
+  id             Int       @id @default(autoincrement())
+  user_id        Int
+  name           String    @db.VarChar(255)
+  issuer         String?   @db.VarChar(255)
+  issue_date     DateTime? @db.Date
+  expiry_date    DateTime? @db.Date
+  credential_url String?   @db.VarChar(500)
+  file_url       String?   @db.VarChar(500)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_certifications_user")
+}
+
+model user_languages {
+  id          Int                 @id @default(autoincrement())
+  user_id     Int
+  proficiency LanguageProficiency
+  created_at  DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?           @default(now()) @db.Timestamp(6)
+  language_id Int
+  languages   languages           @relation(fields: [language_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, language_id])
+  @@index([user_id], map: "idx_user_languages_user")
+  @@index([language_id], map: "idx_user_languages_language")
+}
+
+model cv_generation_requests {
+  id           Int        @id @default(autoincrement())
+  user_id      Int
+  language     CVLanguage
+  status       String     @db.VarChar(50)
+  missing_fields Json?
+  data_hash    String?    @db.VarChar(255)
+  file_url     String?    @db.VarChar(500)
+  file_size    Int?
+  error_message String?
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?  @default(now()) @db.Timestamp(6)
+
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([user_id, language])
+}
+
+model audit_logs {
+  id         Int         @id @default(autoincrement())
+  user_id    Int?
+  action     AuditAction
+  entity     String      @db.VarChar(100)
+  entity_id  Int?
+  old_values Json?
+  new_values Json?
+  ip_address String?     @db.VarChar(50)
+  user_agent String?     @db.VarChar(500)
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+
+  @@index([user_id], map: "idx_audit_logs_user")
+  @@index([entity, entity_id], map: "idx_audit_logs_entity")
+  @@index([created_at], map: "idx_audit_logs_created")
+}
+
+model documents {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  name       String    @db.VarChar(255)
+  type       String    @db.VarChar(50)
+  file_url   String    @db.VarChar(500)
+  file_size  Int
+  mime_type  String    @db.VarChar(100)
+  status     String    @default("uploaded") @db.VarChar(20)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+  demand_id  Int?
+  demands    demands?  @relation(fields: [demand_id], references: [id], onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_documents_user")
+  @@index([demand_id], map: "idx_documents_demand")
+}
+
+model social_platforms {
+  id           Int              @id @default(autoincrement())
+  name         String           @unique @db.VarChar(100)
+  created_at   DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?        @default(now()) @db.Timestamp(6)
+
+  user_socials user_socials[]
+
+  @@index([name], map: "idx_social_platforms_name")
+}
+
+model user_socials {
+  id               Int              @id @default(autoincrement())
+  user_id          Int
+  platform_id      Int
+  url              String           @db.VarChar(500)
+  created_at       DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?        @default(now()) @db.Timestamp(6)
+  social_platforms social_platforms @relation(fields: [platform_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, platform_id])
+  @@index([user_id], map: "idx_user_socials_user")
+  @@index([platform_id], map: "idx_user_socials_platform")
+}
+
+model domains {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique @db.VarChar(100)
+  description      String?            @db.VarChar(500)
+  created_at       DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?           @default(now()) @db.Timestamp(6)
+
+  demand_domains   demand_domains[]
+  reviewer_domains reviewer_domains[]
+  skill_domains    skill_domains[]
+  sub_domains      sub_domains[]
+
+  @@index([name], map: "idx_domains_name")
+}
+
+model sub_domains {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(500)
+  domain_id   Int
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  domain      domains   @relation(fields: [domain_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projects    projects[]
+
+  @@unique([domain_id, name])
+  @@index([domain_id], map: "idx_sub_domains_domain")
+}
+
+model skill_categories {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.VarChar(500)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  skills      skills[]
+
+  @@index([name], map: "idx_skill_categories_name")
+}
+
+model skills {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique @db.VarChar(100)
+  description String?          @db.VarChar(500)
+  status      String           @default("active") @db.VarChar(20)
+  category_id Int
+
+  category      skill_categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skill_domains skill_domains[]
+  user_skills   user_skills[]
+
+  @@index([name], map: "idx_skills_name")
+  @@index([category_id], map: "idx_skills_category")
+}
+
+
+model skill_domains {
+  id         Int       @id @default(autoincrement())
+  skill_id   Int
+  domain_id  Int
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  domains    domains   @relation(fields: [domain_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills     skills    @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([skill_id, domain_id])
+  @@index([skill_id], map: "idx_skill_domains_skill")
+  @@index([domain_id], map: "idx_skill_domains_domain")
+}
+
+model user_skills {
+  id         Int        @id @default(autoincrement())
+  user_id    Int
+  skill_id   Int
+  created_at DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at DateTime?  @default(now()) @db.Timestamp(6)
+  level      SkillLevel @default(beginner)
+  skills     skills     @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, skill_id])
+  @@index([user_id], map: "idx_user_skills_user")
+  @@index([skill_id], map: "idx_user_skills_skill")
+}
+
+model languages {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique @db.VarChar(100)
+  code           String?          @unique @db.VarChar(10)
+  status         String           @default("active") @db.VarChar(20)
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamp(6)
+  user_languages user_languages[]
+
+  @@index([name], map: "idx_languages_name")
+}
+
+model projects {
+  id              Int               @id @default(autoincrement())
+  user_id         Int
+  title           String            @db.VarChar(255)
+  description     String?
+  status          ProjectStatus     @default(draft)
+  github_url      String?           @db.VarChar(500)
+  live_url        String?           @db.VarChar(500)
+  figma_url       String?           @db.VarChar(500)
+  created_at      DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamp(6)
+  sub_domain_id   Int?
+
+  evidence        evidence[]
+  project_reviews project_reviews[]
+  sub_domain     sub_domains?      @relation(fields: [sub_domain_id], references: [id], onUpdate: NoAction)
+  users           users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_projects_user")
+  @@index([sub_domain_id], map: "idx_projects_sub_domain")
+  @@index([status], map: "idx_projects_status")
+}
+
+
+model evidence {
+  id           Int       @id @default(autoincrement())
+  project_id   Int
+  type         String    @db.VarChar(50)
+  title        String    @db.VarChar(255)
+  description  String?   @db.VarChar(1000)
+  file_url     String?   @db.VarChar(500)
+  external_url String?   @db.VarChar(500)
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+  projects     projects  @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([project_id], map: "idx_evidence_project")
+}
+
+model project_reviews {
+  id          Int       @id @default(autoincrement())
+  project_id  Int
+  reviewer_id Int
+  rating      Int
+  feedback    String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  projects    projects  @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reviewer    users     @relation(fields: [reviewer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, reviewer_id])
+  @@index([project_id], map: "idx_project_reviews_project")
+  @@index([reviewer_id], map: "idx_project_reviews_reviewer")
+}
+
+model reviewer_domains {
+  id         Int       @id @default(autoincrement())
+  user_id    Int       @unique
+  domain_id  Int
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  domains    domains   @relation(fields: [domain_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([domain_id], map: "idx_reviewer_domains_domain")
+}
+
+model demands {
+  id             Int              @id @default(autoincrement())
+  user_id        Int
+  role_id        Int
+  status         DemandStatus     @default(pending)
+  reviewed_by    Int?
+  review_note    String?          @db.VarChar(1000)
+  reviewed_at    DateTime?        @db.Timestamp(6)
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamp(6)
+  demand_domains demand_domains[]
+  reviewer       users?           @relation("DemandReviewer", fields: [reviewed_by], references: [id], onUpdate: NoAction)
+  roles          roles            @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  applicant      users            @relation("DemandApplicant", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  documents      documents[]
+
+  @@index([user_id], map: "idx_demands_user")
+  @@index([role_id], map: "idx_demands_role")
+  @@index([status], map: "idx_demands_status")
+}
+
+model demand_domains {
+  id         Int       @id @default(autoincrement())
+  demand_id  Int
+  domain_id  Int
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  demands    demands   @relation(fields: [demand_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  domains    domains   @relation(fields: [domain_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([demand_id, domain_id])
+  @@index([demand_id], map: "idx_demand_domains_demand")
+  @@index([domain_id], map: "idx_demand_domains_domain")
+}
+
+model cv_versions {
+  id            Int        @id @default(autoincrement())
+  user_id       Int
+  language      CVLanguage
+  version       Int
+  last_audit_id Int
+  file_url      String     @db.VarChar(500)
+  file_size     Int?
+  created_at    DateTime?  @default(now()) @db.Timestamp(6)
+
+  users         users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, language, version])
+  @@index([user_id])
+  @@index([user_id, language])
+}
+
+enum UserStatus {
+  active
+  inactive
+  locked
+  pending
+}
+
+enum DemandStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ProjectStatus {
+  draft
+  submitted
+  under_review
+  verified
+}
+
+enum SkillLevel {
+  beginner
+  intermediate
+  advanced
+  expert
+}
+
+enum LanguageProficiency {
+  native
+  fluent
+  advanced
+  intermediate
+  beginner
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum CVLanguage {
+  AR
+  EN
+  FR
+}

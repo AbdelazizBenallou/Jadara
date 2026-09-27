@@ -1,0 +1,65 @@
+================================================================
+  AVAILABLE PROJECTS FOR REVIEW — GET /v1/reviews/available
+  Base URL: http://localhost:3001
+  Auth: Reviewer ONLY (permission: review_projects)
+  Rate limit: 60 requests per minute
+================================================================
+
+Shows projects the reviewer CAN rate:
+  - project.status is under_review or verified
+  - project.domain_id is in the reviewer's assigned domains
+    (reviewer_domains table)
+  - project is not the reviewer's own project
+  - reviewer has NOT reviewed it yet
+
+Reviewer must be assigned to the project's domain first
+(GET /v1/reviews/domains shows your domains).
+
+
+--------------------------------------------------
+1. LIST AVAILABLE PROJECTS
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  "http://localhost:3001/v1/reviews/available?page=1&limit=10" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Available projects fetched successfully",
+  "data": [
+    {
+      "id": 8,
+      "project_id": 8,
+      "status": "verified",
+      "submitted_at": "...",
+      "rating": { "average": 8, "count": 1 },
+      "project": {
+        "id": 8,
+        "title": "Ben Project",
+        "description": null,
+        "user": {
+          "id": 10,
+          "email": "ben@test.com",
+          "profile": { "first_name": "Ben", "last_name": "User", "avatar": null }
+        },
+        "domain": { "id": 1, "name": "Web Development" }
+      }
+    }
+  ],
+  "meta": { "total": 1, "page": 1, "limit": 10, "totalPages": 1, "nextCursor": null }
+}
+
+
+--------------------------------------------------
+2. NO AUTH (401) / NON-REVIEWER (403)
+--------------------------------------------------
+curl -s "http://localhost:3001/v1/reviews/available"  -> 401
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/reviews/available"  -> 403 Forbidden (review_projects)
+
+
+NOTES
+- A project already rated by you disappears from available
+  (use /history for your previous ratings).
+- A verified project stays available until you rate it.
+- "submitted_at" = project.created_at (when the draft was created,
+  not when submitted).

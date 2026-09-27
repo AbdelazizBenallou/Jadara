@@ -1,0 +1,103 @@
+================================================================
+  REJECT DEMAND API — POST /v1/demands/:id/reject   (REFUSE)
+  Base URL: http://localhost:3001
+  Auth: Admin only (permission: manage_users)
+  Rate limit: 20 requests per minute
+================================================================
+
+Refuses a pending registration demand:
+
+1. user.status            -> "inactive"  (applicant can NOT log in)
+2. demand.status          -> "rejected"
+3. demand.reviewed_by     -> admin user id
+4. demand.review_note     -> note (optional)
+5. demand.reviewed_at     -> now
+
+Body (JSON, all optional): { "note": "..." }   (max 1000 chars)
+
+
+--------------------------------------------------
+1. REJECT A DEMAND
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/2/reject \
+  -H "Content-Type: application/json" \
+  -d '{"note":"Missing company license"}' | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Demand rejected",
+  "data": {
+    "id": 2,
+    "status": "rejected",
+    "role": { "id": 3, "name": "Company" },
+    "applicant": {
+      "id": 6,
+      "email": "company@jadara.com",
+      "status": "inactive",
+      "profiles": { "first_name": "ACME", "last_name": "Corp", "phone": null, "avatar": null }
+    },
+    "domains": [],
+    "documents": [ { "id": 4, "name": "license.pdf", "type": "demand", "download_url": "...", ... } ],
+    "review_note": "Missing company license",
+    "reviewed_at": "2026-08-28T16:00:00.000Z",
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}
+
+DB effects (one transaction):
+  users.status = 'inactive'
+  demands.status = 'rejected', reviewed_by=1, review_note set, reviewed_at set
+
+
+--------------------------------------------------
+2. WITHOUT NOTE
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/2/reject \
+  -H "Content-Type: application/json" -d '{}'
+
+review_note -> null
+
+
+--------------------------------------------------
+3. ALREADY REVIEWED (409)
+--------------------------------------------------
+Rejecting an already approved/rejected demand fails:
+
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  -X POST http://localhost:3001/v1/demands/2/reject \
+  -H "Content-Type: application/json" -d '{}'
+
+Expected: 409 {"success":false,"message":"Demand is already reviewed"}
+
+
+--------------------------------------------------
+4. DEMAND NOT FOUND (404)
+--------------------------------------------------
+Expected: 404 {"success":false,"message":"Demand not found"}
+
+
+--------------------------------------------------
+5. INVALID ID (400) / NO AUTH (401) / NOT ADMIN (403)
+--------------------------------------------------
+/demands/abc/reject        -> 400 Invalid demand ID
+(no cookie)                -> 401
+ben_cookies                -> 403 Forbidden
+
+
+--------------------------------------------------
+6. AFTER REJECTION — APPLICANT LOGIN BLOCKED
+--------------------------------------------------
+Login returns 403:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"company@jadara.com","password":"Secret123"}'
+
+Expected: 403 {"success":false,"message":"Account is not active"}
+
+Protected routes also return 403 (verifyAccessToken).
+The email stays reserved (409 on re-register with same email).

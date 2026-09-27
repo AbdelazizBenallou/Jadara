@@ -1,0 +1,92 @@
+================================================================
+  GET USER API — GET /v1/users/:id
+  Base URL: http://localhost:3001
+  Auth: manage_users permission required
+================================================================
+
+
+--------------------------------------------------
+1. NO ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/1
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WRONG PERMISSION (403)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/1 \
+  -b beneficiary-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. INVALID USER ID (NaN) (400)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/abc \
+  -b admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid user ID" }
+
+
+--------------------------------------------------
+4. USER NOT FOUND (404)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/999 \
+  -b admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "User not found" }
+
+
+--------------------------------------------------
+5. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..61}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X GET http://localhost:3001/v1/users/1 \
+    -b admin-cookies.txt
+done
+
+Expected: first 60 return 200, 61st returns 429
+
+
+--------------------------------------------------
+6. SUCCESSFUL GET (200)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/1 \
+  -b admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "User retrieved",
+  "data": {
+    "id": 1,
+    "email": "admin@jadara.com",
+    "status": "active",
+    "created_at": "...",
+    "updated_at": "...",
+    "profiles": {
+      "id": 1,
+      "first_name": "Admin",
+      "last_name": "User",
+      "phone": null,
+      "date_of_birth": null,
+      "gender": null,
+      "avatar": null,
+      "created_at": "...",
+      "updated_at": "..."
+    },
+    "roles": {
+      "id": 4,
+      "name": "Admin"
+    }
+  }
+}

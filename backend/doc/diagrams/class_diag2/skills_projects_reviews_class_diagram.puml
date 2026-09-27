@@ -1,0 +1,282 @@
+@startuml
+' JADARA - Skills/Domains + Projects & Reviews Class Diagram
+title Skills/Domains + Projects & Reviews - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum ProjectStatus {
+    draft
+    submitted
+    under_review
+    verified
+}
+
+enum SkillLevel {
+    beginner
+    intermediate
+    advanced
+    expert
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class domains {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Domain[]
+    + findById(id) : Domain
+    + findByName(name) : Domain
+    + create(name, description?) : Domain
+    + update(id, data) : Domain
+    + countSkillsByDomainId(id) : number
+    + countProjectsByDomainId(id) : number
+    + getSkillsByDomainId(id) : Skill[]
+    + findReviewersByDomainId(id) : Object[]
+    + findAllReviewers() : Object[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, domainId) : number[]
+    + addSkillsToDomain(skillIds, domainId) : void
+    + remove(id) : void
+}
+
+class sub_domains {
+    + **id** : Int (PK)
+    + **domain_id** : Int (FK)
+    + name : String
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class skill_categories {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class skills {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **category_id** : Int (FK)
+    + description : String
+    + status : String
+    ..
+    + findAll(page, limit) : Skill[]
+    + findById(id) : Skill
+    + findByName(name) : Skill
+    + create(name, description?, status?) : Skill
+    + update(id, data) : Skill
+    + countUserSkills(id) : number
+    + countDomainLinks(id) : number
+    + remove(id) : void
+}
+
+class skill_domains {
+    + **id** : Int (PK)
+    + **skill_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + getSkillsByDomainId(domainId) : Skill[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, domainId) : number[]
+    + addSkillsToDomain(skillIds, domainId) : void
+    + remove(domainId) : void
+}
+
+class user_skills {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **skill_id** : Int (FK)
+    + level : SkillLevel
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findUserById(id) : User
+    + getSkills(userId) : Object[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, userId) : number[]
+    + addSkills(rows, userId) : void
+    + findLink(userId, skillId) : Object
+    + updateLevel(userId, skillId, level) : void
+    + removeLink(userId, skillId) : void
+}
+
+class reviewer_domains {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK, UNIQUE)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + findReviewerDomainIds(userId) : number[]
+    + findReviewerDomains(userId) : Object[]
+    + setReviewerDomains(userId, domainIds) : void
+    + removeReviewerDomain(userId, domainId) : number
+}
+
+class projects {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **sub_domain_id** : Int (FK)
+    + title : String
+    + description : String
+    + status : ProjectStatus
+    + github_url : String
+    + live_url : String
+    + figma_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAllByUserId(userId, page, limit) : Project[]
+    + findAll(page, limit) : Object
+    + findById(id) : Project
+    + findByIdWithUser(id) : Object
+    + create(userId, data) : Project
+    + update(id, data) : Project
+    + updateStatus(id, status) : Project
+    + delete(id) : void
+    + findExistingDomain(id) : Domain
+    + addEvidence(projectId, data) : void
+    + removeEvidence(evidenceId, projectId) : void
+    + findEvidenceById(evidenceId) : Evidence
+    + ratingsSummary(projectIds) : Map
+}
+
+class evidence {
+    + **id** : Int (PK)
+    + **project_id** : Int (FK)
+    + type : String
+    + title : String
+    + description : String
+    + file_url : String
+    + external_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + addEvidence(projectId, data) : void
+    + removeEvidence(evidenceId, projectId) : void
+    + findEvidenceById(evidenceId) : Evidence
+}
+
+class project_reviews {
+    + **id** : Int (PK)
+    + **project_id** : Int (FK)
+    + **reviewer_id** : Int (FK)
+    + rating : Int
+    + feedback : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAvailable(reviewerId, domainIds, page, limit) : Object
+    + findMine(reviewerId, page, limit) : Object
+    + findProjectDetail(projectId) : Project
+    + findReviewsByProject(projectId) : Review[]
+    + findReview(projectId, reviewerId) : Review
+    + createReview(projectId, reviewerId, rating, feedback?) : void
+    + updateReview(projectId, reviewerId, rating, feedback?) : void
+    + ratingsSummary(projectIds) : Map
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+domains "1" -- "0..*" sub_domains
+sub_domains "0..1" -- "0..*" projects
+skill_categories "1" -- "0..*" skills
+skills "1" -- "0..*" user_skills
+users "1" -- "0..*" user_skills
+skills "1" -- "0..*" skill_domains
+domains "1" -- "0..*" skill_domains
+users "1" -- "0..*" projects
+projects "1" -- "0..*" evidence
+projects "1" -- "0..*" project_reviews
+users "1" -- "0..*" project_reviews : reviewer
+users "1" -- "0..*" reviewer_domains
+domains "1" -- "0..*" reviewer_domains
+
+users ..> UserStatus : uses
+projects ..> ProjectStatus : uses
+user_skills ..> SkillLevel : uses
+
+note right of sub_domains
+  NEW table. No repository exists yet,
+  so it has no methods.
+end note
+
+note right of skill_categories
+  NEW table. No repository exists yet,
+  so it has no methods.
+end note
+
+note right of reviewer_domains
+  user_id is now UNIQUE on its own, replacing
+  @@unique([user_id, domain_id]).
+  setReviewerDomains writes one row per
+  domainId, so a multi-domain call now
+  violates this constraint.
+end note
+
+note right of projects
+  STALE: findExistingDomain(id) and create()
+  still use domain_id. The column is now
+  sub_domain_id. updateStatus already
+  matches the new ProjectStatus enum.
+end note
+
+note right of skills
+  skill_domains[] was restored, so
+  countDomainLinks(id) resolves again.
+  create() still does not set the new
+  required category_id.
+end note
+
+note bottom of sub_domains
+  AUTHORIZATION GAP
+  reviewer_domains.domain_id -> domains
+  projects.sub_domain_id  -> sub_domains
+  No edge links a reviewer's authorized
+  domain to a project's domain any more.
+  findAvailable(reviewerId, domainIds) can
+  no longer filter projects by reviewer scope.
+end note
+
+@enduml

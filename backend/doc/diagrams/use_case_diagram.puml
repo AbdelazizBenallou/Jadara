@@ -1,0 +1,61 @@
+@startuml
+' JADARA - Simple Use Case Diagram (include / extend)
+title JADARA - Simple Use Case Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam usecase {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+left to right direction
+
+actor "Beneficiary" as b
+actor "Reviewer" as r
+actor "Company" as c
+actor "Admin" as a
+
+usecase "Login" as UC1
+usecase "Verify credentials" as UC2
+usecase "Register account" as UC3
+usecase "Submit registration demand\n(upload proof docs + domains)" as UC12
+usecase "Manage profile" as UC4
+usecase "Manage CV data" as UC5
+usecase "Generate CV PDF" as UC6
+usecase "Upload documents" as UC7
+usecase "Submit project" as UC8
+usecase "Review project" as UC9
+usecase "Approve / reject demand" as UC10
+usecase "Manage users & roles" as UC11
+
+b --> UC1
+r --> UC1
+c --> UC1
+a --> UC1
+
+b --> UC3
+r --> UC12
+c --> UC12
+
+b --> UC4
+b --> UC5
+b --> UC6
+b --> UC7
+b --> UC8
+
+r --> UC9
+a --> UC10
+a --> UC11
+
+UC1 ..> UC2 : <<include>>
+UC6 ..> UC5 : <<include>>
+UC9 ..> UC8 : <<extend>>
+UC12 ..> UC3 : <<include>>
+UC10 ..> UC12 : <<extend>>
+
+@enduml

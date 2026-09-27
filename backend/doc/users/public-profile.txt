@@ -1,0 +1,152 @@
+================================================================
+  PUBLIC PROFILE API — GET /v1/users/:id/profile
+  Base URL: http://localhost:3001
+  Auth: any authenticated user (beneficiary, reviewer, company, admin)
+================================================================
+
+
+--------------------------------------------------
+1. NO ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/10/profile
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. VIEW ANOTHER USER (200)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/10/profile \
+  -b ben-cookies.txt
+
+Expected: 200
+
+curl -X GET http://localhost:3001/v1/users/1/profile \
+  -b company-cookies.txt     # any authenticated user can view anyone
+
+
+--------------------------------------------------
+3. USER NOT FOUND (404)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/999/profile \
+  -b ben-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "User not found" }
+
+
+--------------------------------------------------
+4. INVALID USER ID (NaN) (400)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/abc/profile \
+  -b ben-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid user ID" }
+
+
+--------------------------------------------------
+5. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..31}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X GET http://localhost:3001/v1/users/10/profile \
+    -b ben-cookies.txt
+done
+
+Expected: first 30 return 200, 31st returns 429
+
+
+--------------------------------------------------
+6. SUCCESSFUL RESPONSE (200)
+--------------------------------------------------
+curl -X GET http://localhost:3001/v1/users/10/profile \
+  -b ben-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "User profile retrieved",
+  "data": {
+    "id": 10,
+    "status": "active",
+    "created_at": "2026-08-28T13:45:04.716Z",
+    "profiles": {
+      "id": 9,
+      "first_name": "Ben",
+      "last_name": "User",
+      "phone": null,
+      "date_of_birth": null,
+      "avatar": null,
+      "bio": null,
+      "location": null,
+      "gender": null,
+      "created_at": "...",
+      "updated_at": "...",
+      "avatar_url": "http://localhost:9000/avatars/10.jpg?...signed... (presigned, null if no avatar)"
+    },
+    "role": "Beneficiary",
+    "user_socials": [
+      { "id": 1, "platform": "github", "url": "https://github.com/ben", "created_at": "..." }
+    ],
+    "work_experiences": [
+      {
+        "id": 1,
+        "company": "Acme Corp",
+        "job_title": "Software Engineer",
+        "description": "Built APIs",
+        "start_date": "2022-01-01T00:00:00.000Z",
+        "end_date": "2024-01-01T00:00:00.000Z",
+        "is_current": false
+      }
+    ],
+    "educations": [
+      {
+        "id": 1,
+        "school": "University X",
+        "degree": "BSc",
+        "field_of_study": "CS",
+        "description": null,
+        "start_date": "2018-09-01T00:00:00.000Z",
+        "end_date": "2022-06-30T00:00:00.000Z",
+        "is_current": false
+      }
+    ],
+    "certifications": [
+      {
+        "id": 1,
+        "name": "AWS Certified",
+        "issuer": "Amazon",
+        "issue_date": "2023-05-01T00:00:00.000Z",
+        "expiry_date": null,
+        "credential_url": "https://...",
+        "file_url": "cert/path.pdf"
+      }
+    ],
+    "user_languages": [
+      { "id": 1, "proficiency": "fluent", "languages": { "id": 1, "name": "Arabic", "code": "ar" } }
+    ],
+    "user_skills": [
+      {
+        "id": 1,
+        "level": "advanced",
+        "skills": { "id": 1, "name": "JavaScript", "description": "...", "status": "active" }
+      }
+    ],
+    "projects": [
+      {
+        "id": 8,
+        "title": "Ben Project",
+        "description": "demo",
+        "status": "verified",
+        "github_url": null,
+        "live_url": null,
+        "figma_url": null,
+        "created_at": "2026-08-28T13:45:36.185Z",
+        "domains": { "id": 1, "name": "Web Development" }
+      }
+    ]
+  }
+}

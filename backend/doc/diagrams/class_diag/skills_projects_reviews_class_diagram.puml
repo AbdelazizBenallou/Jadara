@@ -1,0 +1,214 @@
+@startuml
+' JADARA - Skills/Domains + Projects & Reviews Class Diagram
+title Skills/Domains + Projects & Reviews - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum ProjectStatus {
+    draft
+    under_review
+    verified
+    rejected
+    archived
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class skills {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll() : Skill[]
+    + findById(id) : Skill
+    + findByName(name) : Skill
+    + create(name) : Skill
+    + update(id, name) : Skill
+    + countUserSkills(id) : number
+    + countDomainLinks(id) : number
+    + remove(id) : void
+}
+
+class domains {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **created_by** : Int (FK)
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll() : Domain[]
+    + findById(id) : Domain
+    + findByName(name) : Domain
+    + create(name, adminUserId) : Domain
+    + update(id, name) : Domain
+    + countSkillsByDomainId(id) : number
+    + countProjectsByDomainId(id) : number
+    + getSkillsByDomainId(domainId) : Skill[]
+    + findReviewersByDomainId(domainId) : Object[]
+    + findAllReviewers() : Object[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(domainId) : number[]
+    + addSkillsToDomain(domainId, skillIds) : void
+    + remove(id) : void
+}
+
+class skill_domains {
+    + **id** : Int (PK)
+    + **skill_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + getSkillsByDomainId(domainId) : Skill[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(domainId) : number[]
+    + addSkillsToDomain(domainId, skillIds) : void
+    + remove(domainId) : void
+}
+
+class reviewer_domains {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **domain_id** : Int (FK)
+    + created_at : DateTime
+    ..
+    + findReviewersByDomainId(domainId) : Object[]
+    + findAllReviewers() : Object[]
+    + findReviewerDomainIds(reviewerId) : number[]
+    + findReviewerDomains(reviewerId) : Object[]
+    + setReviewerDomains(reviewerId, domainIds) : void
+    + removeReviewerDomain(reviewerId, domainId) : number
+}
+
+class projects {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + title : String
+    + description : String
+    + status : ProjectStatus
+    + **domain_id** : Int (FK)
+    + github_url : String
+    + demo_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAllByUserId(userId) : Project[]
+    + findAll(query) : Object
+    + findById(id) : Project
+    + findByIdWithUser(id) : Object
+    + create(userId, data) : Project
+    + update(id, data) : Project
+    + updateStatus(id, status) : Project
+    + delete(id) : void
+    + findExistingDomain(id) : Domain
+    + addEvidence(projectId, data) : void
+    + removeEvidence(evidenceId) : void
+    + findEvidenceById(id) : Evidence
+    + ratingsSummary(projectIds) : Map
+}
+
+class evidence {
+    + **id** : Int (PK)
+    + **project_id** : Int (FK)
+    + file_url : String
+    + file_type : String
+    + file_name : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + addEvidence(projectId, data) : void
+    + removeEvidence(evidenceId) : void
+    + findEvidenceById(id) : Evidence
+}
+
+class project_reviews {
+    + **id** : Int (PK)
+    + **project_id** : Int (FK)
+    + **reviewer_id** : Int (FK)
+    + rating : Int
+    + feedback : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAvailable(reviewerId, domainIds, page, limit) : Object
+    + findMine(reviewerId, page, limit) : Object
+    + findProjectDetail(projectId) : Project
+    + findReviewsByProject(projectId) : Review[]
+    + findReview(projectId, reviewerId) : Review
+    + createReview(projectId, reviewerId, rating, feedback) : void
+    + updateReview(projectId, reviewerId, rating, feedback) : void
+    + ratingsSummary(projectIds) : Map
+}
+
+class documents {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + name : String
+    + description : String
+    + file_url : String
+    + file_type : String
+    + file_size : Int
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(userId) : Document[]
+    + findById(id) : Document
+    + create(data) : Document
+    + delete(id) : void
+    + countByUserId(userId) : number
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+users "1" -- "0..*" domains : created_by
+users "1" -- "0..*" reviewer_domains
+users "1" -- "0..*" projects
+users "1" -- "0..*" documents
+users "1" -- "0..*" project_reviews : reviewer
+skills "1" -- "0..*" skill_domains
+domains "1" -- "0..*" skill_domains
+domains "1" -- "0..*" reviewer_domains
+projects "1" -- "0..*" evidence
+projects "1" -- "0..*" project_reviews
+
+users ..> UserStatus : uses
+projects ..> ProjectStatus : uses
+
+@enduml

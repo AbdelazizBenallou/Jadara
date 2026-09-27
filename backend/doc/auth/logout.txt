@@ -1,0 +1,102 @@
+================================================================
+  LOGOUT API — POST /v1/auth/logout
+  Base URL: http://localhost:3001
+================================================================
+
+
+--------------------------------------------------
+1. NO ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/logout
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. EXPIRED ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/logout \
+  -H "Authorization: Bearer eyeyJhbGciOiJIUzI1NiJ9.expired.token"
+
+Expected: 401
+Response: { "success": false, "message": "Access token expired" }
+
+
+--------------------------------------------------
+3. INVALID ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/logout \
+  -H "Authorization: Bearer invalid.token.value"
+
+Expected: 401
+Response: { "success": false, "message": "Invalid token" }
+
+
+--------------------------------------------------
+4. INACTIVE USER TRIES LOGOUT (403)
+--------------------------------------------------
+-- First set user to inactive, then try logout:
+-- UPDATE users SET status = 'inactive' WHERE id = 1;
+
+curl -X POST http://localhost:3001/v1/auth/logout \
+  -b cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Account is not active" }
+
+
+--------------------------------------------------
+5. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..21}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST http://localhost:3001/v1/auth/logout \
+    -b cookies.txt
+done
+
+Expected: first 20 return 200, 21st returns 429
+Response: { "success": false, "message": "Too many requests, please try again later" }
+
+
+--------------------------------------------------
+6. SUCCESSFUL LOGOUT (200)
+--------------------------------------------------
+curl -v -X POST http://localhost:3001/v1/auth/logout \
+  -b cookies.txt
+
+Expected: 200
+Response: { "success": true, "message": "Logged out successfully", "data": null }
+
+Cookies cleared:
+  Set-Cookie: accessToken=; Path=/; Max-Age=0
+  Set-Cookie: refreshToken=; Path=/v1/auth; Max-Age=0
+
+DB: all refresh_tokens for user revoked
+
+
+--------------------------------------------------
+7. LOGOUT TWICE (still 200)
+--------------------------------------------------
+-- Second logout with same (now cleared) cookie:
+curl -X POST http://localhost:3001/v1/auth/logout \
+  -b cookies-cleared.txt
+
+Expected: 200 (idempotent)
+Response: { "success": true, "message": "Logged out successfully", "data": null }
+
+
+--------------------------------------------------
+8. LOGOUT VIA BEARER HEADER (200)
+--------------------------------------------------
+curl -v -X POST http://localhost:3001/v1/auth/logout \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..."
+
+Expected: 200
+Response: { "success": true, "message": "Logged out successfully", "data": null }
+
+Cookies cleared:
+  Set-Cookie: accessToken=; Path=/; Max-Age=0
+  Set-Cookie: refreshToken=; Path=/v1/auth; Max-Age=0
+
+DB: all refresh_tokens for user revoked

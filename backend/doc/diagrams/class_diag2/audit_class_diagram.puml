@@ -1,0 +1,71 @@
+@startuml
+' JADARA - Audit Logs Class Diagram
+title Audit Logs - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum AuditAction {
+    CREATE
+    UPDATE
+    DELETE
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class audit_logs {
+    + **id** : Int (PK)
+    + user_id : Int
+    + action : AuditAction
+    + entity : String
+    + entity_id : Int
+    + old_values : Json
+    + new_values : Json
+    + ip_address : String
+    + user_agent : String
+    + created_at : DateTime
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+audit_logs ..> AuditAction : uses
+
+note right of audit_logs
+  No repository exists for audit_logs,
+  so the class has no methods.
+
+  It is also absent from the old
+  class_diag set, which is why this
+  diagram is new.
+
+  user_id is a bare Int with no @relation
+  to users, so it is not a real foreign
+  key. Drawn with no edge on purpose.
+end note
+
+note on link
+  action changed from String VarChar(100)
+  to the AuditAction enum. Existing rows
+  need a USING cast and a casing decision,
+  since the old values were likely lowercase
+  (create/update/delete) and will not match
+  CREATE/UPDATE/DELETE.
+end note
+
+@enduml

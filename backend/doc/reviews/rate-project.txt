@@ -1,0 +1,95 @@
+================================================================
+  RATE A PROJECT — POST /v1/reviews/:projectId/rate
+  Base URL: http://localhost:3001
+  Auth: Reviewer ONLY (permission: review_projects)
+  Rate limit: 10 requests per minute
+================================================================
+
+The reviewer rates a project that is in their assigned domain.
+FIRST rating: creates the review and sets project.status -> "verified".
+
+Body (JSON):
+  rating     int   required, 1-10
+  feedback   string optional, max 2000
+
+
+--------------------------------------------------
+1. RATE A PROJECT IN YOUR DOMAIN (201)
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  -X POST http://localhost:3001/v1/reviews/8/rate \
+  -H "Content-Type: application/json" \
+  -d '{"rating":8,"feedback":"looks good"}'
+
+Expected: 200
+{
+  "success": true,
+  "message": "Rating submitted successfully",
+  "data": {
+    "project_id": 8,
+    "rating": 8,
+    "feedback": "looks good",
+    "project_status": "verified",
+    "rating_average": 8,
+    "rating_count": 1
+  }
+}
+
+DB: project_reviews row + projects.status = 'verified'
+    (first rating only; count/avg recomputed)
+
+
+--------------------------------------------------
+2. ALREADY RATED BY THIS REVIEWER (400)
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  -X POST http://localhost:3001/v1/reviews/8/rate \
+  -H "Content-Type: application/json" -d '{"rating":9}'
+
+Expected: 400 {"success":false,"message":"You have already rated this project; use PUT /rate to update it"}
+
+
+--------------------------------------------------
+3. PROJECT NOT IN YOUR DOMAINS (403)
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  -X POST http://localhost:3001/v1/reviews/999/rate \
+  -H "Content-Type: application/json" -d '{"rating":9}'
+
+Expected: 403 {"success":false,"message":"This project is not in your assigned domains"}
+(or 404 Project not found if id does not exist)
+
+
+--------------------------------------------------
+4. RATE YOUR OWN PROJECT (400)
+--------------------------------------------------
+Expected: 400 {"success":false,"message":"You cannot rate your own project"}
+
+
+--------------------------------------------------
+5. STATUS NOT REVIEWABLE (400)
+--------------------------------------------------
+Project not under_review/verified (e.g. draft):
+Expected: 400 {"success":false,"message":"Only projects under review can be rated"}
+
+
+--------------------------------------------------
+6. NO DOMAIN ASSIGNED (400)
+--------------------------------------------------
+project.domain_id is null:
+Expected: 400 {"success":false,"message":"Project has no domain assigned; cannot be rated"}
+
+
+--------------------------------------------------
+7. VALIDATION (422) / AUTH
+--------------------------------------------------
+rating 0 or 11   -> 422
+rating missing   -> 422
+non-reviewer     -> 403 (review_projects)
+no cookie        -> 401
+
+
+NOTES
+- Reviewer must be assigned to the project's domain (reviewer_domains)
+  — set by admin on demand approval or via user review-domains API.
+- Update a rating with PUT /v1/reviews/:projectId/rate.

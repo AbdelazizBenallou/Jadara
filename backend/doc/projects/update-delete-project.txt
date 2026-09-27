@@ -1,0 +1,48 @@
+================================================================
+  UPDATE / DELETE PROJECT APIS
+  Base URL: http://localhost:3001
+  Auth: project owner only (verifyAccessToken)
+  Rate limit: 20 requests per minute
+================================================================
+
+--------------------------------------------------
+1. UPDATE — PATCH /v1/projects/:id
+--------------------------------------------------
+Fields (all optional):
+  title, description, github_url, live_url, figma_url (nullable),
+  domain_id (nullable, must exist)
+
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  -X PATCH http://localhost:3001/v1/projects/7 \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Updated Title","domain_id":8}'
+
+Expected: 200 "Project updated successfully"
+  (same response shape as getById — includes reviews/rating/evidence)
+
+Errors:
+  not owner            -> 403 Forbidden
+  not found            -> 404 Project not found
+  under review/verified-> 400 "Cannot edit a project that is under review or verified"
+  bad url              -> 422
+  bad domain_id        -> 400 "Domain not found: <id>"
+
+
+--------------------------------------------------
+2. DELETE — DELETE /v1/projects/:id
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt -X DELETE http://localhost:3001/v1/projects/7
+
+Expected: 200 {"success":true,"message":"Project deleted successfully","data":null}
+
+- Deletes evidence files from MinIO too (evidence bucket).
+- Cannot delete a project under review or verified:
+  -> 400 "Cannot delete a project that is under review or verified"
+
+Errors: not owner 403, not found 404, invalid id 400.
+
+
+NOTES
+- Same ownership rules as GET /:id.
+- Draft/submitted projects are editable/deletable; under_review and
+  verified are locked (must use admin endpoints).

@@ -1,0 +1,128 @@
+@startuml
+' JADARA - Users & Auth Entity Diagram
+title Users & Auth - Entity Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 12
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+skinparam entityFontStyle bold
+hide empty members
+
+' =========================================================
+' ENUM
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+together {
+  entity "users" as users {
+    * **id : Int (PK)**
+    * **email : String (UNIQUE)**
+    * password : String
+    * status : UserStatus
+    * **role_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "profiles" as profiles {
+    * **id : Int (PK)**
+    * **user_id : Int (FK, UNIQUE)**
+    * first_name : String
+    * last_name : String
+    phone : String
+    date_of_birth : DateTime
+    gender : String
+    avatar : String
+    bio : String
+    location : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "roles" as roles {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    is_selectable : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "permissions" as permissions {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "role_permissions" as role_permissions {
+    * **id : Int (PK)**
+    * **role_id : Int (FK)**
+    * **permission_id : Int (FK)**
+    created_at : DateTime
+    -- (role_id, permission_id) (UNIQUE)
+  }
+
+  entity "refresh_tokens" as refresh_tokens {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **token : String (UNIQUE)**
+    expires_at : DateTime
+    created_at : DateTime
+  }
+
+  entity "login_history" as login_history {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    ip_address : String
+    user_agent : String
+    login_at : DateTime
+    success : Boolean
+  }
+
+  entity "devices" as devices {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **device_fingerprint : String (UNIQUE)**
+    device_name : String
+    last_active : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+  }
+}
+
+' =========================================================
+' RELATIONSHIPS (crow's foot notation)
+' =========================================================
+
+roles ||--o{ users : has
+users ||--|| profiles : has
+users ||--o{ refresh_tokens : owns
+users ||--o{ login_history : owns
+users ||--o{ devices : uses
+roles ||--o{ role_permissions : has
+permissions ||--o{ role_permissions : has
+
+legend right
+  |= Symbol |= Meaning |
+  | `||` | exactly one |
+  | `o|` | zero or one |
+  | `o{` | zero or many |
+endlegend
+
+@enduml

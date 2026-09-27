@@ -1,0 +1,175 @@
+================================================================
+  DOMAIN ↔ SKILLS APIs
+    GET  /v1/domains/:id/skills   — list skills of a domain
+    POST /v1/domains/:id/skills   — admin links a skill
+  Base URL: http://localhost:3001
+  Permissions:
+    GET  -> view_domains   (Admin + all baseline roles)
+    POST -> update_domain  (Admin only)
+================================================================
+
+Setup:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+==================================================
+GET /v1/domains/:id/skills
+==================================================
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/1/skills
+
+Expected: 401 {"success":false,"message":"Unauthorized"}
+
+--------------------------------------------------
+2. INVALID ID (400)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/abc/skills -b /tmp/admin-cookies.txt
+
+Expected: 400 {"success":false,"message":"Invalid domain ID"}
+
+--------------------------------------------------
+3. DOMAIN NOT FOUND (404)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/9999/skills -b /tmp/admin-cookies.txt
+
+Expected: 404 {"success":false,"message":"Domain not found"}
+
+--------------------------------------------------
+4. SUCCESS (200)
+--------------------------------------------------
+curl -s http://localhost:3001/v1/domains/1/skills -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Skills fetched successfully",
+  "data": [
+    { "id": 1,  "name": "JavaScript",     "description": null, "status": "active" },
+    { "id": 3,  "name": "HTML/CSS",       ... },
+    { "id": 4,  "name": "React",          ... },
+    ...
+  ]
+}
+
+-- Domain with no linked skills returns data: []
+
+
+==================================================
+POST /v1/domains/:id/skills
+=================================================
+Body: EITHER single skill OR many skills:
+  { "skill_id": <number> }
+  { "skill_ids": [<number>, ...] }   (1–50 ids, duplicates removed)
+
+Business logic (PARTIAL MODE — accepts what exists, reports the rest):
+  1. validate shape            -> 422 if neither / both fields
+  2. domain must exist         -> 404
+  3. duplicates in input       -> auto-deduped
+  4. each id lands in ONE bucket:
+       added          = exists & newly linked      -> inserted (createMany)
+       already_linked = exists & already attached  -> skipped, no error
+       not_found      = does NOT exist             -> refused & REPORTED back
+  5. always 200 on success (even if all ids were fake: added: [])
+     only errors left: 404 bad domain / 403 no permission / 422 bad shape
+  6. response includes full refreshed skill list
+
+--------------------------------------------------
+5. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Only roles with update_domain (Admin):
+
+curl -i -X POST http://localhost:3001/v1/domains/2/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/noperm-cookies.txt \
+  -d '{ "skill_id": 13 }'
+
+Expected: 403 {"success":false,"message":"Forbidden"}
+
+--------------------------------------------------
+6. VALIDATION ERRORS (422)
+--------------------------------------------------
+
+--- Empty body ---
+-d '{}'
+Expected: 422 {"success":false,"message":"Validation failed",
+               "errors":{"skill_id":["Either skill_id or skill_ids is required"]}}
+
+--- Both fields at once ---
+-d '{ "skill_id": 20, "skill_ids": [21] }'
+Expected: 422 {"success":false,"message":"Validation failed",
+               "errors":{"skill_id":["Provide either skill_id or skill_ids, not both"]}}
+
+--- Empty array ---
+-d '{ "skill_ids": [] }'
+Expected: 422 errors.skill_ids ["Too small: expected array to have >=1 items"]
+
+--- Bad values ---
+-d '{ "skill_id": -1 }'              Expected: 422
+-d '{ "skill_ids": [0, "x", null] }' Expected: 422
+
+--------------------------------------------------
+7. DOMAIN NOT FOUND (404)
+--------------------------------------------------
+curl -i -X POST http://localhost:3001/v1/domains/9999/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "skill_ids": [1, 2] }'
+
+Expected: 404 {"success":false,"message":"Domain not found"}
+
+--------------------------------------------------
+8. SUCCESS — SINGLE FORM (200)
+--------------------------------------------------
+curl -s -X POST http://localhost:3001/v1/domains/1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "skill_id": 13 }'
+
+Expected: 200
+{
+  "success": true,
+  "message": "Skill assigned successfully",
+  "data": {
+    "added": [13],
+    "already_linked": [],
+    "not_found": [],
+    "skills": [ ...full refreshed skill list of the domain... ]
+  }
+}
+
+--------------------------------------------------
+8b. SUCCESS — BULK FORM with MIXED results (200)
+--------------------------------------------------
+-- say 30/31 exist & unlinked, 9999 doesn't, duplicate 30 deduped:
+
+curl -s -X POST http://localhost:3001/v1/domains/3/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "skill_ids": [30, 31, 9999, 30] }'
+
+Expected: 200
+{ "success": true, "message": "Skills assigned successfully",
+  "data": { "added": [30, 31],
+            "already_linked": [],
+            "not_found": [9999],
+            "skills": [...] } }
+
+-- Replay same request -> added: [], already_linked: [30,31], not_found: [9999]
+-- ALL ids fake        -> still 200: added: [], not_found: [...everything...]
+-- Message says "Skill assigned..." when exactly 1 added, else "Skills assigned..."
+
+DB: one row per NEW link in skill_domains (skill_id, domain_id)
+
+--------------------------------------------------
+10. VERIFY LINK PERSISTS (200)
+--------------------------------------------------
+curl -s http://localhost:3001/v1/domains/2/skills -b /tmp/admin-cookies.txt | grep Python
+
+Expected: Python present after re-fetch

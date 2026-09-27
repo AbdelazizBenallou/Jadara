@@ -1,0 +1,114 @@
+================================================================
+  DOMAIN REVIEWERS APIS
+  Base URL: http://localhost:3001
+  Auth: Admin only (permission: manage_users)
+  Rate limit: 60 requests per minute
+================================================================
+
+Two admin-only endpoints to see which reviewers are assigned to
+domains (via reviewer_domains, created on demand approval or
+directly by admin).
+
+  1. GET /v1/domains/reviewers        — all domains with reviewers
+  2. GET /v1/domains/:id/reviewers    — one domain's reviewers
+
+
+--------------------------------------------------
+1. LIST ALL DOMAINS WITH THEIR REVIEWERS
+--------------------------------------------------
+GET /v1/domains/reviewers   (NOTE: route must be requested before
+any /v1/domains/:id pattern — it is registered first)
+
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/domains/reviewers" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Reviewers fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Web Development",
+      "reviewers": [
+        {
+          "id": 5,
+          "email": "reviewer@jadara.com",
+          "status": "active",
+          "profile": { "first_name": "Review", "last_name": "Er", "avatar": null },
+          "assigned_at": "2026-08-28T16:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Mobile Development",
+      "reviewers": []
+    },
+    { "id": 8, "name": "Databases", "reviewers": [ { "id": 5, "email": "reviewer@jadara.com", "status": "active", "profile": {...}, "assigned_at": "..." } ] }
+  ]
+}
+
+Domains without reviewers return an empty "reviewers" array.
+
+
+--------------------------------------------------
+2. GET ONE DOMAIN'S REVIEWERS
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/domains/1/reviewers" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Reviewers fetched successfully",
+  "data": {
+    "id": 1,
+    "name": "Web Development",
+    "reviewers": [
+      {
+        "id": 5,
+        "email": "reviewer@jadara.com",
+        "status": "active",
+        "profile": { "first_name": "Review", "last_name": "Er", "avatar": null },
+        "assigned_at": "2026-08-28T16:00:00.000Z"
+      }
+    ]
+  }
+}
+
+
+--------------------------------------------------
+3. DOMAIN NOT FOUND (404)
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/domains/999/reviewers"
+
+Expected: 404 {"success":false,"message":"Domain not found"}
+
+
+--------------------------------------------------
+4. INVALID ID (400)
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/domains/abc/reviewers"
+
+Expected: 400 {"success":false,"message":"Invalid domain ID"}
+
+
+--------------------------------------------------
+5. NOT ADMIN (403) / NO AUTH (401)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/domains/reviewers"   -> 403 Forbidden
+curl -s "http://localhost:3001/v1/domains/reviewers"                                    -> 401
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/domains/1/reviewers" -> 403 Forbidden
+
+Note: regular authenticated users CAN list domains via GET /v1/domains
+(view_domains) but NOT the reviewers endpoints (manage_users).
+
+
+NOTES
+- "reviewers" comes from reviewer_domains (users with role Reviewer
+  explicitly assigned to the domain).
+- Assigned when: demand approved (Reviewer role) or admin assigns via
+  users/:id/review-domains.
+- reviewer.profile contains first_name, last_name, avatar (no email
+  inside profile).

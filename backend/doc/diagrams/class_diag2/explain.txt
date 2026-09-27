@@ -1,0 +1,49 @@
+Sure — in normal words:
+
+One User can have many User Skills.
+Example: Ahmed has Teamwork, Communication, etc.
+
+One User can submit many Volunteer Applications.
+Example: Ahmed applies to Beach Cleaning and Tree Planting.
+
+One User can have many Completed Volunteering records.
+Example: Ahmed completed 3 volunteering activities.
+
+An Admin is a User who can approve volunteering activities.
+One Admin can approve many activities.
+
+One Skill can belong to many Users.
+This is handled through the existing user_skills table.
+
+One Skill can be required by many Activities.
+For example, Teamwork can be required by Beach Cleaning and Tree Planting.
+
+One User can have one Organization profile at most.
+This represents a user who manages an organization account.
+
+One Organization can create many Volunteering Activities.
+Example: Green Algeria creates Beach Cleaning, Tree Planting, etc.
+
+One Activity Category can contain many Activities.
+Example: Environmental can contain Beach Cleaning and Tree Planting.
+
+One Activity can require many Skills.
+Example: Beach Cleaning requires Teamwork and Communication.
+
+One Activity can receive many Volunteer Applications.
+Example: 30 users can apply to the same activity.
+
+One Completed Volunteering record belongs to one Activity.
+One Organization can have many Completed Volunteering records, because many volunteers can complete activities belonging to that organization.
+
+The most important chain is:
+
+Organization → Activity → Applications → Users
+
+and for skills:
+
+User → User Skills → Skills ← Required Skills ← Activity
+
+and after completion:
+
+User → Completed Volunteering → Activity → Organization.

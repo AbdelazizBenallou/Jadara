@@ -1,0 +1,302 @@
+@startuml
+' JADARA - CV & Profile Data Class Diagram
+title CV & Profile Data - Class Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 11
+skinparam classAttributeFontSize 10
+skinparam classAttributeIconSize 0
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum LanguageProficiency {
+    native
+    fluent
+    advanced
+    intermediate
+    beginner
+}
+
+enum SkillLevel {
+    beginner
+    intermediate
+    advanced
+    expert
+}
+
+enum CVLanguage {
+    AR
+    EN
+    FR
+}
+
+' =========================================================
+' CLASSES
+' =========================================================
+
+class users {
+    + **id** : Int (PK)
+    + **email** : String (UNIQUE)
+    + password : String
+    + status : UserStatus
+    + **role_id** : Int (FK)
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class work_experience {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + company : String
+    + job_title : String
+    + description : String
+    + start_date : DateTime
+    + end_date : DateTime
+    + is_current : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getWorkExperience(userId) : Object[]
+    + createWorkExperience(userId, data) : Object
+    + updateWorkExperience(userId, id, data) : Object
+    + deleteWorkExperience(userId, id) : void
+}
+
+class education {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + school : String
+    + degree : String
+    + field_of_study : String
+    + description : String
+    + start_date : DateTime
+    + end_date : DateTime
+    + is_current : Boolean
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getEducation(userId) : Object[]
+    + createEducation(userId, data) : Object
+    + updateEducation(userId, id, data) : Object
+    + deleteEducation(userId, id) : void
+}
+
+class certifications {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + name : String
+    + issuer : String
+    + issue_date : DateTime
+    + expiry_date : DateTime
+    + credential_url : String
+    + file_url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getCertifications(userId) : Object[]
+    + createCertification(userId, data) : Object
+    + updateCertification(userId, id, data) : Object
+    + deleteCertification(userId, id) : void
+}
+
+class user_languages {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **language_id** : Int (FK)
+    + proficiency : LanguageProficiency
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getLanguages(userId) : Object[]
+    + createLanguage(userId, data) : Object
+    + updateLanguage(userId, id, data) : Object
+    + deleteLanguage(userId, id) : void
+}
+
+class languages {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **code** : String (UNIQUE)
+    + status : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findAll(page, limit) : Language[]
+    + findById(id) : Language
+    + findByName(name) : Language
+    + create(name, code?, status?) : Language
+    + update(id, data) : Language
+    + countUserLanguages(id) : number
+    + remove(id) : void
+}
+
+class user_skills {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **skill_id** : Int (FK)
+    + level : SkillLevel
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + findUserById(id) : User
+    + getSkills(userId) : Object[]
+    + findExistingSkillIds(ids) : number[]
+    + findLinkedSkillIds(skillIds, userId) : number[]
+    + addSkills(rows, userId) : void
+    + findLink(userId, skillId) : Object
+    + updateLevel(userId, skillId, level) : void
+    + removeLink(userId, skillId) : void
+}
+
+class skills {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + **category_id** : Int (FK)
+    + description : String
+    + status : String
+    ..
+    + findAll(page, limit) : Skill[]
+    + findById(id) : Skill
+    + findByName(name) : Skill
+    + create(name, description?, status?) : Skill
+    + update(id, data) : Skill
+    + countUserSkills(id) : number
+    + countDomainLinks(id) : number
+    + remove(id) : void
+}
+
+class skill_categories {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + description : String
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class user_socials {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + **platform_id** : Int (FK)
+    + url : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + addSocial(userId, platform, url) : Object
+    + removeSocial(userId, socialId) : void
+}
+
+class social_platforms {
+    + **id** : Int (PK)
+    + **name** : String (UNIQUE)
+    + created_at : DateTime
+    + updated_at : DateTime
+}
+
+class cv_generation_requests {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + language : CVLanguage
+    + status : String
+    + missing_fields : Json
+    + data_hash : String
+    + file_url : String
+    + file_size : Int
+    + error_message : String
+    + created_at : DateTime
+    + updated_at : DateTime
+    ..
+    + getLatestRequest(userId) : Request
+    + getLatestCompleted(userId) : Request
+    + createRequest(userId, status, missingFields?, dataHash?) : Request
+    + updateRequest(id, data) : Request
+    + getRequests(userId, page, limit) : { requests, total }
+    + getAllCvData(userId) : Object
+}
+
+class cv_versions {
+    + **id** : Int (PK)
+    + **user_id** : Int (FK)
+    + language : CVLanguage
+    + version : Int
+    + last_audit_id : Int
+    + file_url : String
+    + file_size : Int
+    + created_at : DateTime
+}
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+users "1" -- "0..*" work_experience
+users "1" -- "0..*" education
+users "1" -- "0..*" certifications
+users "1" -- "0..*" user_socials
+social_platforms "1" -- "0..*" user_socials
+users "1" -- "0..*" user_languages
+languages "1" -- "0..*" user_languages
+users "1" -- "0..*" user_skills
+skills "1" -- "0..*" user_skills
+skill_categories "1" -- "0..*" skills
+users "1" -- "0..*" cv_generation_requests
+users "1" -- "0..*" cv_versions
+
+users ..> UserStatus : uses
+user_languages ..> LanguageProficiency : uses
+user_skills ..> SkillLevel : uses
+cv_generation_requests ..> CVLanguage : uses
+cv_versions ..> CVLanguage : uses
+
+note right of social_platforms
+  NEW table. No repository exists yet,
+  so it has no methods.
+end note
+
+note right of skill_categories
+  NEW table. No repository exists yet,
+  so it has no methods.
+end note
+
+note right of cv_versions
+  NEW table. No repository exists yet,
+  so it has no methods.
+
+  last_audit_id is a required Int with
+  no relation to audit_logs.
+  Dangling reference, not enforced.
+end note
+
+note right of cv_generation_requests
+  STALE: createRequest(userId, status, ...)
+  does not pass language, which is now
+  required. status also lost its default,
+  so callers must always supply it.
+end note
+
+note on link
+  skills.category_id is required and has no
+  default, so every existing skill row needs
+  a category backfill before this FK is added.
+end note
+
+note right of skills
+  STALE: create() does not set the new
+  required category_id.
+end note
+
+@enduml

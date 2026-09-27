@@ -1,0 +1,380 @@
+@startuml
+' JADARA - Full Entity Diagram (all entities)
+title JADARA - Full Entity Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+skinparam nodeFontSize 10
+skinparam classAttributeFontSize 9
+skinparam classAttributeIconSize 0
+skinparam entityFontStyle bold
+hide empty members
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum LanguageProficiency {
+    native
+    fluent
+    advanced
+    intermediate
+    beginner
+}
+
+enum SkillLevel {
+    beginner
+    intermediate
+    advanced
+    expert
+}
+
+enum ProjectStatus {
+    draft
+    submitted
+    under_review
+    verified
+}
+
+enum DemandStatus {
+    pending
+    approved
+    rejected
+}
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+together {
+  entity "users" as users {
+    * **id : Int (PK)**
+    * **email : String (UNIQUE)**
+    * password : String
+    * status : UserStatus
+    * **role_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "profiles" as profiles {
+    * **id : Int (PK)**
+    * **user_id : Int (FK, UNIQUE)**
+    * first_name : String
+    * last_name : String
+    phone : String
+    date_of_birth : DateTime
+    gender : String
+    avatar : String
+    bio : String
+    location : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "roles" as roles {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    is_selectable : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "permissions" as permissions {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "role_permissions" as role_permissions {
+    * **id : Int (PK)**
+    * **role_id : Int (FK)**
+    * **permission_id : Int (FK)**
+    created_at : DateTime
+    -- (role_id, permission_id) (UNIQUE)
+  }
+
+  entity "refresh_tokens" as refresh_tokens {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **token : String (UNIQUE)**
+    expires_at : DateTime
+    created_at : DateTime
+  }
+
+  entity "login_history" as login_history {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    ip_address : String
+    user_agent : String
+    login_at : DateTime
+    success : Boolean
+  }
+
+  entity "devices" as devices {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **device_fingerprint : String (UNIQUE)**
+    device_name : String
+    last_active : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "work_experience" as work_experience {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * company : String
+    * job_title : String
+    description : String
+    start_date : DateTime
+    end_date : DateTime
+    is_current : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "education" as education {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * school : String
+    * degree : String
+    field_of_study : String
+    description : String
+    start_date : DateTime
+    end_date : DateTime
+    is_current : Boolean
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "certifications" as certifications {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * name : String
+    issuer : String
+    issue_date : DateTime
+    expiry_date : DateTime
+    credential_url : String
+    file_url : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_languages" as user_languages {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **language_id : Int (FK)**
+    * proficiency : LanguageProficiency
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, language_id) (UNIQUE)
+  }
+
+  entity "languages" as languages {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    code : String (UNIQUE)
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_skills" as user_skills {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **skill_id : Int (FK)**
+    level : SkillLevel
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, skill_id) (UNIQUE)
+  }
+
+  entity "skills" as skills {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    status : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "user_socials" as user_socials {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * platform : String
+    * url : String
+    created_at : DateTime
+    updated_at : DateTime
+    -- (user_id, platform) (UNIQUE)
+  }
+
+  entity "domains" as domains {
+    * **id : Int (PK)**
+    * **name : String (UNIQUE)**
+    description : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "skill_domains" as skill_domains {
+    * **id : Int (PK)**
+    * **skill_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (skill_id, domain_id) (UNIQUE)
+  }
+
+  entity "reviewer_domains" as reviewer_domains {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (user_id, domain_id) (UNIQUE)
+  }
+
+  entity "projects" as projects {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * title : String
+    description : String
+    status : ProjectStatus
+    github_url : String
+    live_url : String
+    figma_url : String
+    **domain_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "evidence" as evidence {
+    * **id : Int (PK)**
+    * **project_id : Int (FK)**
+    * type : String
+    * title : String
+    description : String
+    file_url : String
+    external_url : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "project_reviews" as project_reviews {
+    * **id : Int (PK)**
+    * **project_id : Int (FK)**
+    * **reviewer_id : Int (FK)**
+    * rating : Int
+    feedback : String
+    created_at : DateTime
+    updated_at : DateTime
+    -- (project_id, reviewer_id) (UNIQUE)
+  }
+
+  entity "documents" as documents {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * name : String
+    * type : String
+    * file_url : String
+    * file_size : Int
+    * mime_type : String
+    status : String
+    **demand_id : Int (FK)**
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "demands" as demands {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * **role_id : Int (FK)**
+    * status : DemandStatus
+    **reviewed_by : Int (FK)**
+    review_note : String
+    reviewed_at : DateTime
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "demand_domains" as demand_domains {
+    * **id : Int (PK)**
+    * **demand_id : Int (FK)**
+    * **domain_id : Int (FK)**
+    created_at : DateTime
+    -- (demand_id, domain_id) (UNIQUE)
+  }
+
+  entity "cv_generation_requests" as cv_generation_requests {
+    * **id : Int (PK)**
+    * **user_id : Int (FK)**
+    * status : String
+    missing_fields : Json
+    data_hash : String
+    file_url : String
+    file_size : Int
+    error_message : String
+    created_at : DateTime
+    updated_at : DateTime
+  }
+}
+
+' =========================================================
+' RELATIONSHIPS (crow's foot notation)
+' =========================================================
+
+roles ||--o{ users : has
+users ||--|| profiles : has
+users ||--o{ refresh_tokens : owns
+users ||--o{ login_history : owns
+users ||--o{ devices : uses
+roles ||--o{ role_permissions : has
+permissions ||--o{ role_permissions : has
+
+users ||--o{ work_experience : has
+users ||--o{ education : has
+users ||--o{ certifications : has
+users ||--o{ user_languages : has
+languages ||--o{ user_languages : classified_by
+users ||--o{ user_skills : has
+skills ||--o{ user_skills : classified_by
+users ||--o{ user_socials : has
+
+domains ||--o{ skill_domains : classified_by
+skills ||--o{ skill_domains : classified_by
+users ||--o{ reviewer_domains : has
+domains ||--o{ reviewer_domains : assigned_to
+
+users ||--o{ projects : owns
+domains |o--o{ projects : classified_by
+projects ||--o{ evidence : has
+projects ||--o{ project_reviews : receives
+users ||--o{ project_reviews : reviews
+
+users ||--o{ documents : owns
+users ||--o{ demands : applies
+roles ||--o{ demands : requests
+demands ||--o{ demand_domains : has
+domains ||--o{ demand_domains : classified_by
+demands |o--o{ documents : proof_files
+users ||--o{ cv_generation_requests : has
+
+legend right
+  |= Symbol |= Meaning |
+  | `||` | exactly one |
+  | `o|` | zero or one |
+  | `o{` | zero or many |
+endlegend
+
+@enduml

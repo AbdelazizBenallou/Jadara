@@ -1,0 +1,106 @@
+================================================================
+  REFRESH TOKEN API — POST /v1/auth/refresh-token
+  Base URL: http://localhost:3001
+================================================================
+
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/refresh-token
+
+Expected: 401
+Response: { "success": false, "message": "Refresh token required" }
+
+
+--------------------------------------------------
+2. EXPIRED TOKEN (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/refresh-token \
+  -H "Content-Type: application/json" \
+  -d '{ "refreshToken": "eyJhbGciOiJIUzI1NiJ9.expired.token" }'
+
+Expected: 401
+Response: { "success": false, "message": "Refresh token expired" }
+
+
+--------------------------------------------------
+3. INVALID TOKEN (401)
+--------------------------------------------------
+curl -X POST http://localhost:3001/v1/auth/refresh-token \
+  -H "Content-Type: application/json" \
+  -d '{ "refreshToken": "invalid.token.value" }'
+
+Expected: 401
+Response: { "success": false, "message": "Invalid refresh token" }
+
+
+--------------------------------------------------
+4. REVOKED TOKEN (401)
+--------------------------------------------------
+-- After logout, try the old refreshToken cookie:
+curl -X POST http://localhost:3001/v1/auth/refresh-token \
+  -b cookies-with-revoked-token.txt
+
+Expected: 401
+Response: { "success": false, "message": "Refresh token revoked" }
+
+
+--------------------------------------------------
+5. INACTIVE USER TRIES REFRESH (401)
+--------------------------------------------------
+-- First set user to inactive, then try refresh with valid cookie:
+-- UPDATE users SET status = 'inactive' WHERE id = 1;
+
+curl -X POST http://localhost:3001/v1/auth/refresh-token \
+  -b cookies.txt
+
+Expected: 401
+Response: { "success": false, "message": "Invalid refresh token" }
+
+
+--------------------------------------------------
+6. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..21}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST http://localhost:3001/v1/auth/refresh-token \
+    -b cookies.txt
+done
+
+Expected: first 20 return 200, 21st returns 429
+Response: { "success": false, "message": "Too many requests, please try again later" }
+
+
+--------------------------------------------------
+6. SUCCESSFUL REFRESH (200)
+--------------------------------------------------
+curl -v -X POST http://localhost:3001/v1/auth/refresh-token \
+  -b cookies.txt
+
+Expected: 200
+Response: { "success": true, "message": "Token refreshed", "data": null }
+
+New cookies set:
+  Set-Cookie: accessToken=...; Path=/; HttpOnly; ...
+  Set-Cookie: refreshToken=...; Path=/v1/auth; HttpOnly; ...
+
+DB: old refresh_tokens revoked, new one inserted
+
+
+--------------------------------------------------
+8. REFRESH VIA BODY (200)
+--------------------------------------------------
+-- Send refresh token in body instead of cookie:
+curl -X POST http://localhost:3001/v1/auth/refresh-token \
+  -H "Content-Type: application/json" \
+  -d '{ "refreshToken": "eyJhbGciOiJIUzI1NiJ9..." }'
+
+Expected: 200
+Response: { "success": true, "message": "Token refreshed", "data": null }
+
+New cookies set:
+  Set-Cookie: accessToken=...; Path=/; HttpOnly; ...
+  Set-Cookie: refreshToken=...; Path=/v1/auth; HttpOnly; ...
+
+DB: old refresh_tokens revoked, new one inserted

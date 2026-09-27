@@ -1,0 +1,464 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide empty members
+
+' ========== ENUMS ==========
+
+enum UserStatus {
+    active
+    inactive
+    locked
+    pending
+}
+
+enum ProjectStatus {
+    draft
+    submitted
+    under_review
+    verified
+}
+
+enum SkillLevel {
+    beginner
+    intermediate
+    advanced
+    expert
+}
+
+enum LanguageProficiency {
+    native
+    fluent
+    advanced
+    intermediate
+    beginner
+}
+
+enum DemandStatus {
+    pending
+    approved
+    rejected
+}
+
+' ========== ENTITIES ==========
+
+' ========== USERS & AUTH ==========
+
+class Users {
+    + id: INT (PK)
+    + email: VARCHAR (UNIQUE)
+    + password: VARCHAR
+    + status: VARCHAR (UserStatus)
+    + role_id: INT (FK)
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Profiles {
+    + id: INT (PK)
+    + user_id: INT (FK, UNIQUE)
+    + first_name: VARCHAR
+    + last_name: VARCHAR
+    + phone: VARCHAR
+    + date_of_birth: DATE
+    + gender: VARCHAR
+    + avatar: VARCHAR
+    + bio: VARCHAR
+    + location: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Roles {
+    + id: INT (PK)
+    + name: VARCHAR (UNIQUE)
+    + is_selectable: BOOLEAN
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Permissions {
+    + id: INT (PK)
+    + name: VARCHAR (UNIQUE)
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class RolePermissions {
+    + id: INT (PK)
+    + role_id: INT (FK)
+    + permission_id: INT (FK)
+    + created_at: TIMESTAMP
+}
+
+class RefreshTokens {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + token: VARCHAR (UNIQUE)
+    + expires_at: TIMESTAMP
+    + created_at: TIMESTAMP
+}
+
+class LoginHistory {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + ip_address: VARCHAR
+    + user_agent: VARCHAR
+    + login_at: TIMESTAMP
+    + success: BOOLEAN
+}
+
+class Devices {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + device_fingerprint: VARCHAR (UNIQUE)
+    + device_name: VARCHAR
+    + last_active: TIMESTAMP
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class AuditLogs {
+    + id: INT (PK)
+    + user_id: INT (FK, NULLABLE)
+    + action: VARCHAR
+    + entity: VARCHAR
+    + entity_id: INT (NULLABLE)
+    + old_values: JSON
+    + new_values: JSON
+    + ip_address: VARCHAR
+    + user_agent: VARCHAR
+    + created_at: TIMESTAMP
+}
+
+class UserSocials {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + platform: VARCHAR (linkedin, github, twitter, behance...)
+    + url: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+' ========== SKILLS & DOMAINS ==========
+
+class Domains {
+    + id: INT (PK)
+    + name: VARCHAR (UNIQUE)
+    + description: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Skills {
+    + id: INT (PK)
+    + name: VARCHAR (UNIQUE)
+    + description: VARCHAR
+    + status: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class SkillDomains {
+    + id: INT (PK)
+    + skill_id: INT (FK)
+    + domain_id: INT (FK)
+    + created_at: TIMESTAMP
+}
+
+class UserSkills {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + skill_id: INT (FK)
+    + level: VARCHAR (SkillLevel)
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Languages {
+    + id: INT (PK)
+    + name: VARCHAR (UNIQUE)
+    + code: VARCHAR (UNIQUE, NULLABLE)
+    + status: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class UserLanguages {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + language_id: INT (FK)
+    + proficiency: VARCHAR (LanguageProficiency)
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+' ========== CV / ATS ==========
+
+class WorkExperience {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + company: VARCHAR
+    + job_title: VARCHAR
+    + description: TEXT
+    + start_date: DATE
+    + end_date: DATE
+    + is_current: BOOLEAN
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Education {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + school: VARCHAR
+    + degree: VARCHAR
+    + field_of_study: VARCHAR
+    + description: TEXT
+    + start_date: DATE
+    + end_date: DATE
+    + is_current: BOOLEAN
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Certifications {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + name: VARCHAR
+    + issuer: VARCHAR
+    + issue_date: DATE
+    + expiry_date: DATE
+    + credential_url: VARCHAR
+    + file_url: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class CvGenerationRequests {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + status: VARCHAR (pending/processing/completed/failed/incomplete)
+    + missing_fields: JSON
+    + data_hash: VARCHAR (SHA-256)
+    + file_url: VARCHAR
+    + file_size: INT
+    + error_message: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+' ========== DOCUMENTS ==========
+
+class Documents {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + demand_id: INT (FK, NULLABLE)
+    + name: VARCHAR
+    + type: VARCHAR (certificate, project, workDoc, demand)
+    + file_url: VARCHAR (MinIO object key)
+    + file_size: INT
+    + mime_type: VARCHAR
+    + status: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+' ========== PROJECTS & EVIDENCE ==========
+
+class Projects {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + domain_id: INT (FK, NULLABLE)
+    + title: VARCHAR
+    + description: TEXT
+    + status: VARCHAR (ProjectStatus)
+    + github_url: VARCHAR
+    + live_url: VARCHAR
+    + figma_url: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class Evidence {
+    + id: INT (PK)
+    + project_id: INT (FK)
+    + type: VARCHAR
+    + title: VARCHAR
+    + description: VARCHAR
+    + file_url: VARCHAR
+    + external_url: VARCHAR
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+' ========== REVIEWS & RATINGS ==========
+
+class ProjectReviews {
+    + id: INT (PK)
+    + project_id: INT (FK)
+    + reviewer_id: INT (FK)
+    + rating: INT (1-10)
+    + feedback: TEXT
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class ReviewerDomains {
+    + id: INT (PK)
+    + user_id: INT (FK)
+    + domain_id: INT (FK)
+    + created_at: TIMESTAMP
+}
+
+' ========== REGISTRATION DEMANDS ==========
+
+class Demands {
+    + id: INT (PK)
+    + user_id: INT (FK, applicant)
+    + role_id: INT (FK)
+    + status: VARCHAR (DemandStatus)
+    + reviewed_by: INT (FK, NULLABLE, admin)
+    + review_note: VARCHAR
+    + reviewed_at: TIMESTAMP
+    + created_at: TIMESTAMP
+    + updated_at: TIMESTAMP
+}
+
+class DemandDomains {
+    + id: INT (PK)
+    + demand_id: INT (FK)
+    + domain_id: INT (FK)
+    + created_at: TIMESTAMP
+}
+
+' ========== RELATIONSHIPS ==========
+
+Roles "1" -- "0..*" Users
+Users "1" -- "0..1" Profiles
+Users "1" -- "0..*" RefreshTokens
+Users "1" -- "0..*" LoginHistory
+Users "1" -- "0..*" Devices
+Users "1" -- "0..*" UserSocials
+Users "0..1" -- "0..*" AuditLogs
+
+Roles "1" -- "0..*" RolePermissions
+Permissions "1" -- "0..*" RolePermissions
+
+Domains "1" -- "0..*" SkillDomains
+Skills "1" -- "0..*" SkillDomains
+Users "1" -- "0..*" UserSkills
+Skills "1" -- "0..*" UserSkills
+
+Languages "1" -- "0..*" UserLanguages
+Users "1" -- "0..*" UserLanguages
+
+Users "1" -- "0..*" WorkExperience
+Users "1" -- "0..*" Education
+Users "1" -- "0..*" Certifications
+Users "1" -- "0..*" CvGenerationRequests
+Users "1" -- "0..*" Documents
+
+Users "1" -- "0..*" Projects
+Domains "1" -- "0..*" Projects
+Projects "1" -- "0..*" Evidence
+
+Projects "1" -- "0..*" ProjectReviews
+Users "1" -- "0..*" ProjectReviews : ReviewerRatings
+Users "1" -- "0..*" ReviewerDomains
+Domains "1" -- "0..*" ReviewerDomains
+
+Users "1" -- "0..*" Demands : Applicant
+Users "0..1" -- "0..*" Demands : Reviewer (admin)
+Roles "1" -- "0..*" Demands
+Demands "1" -- "0..*" DemandDomains
+Domains "1" -- "0..*" DemandDomains
+Demands "1" -- "0..*" Documents : ProofFiles
+
+' ========== NOTES ==========
+
+note top of Users
+  **User Status:**
+  - active: normal account
+  - inactive: disabled
+  - locked: banned
+  - pending: not verified yet
+end note
+
+note top of Roles
+  **is_selectable:**
+  - true  -> can be chosen at register
+  - false -> hidden from public roles API
+  Admin is always false
+end note
+
+note top of UserSkills
+  **SkillLevel:**
+  - beginner
+  - intermediate
+  - advanced
+  - expert
+end note
+
+note top of UserLanguages
+  **LanguageProficiency:**
+  - native
+  - fluent
+  - advanced
+  - intermediate
+  - beginner
+end note
+
+note top of Projects
+  **Status flow:**
+  draft -> submitted -> under_review
+  -> verified (first rating)
+end note
+
+note top of Evidence
+  **Type:**
+  - file  -> uploaded (file_url)
+  - link  -> external (external_url)
+end note
+
+note top of ProjectReviews
+  **Rating model:**
+  - reviewer rates project from 1-10
+  - project average = mean of all ratings
+  - reviewer can update their rating
+  - reviewer must be assigned to the project's
+    domain via ReviewerDomains
+  - unique (project_id, reviewer_id)
+end note
+
+note top of CvGenerationRequests
+  **Status flow:**
+  pending -> processing -> completed
+  failed / incomplete
+  (incomplete sets missing_fields)
+end note
+
+note top of Documents
+  **Type:**
+  - certificate -> cert file
+  - project     -> project asset
+  - workDoc     -> work document
+  - demand      -> reviewer/company proof (linked to a Demands row)
+end note
+
+note top of Demands
+  **Registration demand flow:**
+  - Reviewer / Company register with proof documents
+    and (reviewer) requested domains
+  - user created with status = pending
+  - admin approves -> user becomes active +
+    reviewer_domains created from DemandDomains
+  - admin rejects  -> user becomes inactive
+  - unique (demand_id, domain_id) in DemandDomains
+end note
+
+@enduml

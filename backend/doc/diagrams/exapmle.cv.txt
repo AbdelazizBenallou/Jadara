@@ -1,0 +1,200 @@
+JADARA - CV AUDIT & VERSION LOGIC
+
+1. USER CHANGES PROFILE DATA
+
+---
+
+Every CV-relevant change creates one record in CvProfileAudits.
+
+Examples:
+
+User adds a skill:
+Audit #11
+component = SKILL
+action = CREATED
+
+User updates work experience:
+Audit #12
+component = WORK_EXPERIENCE
+action = UPDATED
+
+User adds a certification:
+Audit #13
+component = CERTIFICATION
+action = CREATED
+
+2. CURRENT CV
+
+---
+
+The current CV stores the ID of the last audit that was included
+when the CV was generated.
+
+Example:
+
+```
+CV Version = 5
+last_audit_id = 10
+is_current = true
+```
+
+This means:
+
+```
+CV Version 5 contains all CV-relevant changes
+up to Audit #10.
+```
+
+## 3. USER REQUESTS A CV
+
+When the user requests a CV:
+
+```
+latest_audit_id = 13
+current_cv.last_audit_id = 10
+```
+
+The system checks:
+
+```
+latest_audit_id > current_cv.last_audit_id
+
+13 > 10
+
+TRUE
+```
+
+Therefore:
+
+```
+NEW CV IS REQUIRED.
+```
+
+## 4. MULTIPLE CHANGES
+
+If the user made several changes:
+
+```
+Audit #11 → added React skill
+Audit #12 → updated work experience
+Audit #13 → added certification
+```
+
+The system does NOT generate:
+
+```
+CV Version 6
+CV Version 7
+CV Version 8
+```
+
+Instead, it generates ONLY ONE new CV:
+
+```
+CV Version 6
+```
+
+This CV contains the user's CURRENT data, including
+all changes #11, #12 and #13.
+
+5. AFTER GENERATING THE NEW CV
+
+---
+
+The new CV becomes:
+
+```
+version = 6
+last_audit_id = 13
+is_current = true
+```
+
+The previous CV becomes:
+
+```
+version = 5
+is_current = false
+```
+
+## 6. USER REQUESTS THE CV AGAIN
+
+Current CV:
+
+```
+version = 6
+last_audit_id = 13
+```
+
+Latest audit:
+
+```
+latest_audit_id = 13
+```
+
+Check:
+
+```
+13 > 13
+
+FALSE
+```
+
+Therefore:
+
+```
+NO NEW CV IS GENERATED.
+```
+
+The system returns the existing CV Version 6.
+
+7. SIMPLE BUSINESS RULE
+
+---
+
+```
+IF latest_audit_id > current_cv.last_audit_id
+    THEN generate new CV
+ELSE
+    return current CV
+```
+
+## 8. IMPORTANT CONCEPT
+
+CvProfileAudits = records WHAT CHANGED.
+
+CvGenerationRequests = records WHICH CV VERSION WAS GENERATED.
+
+last_audit_id = checkpoint telling the system
+which changes are already included in the current CV.
+
+## FINAL FLOW
+
+User changes data
+|
+v
+Create CvProfileAudit
+|
+v
+User requests CV
+|
+v
+Compare latest_audit_id
+with current_cv.last_audit_id
+|
++----------------------+
+|                      |
+v                      v
+No new changes         New changes
+|                      |
+v                      v
+Return current CV       Generate new CV
+|
+v
+version + 1
+|
+v
+last_audit_id = latest_audit_id
+|
+v
+New current CV
+

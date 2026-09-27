@@ -1,0 +1,89 @@
+================================================================
+  DELETE DOMAIN API — DELETE /v1/domains/:id
+  Base URL: http://localhost:3001
+  Permission required: delete_domain
+================================================================
+
+Setup — get an admin token first:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i -X DELETE http://localhost:3001/v1/domains/9
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Login as a user whose role lacks delete_domain:
+
+curl -i -X DELETE http://localhost:3001/v1/domains/9 -b /tmp/user-cookies.txt
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. INVALID ID — NOT A NUMBER (400)
+--------------------------------------------------
+curl -i -X DELETE http://localhost:3001/v1/domains/abc -b /tmp/admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid domain ID" }
+
+
+--------------------------------------------------
+4. DOMAIN NOT FOUND (404)
+--------------------------------------------------
+curl -i -X DELETE http://localhost:3001/v1/domains/9999 -b /tmp/admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "Domain not found" }
+
+
+--------------------------------------------------
+5. DOMAIN WITH LINKED SKILLS (409 — BLOCKED)
+--------------------------------------------------
+-- Seed links skills to domains via skill_domains:
+--   SELECT d.name, COUNT(*) FROM skill_domains sd
+--   JOIN domains d ON d.id = sd.domain_id GROUP BY d.name;
+
+curl -i -X DELETE http://localhost:3001/v1/domains/1 -b /tmp/admin-cookies.txt
+
+Expected: 409
+Response: { "success": false, "message": "Cannot delete domain with linked skills" }
+DB: nothing deleted
+
+
+--------------------------------------------------
+6. SUCCESS — DOMAIN WITHOUT SKILLS (200)
+--------------------------------------------------
+-- Create a fresh one first:
+
+curl -s -X POST http://localhost:3001/v1/domains \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Temp Domain" }'
+-- note the returned id (example: 10)
+
+curl -i -X DELETE http://localhost:3001/v1/domains/10 -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response: { "success": true, "message": "Domain deleted successfully", "data": null }
+
+
+--------------------------------------------------
+7. VERIFY DELETION (404 AFTER)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/domains/10 -b /tmp/admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "Domain not found" }

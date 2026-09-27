@@ -1,0 +1,59 @@
+================================================================
+  GET SKILL BY ID API — GET /v1/skills/:id
+  Base URL: http://localhost:3001
+  Permission required: view_skills
+================================================================
+
+Setup:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/skills/1
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. INVALID ID — NOT A NUMBER (400)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/skills/abc -b /tmp/admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid skill ID" }
+
+
+--------------------------------------------------
+3. SKILL NOT FOUND (404)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/skills/9999 -b /tmp/admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "Skill not found" }
+
+
+--------------------------------------------------
+4. SUCCESS (200)
+--------------------------------------------------
+curl -s http://localhost:3001/v1/skills/1 -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Skill fetched successfully",
+  "data": {
+    "id": 1,
+    "name": "JavaScript",
+    "description": null,
+    "status": "active",
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}

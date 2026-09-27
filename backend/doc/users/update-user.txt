@@ -1,0 +1,166 @@
+================================================================
+  UPDATE USER API — PATCH /v1/users/:id
+  Base URL: http://localhost:3001
+  Auth: manage_users permission required
+================================================================
+
+
+--------------------------------------------------
+1. NO ACCESS TOKEN (401)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "inactive" }'
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WRONG PERMISSION (403)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -b beneficiary-cookies.txt \
+  -d '{ "status": "inactive" }'
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. INVALID USER ID (NaN) (400)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/abc \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "status": "inactive" }'
+
+Expected: 400
+Response: { "success": false, "message": "Invalid user ID" }
+
+
+--------------------------------------------------
+4. USER NOT FOUND (404)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/999 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "status": "inactive" }'
+
+Expected: 404
+Response: { "success": false, "message": "User not found" }
+
+
+--------------------------------------------------
+5. INVALID STATUS VALUE (422)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "status": "deleted" }'
+
+Expected: 422
+Response: { "success": false, "message": "Validation failed" }
+
+
+--------------------------------------------------
+6. INVALID ROLE ID (400)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "role_id": 999 }'
+
+Expected: 400
+Response: { "success": false, "message": "Invalid role" }
+
+
+--------------------------------------------------
+7. ADMIN CHANGES OWN ROLE (400)
+--------------------------------------------------
+-- Admin (id=1) tries to change their own role:
+curl -X PATCH http://localhost:3001/v1/users/1 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "role_id": 1 }'
+
+Expected: 400
+Response: { "success": false, "message": "Cannot change your own role" }
+
+
+--------------------------------------------------
+8. RATE LIMIT (429)
+--------------------------------------------------
+for i in {1..21}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X PATCH http://localhost:3001/v1/users/2 \
+    -H "Content-Type: application/json" \
+    -b admin-cookies.txt \
+    -d '{ "status": "active" }'
+done
+
+Expected: first 20 return 200, 21st returns 429
+
+
+--------------------------------------------------
+9. UPDATE STATUS ONLY (200)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "status": "inactive" }'
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "User updated",
+  "data": {
+    "id": 2,
+    "email": "patrik@jadara.com",
+    "status": "inactive",
+    "profiles": { "first_name": "Patrik", "last_name": "Jadara", ... },
+    "roles": { "id": 1, "name": "Beneficiary" }
+  }
+}
+
+
+--------------------------------------------------
+10. UPDATE ROLE ONLY (200)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{ "role_id": 3 }'
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "User updated",
+  "data": {
+    "id": 2,
+    "email": "patrik@jadara.com",
+    "status": "inactive",
+    "profiles": { "first_name": "Patrik", "last_name": "Jadara", ... },
+    "roles": { "id": 3, "name": "Company" }
+  }
+}
+
+
+--------------------------------------------------
+11. UPDATE MULTIPLE FIELDS (200)
+--------------------------------------------------
+curl -X PATCH http://localhost:3001/v1/users/2 \
+  -H "Content-Type: application/json" \
+  -b admin-cookies.txt \
+  -d '{
+    "status": "active",
+    "first_name": "Patrik",
+    "last_name": "Updated",
+    "role_id": 1
+  }'
+
+Expected: 200
+Response: { "success": true, "message": "User updated", "data": { ... } }

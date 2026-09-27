@@ -1,0 +1,87 @@
+================================================================
+  GET PROJECT API — GET /v1/projects/:id
+  Base URL: http://localhost:3001
+  Auth: project owner only (verifyAccessToken)
+  Rate limit: 60 requests per minute
+================================================================
+
+Returns one of the logged-in user's projects with:
+  - full reviews array (who rated, rating, feedback, dates)
+  - rating summary { average, count }
+  - evidence with download_url (presigned MinIO link, 1h)
+
+Ownership is enforced: only user_id owner can view.
+
+
+--------------------------------------------------
+1. GET MY PROJECT (OWNER VIEW)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt \
+  "http://localhost:3001/v1/projects/8" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Project fetched successfully",
+  "data": {
+    "id": 8,
+    "user_id": 10,
+    "domain_id": 1,
+    "title": "Ben Project",
+    "description": null,
+    "github_url": null,
+    "live_url": null,
+    "figma_url": null,
+    "status": "verified",
+    "created_at": "...",
+    "updated_at": "...",
+    "domains": { "id": 1, "name": "Web Development" },
+    "rating": { "average": 8, "count": 1 },
+    "reviews": [
+      {
+        "id": 5,
+        "rating": 8,
+        "feedback": "looks good",
+        "created_at": "...",
+        "updated_at": "...",
+        "reviewer": {
+          "id": 8,
+          "email": "web.reviewer@test.com",
+          "profiles": { "first_name": "Web", "last_name": "Reviewer", "avatar": null }
+        }
+      }
+    ],
+    "evidence": []
+  }
+}
+
+
+--------------------------------------------------
+2. PROJECT NOT FOUND (404)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/projects/999"
+
+Expected: 404 {"success":false,"message":"Project not found"}
+
+
+--------------------------------------------------
+3. NOT OWNER (403)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/projects/6"
+
+Expected: 403 Forbidden (project belongs to user 6)
+
+
+--------------------------------------------------
+4. INVALID ID (400) / NO AUTH (401)
+--------------------------------------------------
+/projects/abc  -> 400 Invalid project ID
+(no cookie)    -> 401
+
+
+NOTES
+- This is the answer to "get the review of the project by user":
+  each review includes reviewer id/email/profile, rating 1-10,
+  feedback, created_at/updated_at.
+- Admin has a separate admin view: GET /v1/projects/:id/admin
+  (see doc/projects/admin-projects.txt).

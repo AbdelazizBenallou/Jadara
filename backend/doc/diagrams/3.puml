@@ -1,0 +1,129 @@
+@startuml
+title JADARA - CV & Professional Profile
+
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+    FontName Helvetica
+}
+hide empty members
+
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum CvGenerationStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+}
+
+enum CvProfileAuditAction {
+    CREATED
+    UPDATED
+    DELETED
+}
+
+enum CvProfileComponent {
+    PROFILE
+    WORK_EXPERIENCE
+    EDUCATION
+    CERTIFICATION
+    SKILL
+    LANGUAGE
+    SUBDOMAIN
+}
+
+
+' =========================================================
+' ENTITIES
+' =========================================================
+
+class WorkExperience {
+    + id : UUID
+    --
+    user_id : UUID
+    company_name : VARCHAR(150)
+    job_title : VARCHAR(150)
+    description : TEXT
+    start_date : DATE
+    end_date : DATE
+    is_current : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class Education {
+    + id : UUID
+    --
+    user_id : UUID
+    institution : VARCHAR(200)
+    degree : VARCHAR(150)
+    field_of_study : VARCHAR(150)
+    description : TEXT
+    start_date : DATE
+    end_date : DATE
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class Certifications {
+    + id : UUID
+    --
+    user_id : UUID
+    name : VARCHAR(200)
+    issuing_organization : VARCHAR(200)
+    credential_id : VARCHAR(150)
+    issue_date : DATE
+    expiration_date : DATE
+    credential_url : VARCHAR(500)
+    description : TEXT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+class CvProfileAudits {
+    + id : UUID
+    --
+    user_id : UUID
+    changed_by : UUID
+    component : CvProfileComponent
+    action : CvProfileAuditAction
+    component_id : UUID
+    changed_at : TIMESTAMP
+}
+
+class CvGenerationRequests {
+    + id : UUID
+    --
+    user_id : UUID
+    version : INTEGER
+    status : CvGenerationStatus
+    is_current : BOOLEAN
+    last_audit_id : UUID
+    generated_at : TIMESTAMP
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+
+' =========================================================
+' RELATIONSHIPS
+' =========================================================
+
+' User ownership
+Users "1" --> "0..*" WorkExperience : has
+Users "1" --> "0..*" Education : has
+Users "1" --> "0..*" Certifications : has
+
+' CV profile changes
+Users "1" --> "0..*" CvProfileAudits : changes tracked
+Users "1" --> "0..*" CvGenerationRequests : generates
+
+' CV generation tracks processed changes
+CvGenerationRequests "0..*" --> "0..1" CvProfileAudits : last_audit
+
+@enduml

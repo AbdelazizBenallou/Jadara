@@ -1,0 +1,107 @@
+================================================================
+  GET DEMAND API — GET /v1/demands/:id
+  Base URL: http://localhost:3001
+  Auth: Admin only (permission: manage_users)
+  Rate limit: 60 requests per minute
+================================================================
+
+Returns one registration demand with full detail:
+applicant profile, requested role, requested domains, proof
+documents (each with a presigned download_url to view the PDF).
+
+
+--------------------------------------------------
+1. GET A DEMAND
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt \
+  "http://localhost:3001/v1/demands/1" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Demand fetched successfully",
+  "data": {
+    "id": 1,
+    "status": "pending",
+    "role": { "id": 2, "name": "Reviewer" },
+    "applicant": {
+      "id": 5,
+      "email": "reviewer@jadara.com",
+      "status": "pending",
+      "profiles": {
+        "first_name": "Review",
+        "last_name": "Er",
+        "phone": null,
+        "avatar": null
+      }
+    },
+    "domains": [
+      { "id": 1, "name": "Web Development" },
+      { "id": 8, "name": "Databases" }
+    ],
+    "documents": [
+      {
+        "id": 3,
+        "name": "cv.pdf",
+        "type": "demand",
+        "file_url": "demands/5/uuid.pdf",
+        "file_size": 12345,
+        "mime_type": "application/pdf",
+        "created_at": "...",
+        "download_url": "http://localhost:9000/documents/demands/5/uuid.pdf?X-Amz-Algorithm=..."
+      }
+    ],
+    "review_note": null,
+    "reviewed_at": null,
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}
+
+
+--------------------------------------------------
+2. AFTER REVIEW (APPROVED/REJECTED)
+--------------------------------------------------
+The response adds review info:
+  "status": "approved" | "rejected",
+  "review_note": "Documents verified",
+  "reviewed_at": "2026-08-28T16:00:00.000Z"
+applicant.status is "active" (approved) or "inactive" (rejected).
+
+
+--------------------------------------------------
+3. VIEW / DOWNLOAD THE PDF
+--------------------------------------------------
+Copy the download_url from the response, then either:
+
+Open in browser:
+  xdg-open "http://localhost:9000/documents/demands/5/<uuid>.pdf?X-Amz-Algorithm=..."
+
+Download to file:
+  curl -s -o /tmp/cv.pdf "http://localhost:9000/documents/demands/5/<uuid>.pdf?X-Amz-Algorithm=..."
+
+The presigned URL expires after 1 hour — fetch a fresh demand to get a
+new one. Do not share the URL; it grants direct download access.
+
+
+--------------------------------------------------
+4. DEMAND NOT FOUND (404)
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands/999"
+
+Expected: 404 {"success":false,"message":"Demand not found"}
+
+
+--------------------------------------------------
+5. INVALID ID (400)
+--------------------------------------------------
+curl -s -b /tmp/jadara/admin_cookies.txt "http://localhost:3001/v1/demands/abc"
+
+Expected: 400 {"success":false,"message":"Invalid demand ID"}
+
+
+--------------------------------------------------
+6. NOT ADMIN (403) / NO AUTH (401)
+--------------------------------------------------
+curl -s -b /tmp/jadara/ben_cookies.txt "http://localhost:3001/v1/demands/1"   -> 403
+curl -s "http://localhost:3001/v1/demands/1"                                    -> 401

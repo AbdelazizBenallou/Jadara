@@ -1,0 +1,150 @@
+================================================================
+  UPDATE DOMAIN API — PATCH /v1/domains/:id
+  Base URL: http://localhost:3001
+  Permission required: update_domain
+================================================================
+
+Setup — get an admin token first:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401)
+--------------------------------------------------
+curl -i -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "New Name" }'
+
+Expected: 401
+Response: { "success": false, "message": "Unauthorized" }
+
+
+--------------------------------------------------
+2. WITHOUT PERMISSION (403)
+--------------------------------------------------
+-- Login as a user whose role lacks update_domain:
+
+curl -i -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/user-cookies.txt \
+  -d '{ "name": "New Name" }'
+
+Expected: 403
+Response: { "success": false, "message": "Forbidden" }
+
+
+--------------------------------------------------
+3. INVALID ID — NOT A NUMBER (400)
+--------------------------------------------------
+curl -i -X PATCH http://localhost:3001/v1/domains/abc \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "New Name" }'
+
+Expected: 400
+Response: { "success": false, "message": "Invalid domain ID" }
+
+
+--------------------------------------------------
+4. VALIDATION ERRORS — Zod (422)
+--------------------------------------------------
+
+--- Empty name ---
+curl -i -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "" }'
+
+Expected: 422
+Response: { "success": false, "message": "Validation failed" }
+
+--- Name longer than 100 chars ---
+LONG=$(python3 -c "print('a'*101)")
+curl -i -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d "{ \"name\": \"$LONG\" }"
+
+Expected: 422
+
+
+--------------------------------------------------
+5. DOMAIN NOT FOUND (404)
+--------------------------------------------------
+curl -i -X PATCH http://localhost:3001/v1/domains/9999 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Ghost Domain" }'
+
+Expected: 404
+Response: { "success": false, "message": "Domain not found" }
+
+
+--------------------------------------------------
+6. DUPLICATE NAME (409)
+--------------------------------------------------
+-- Try renaming id=9 to a name owned by another row:
+
+curl -i -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Web Development" }'
+
+Expected: 409
+Response: { "success": false, "message": "Domain name already exists" }
+
+NOTE: renaming a domain to ITS OWN current name is allowed (no-op, no 409).
+
+
+--------------------------------------------------
+7. EMPTY BODY (200 — NO-OP UPDATE)
+--------------------------------------------------
+curl -s -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{}'
+
+Expected: 200 (schema is all-optional; nothing changes)
+Response:
+{
+  "success": true,
+  "message": "Domain updated successfully",
+  "data": { "id": 9, "name": "...", ... }
+}
+
+
+--------------------------------------------------
+8. SUCCESS — RENAME ONLY (200)
+--------------------------------------------------
+curl -s -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Robotics & Automation" }'
+
+Expected: 200
+Response:
+{
+  "success": true,
+  "message": "Domain updated successfully",
+  "data": {
+    "id": 9,
+    "name": "Robotics & Automation",
+    "description": null,
+    ...
+  }
+}
+
+
+--------------------------------------------------
+9. SUCCESS — SET DESCRIPTION TO NULL (200)
+--------------------------------------------------
+curl -s -X PATCH http://localhost:3001/v1/domains/9 \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "description": null }'
+
+Expected: 200
+Response: data.description === null

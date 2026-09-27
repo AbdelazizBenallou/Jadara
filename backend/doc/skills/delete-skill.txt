@@ -1,0 +1,82 @@
+================================================================
+  DELETE SKILL API — DELETE /v1/skills/:id
+  Base URL: http://localhost:3001
+  Permission required: delete_skill (Admin only)
+================================================================
+
+Setup:
+
+curl -s -X POST http://localhost:3001/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@jadara.com", "password": "Admin@12345" }' \
+  -c /tmp/admin-cookies.txt
+
+--------------------------------------------------
+1. NO TOKEN (401) / WITHOUT PERMISSION (403)
+--------------------------------------------------
+Expected: 401 {"success":false,"message":"Unauthorized"}
+          403 {"success":false,"message":"Forbidden"}
+          (Beneficiary/Reviewer/Company have no delete_skill)
+
+
+--------------------------------------------------
+2. INVALID ID — NOT A NUMBER (400)
+--------------------------------------------------
+curl -i -X DELETE http://localhost:3001/v1/skills/abc -b /tmp/admin-cookies.txt
+
+Expected: 400
+Response: { "success": false, "message": "Invalid skill ID" }
+
+
+--------------------------------------------------
+3. SKILL NOT FOUND (404)
+--------------------------------------------------
+curl -i -X DELETE http://localhost:3001/v1/skills/9999 -b /tmp/admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "Skill not found" }
+
+
+--------------------------------------------------
+4. LINKED SKILL — BLOCKED (409)
+--------------------------------------------------
+-- Seeded skills are linked to domains via skill_domains,
+-- e.g. JavaScript -> Web Development:
+
+curl -i -X DELETE http://localhost:3001/v1/skills/1 -b /tmp/admin-cookies.txt
+
+Expected: 409
+Response:
+{ "success": false, "message": "Cannot delete skill: linked to 1 domain(s). Unlink them first." }
+
+-- Message lists ONLY the non-zero link types:
+--   "...linked to 5 user(s). Unlink them first."
+--   "...linked to 2 project(s), 1 domain(s). Unlink them first."
+
+DB: nothing deleted
+
+
+--------------------------------------------------
+5. SUCCESS — UNLINKED SKILL (200)
+--------------------------------------------------
+-- Create a fresh one first:
+
+curl -s -X POST http://localhost:3001/v1/skills \
+  -H "Content-Type: application/json" \
+  -b /tmp/admin-cookies.txt \
+  -d '{ "name": "Temp Skill" }'
+-- note returned id (example: 37)
+
+curl -i -X DELETE http://localhost:3001/v1/skills/37 -b /tmp/admin-cookies.txt
+
+Expected: 200
+Response: { "success": true, "message": "Skill deleted successfully", "data": null }
+
+
+--------------------------------------------------
+6. VERIFY DELETION (404 AFTER)
+--------------------------------------------------
+curl -i http://localhost:3001/v1/skills/37 -b /tmp/admin-cookies.txt
+
+Expected: 404
+Response: { "success": false, "message": "Skill not found" }

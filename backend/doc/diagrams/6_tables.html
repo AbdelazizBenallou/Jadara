@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JADARA — Education & Courses · Tables with sample data</title>
+<style>
+:root { --bg:#ffffff; --ink:#1c2333; --muted:#6b7280; --line:#e5e7eb; --code:#f3f4f6;
+  --pk:#b45309; --pkbg:#fdf2e9; --fk:#2563eb; --fkbg:#eff6ff; --uq:#7c3aed; --uqbg:#f5f3ff;
+  --en:#047857; --enbg:#ecfdf5; --js:#b91c1c; --jsbg:#fef2f2; }
+* { box-sizing:border-box; }
+body { font-family:'Segoe UI',Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg);
+  margin:0; padding:32px 40px 80px; line-height:1.45; }
+h1 { font-size:26px; margin:0 0 4px; }
+.sub { color:var(--muted); margin:0 0 20px; font-size:14px; }
+.legend { display:flex; gap:14px; flex-wrap:wrap; padding:10px 14px; border:1px solid var(--line);
+  border-radius:8px; margin-bottom:24px; font-size:13px; }
+.badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:6px;
+  vertical-align:2px; font-family:Consolas,monospace; }
+.badge.pk { background:var(--pkbg); color:var(--pk); border:1px solid var(--pk); }
+.badge.fk { background:var(--fkbg); color:var(--fk); border:1px solid var(--fk); }
+.badge.uq { background:var(--uqbg); color:var(--uq); border:1px solid var(--uq); }
+.badge.en { background:var(--enbg); color:var(--en); border:1px solid var(--en); }
+.badge.js { background:var(--jsbg); color:var(--js); border:1px solid var(--js); }
+.sec { font-size:16px; color:#374151; border-bottom:2px solid #111827; padding-bottom:6px;
+  margin:34px 0 12px; text-transform:uppercase; letter-spacing:.04em; }
+.tbl { border:1px solid var(--line); border-radius:8px; margin-bottom:14px; overflow:hidden; }
+.tbl summary { cursor:pointer; padding:12px 16px; background:#fafafa; display:flex; align-items:center;
+  gap:12px; user-select:none; }
+.tbl summary:hover { background:#f3f4f6; }
+.tname { font-size:15px; font-weight:700; font-family:Consolas,'Courier New',monospace; }
+.tmeta { color:var(--muted); font-size:12px; }
+.tdesc { color:#374151; font-size:13px; margin:0; padding:6px 16px 0; }
+.scroll { overflow-x:auto; }
+.wide { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; font-size:13px; }
+thead th { background:#eef2f7; text-align:left; padding:8px 10px; border-bottom:2px solid #cbd5e1;
+  vertical-align:top; white-space:nowrap; }
+td { padding:7px 10px; border-bottom:1px solid var(--line); }
+tbody tr:nth-child(even) { background:#fbfbfd; }
+tbody tr:hover { background:#eef6ff; }
+.colname { font-family:Consolas,monospace; font-weight:700; }
+.ctype { display:block; font-size:11px; color:var(--muted); font-family:Consolas,monospace; margin-top:3px; }
+.cnote { display:block; font-size:11px; color:#9ca3af; font-style:italic; margin-top:2px; }
+.enums { display:block; font-size:11px; margin-top:5px; line-height:1.9; }
+.chip { display:inline-block; background:var(--enbg); color:var(--en); border:1px solid #a7f3d0;
+  border-radius:10px; padding:0 7px; margin-right:4px; font-family:Consolas,monospace; }
+.tk.chk { font-weight:700; color:#166534; }
+td { white-space:pre-wrap; word-break:break-word; }
+footer { margin-top:30px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<h1>JADARA — Education &amp; Courses</h1>
+<p class="sub">Schema tables with example data · generated from <code>doc/diagrams/6.puml</code> · sample IDs are fake, relationships are real</p>
+<div class="legend">
+  <span><span class="badge pk">PK</span> primary key (column header)</span>
+  <span><span class="badge fk">FK</span> foreign key → referenced table</span>
+  <span><span class="badge uq">UQ</span> unique</span>
+  <span><span class="badge en">ENUM</span> fixed values shown below the column</span>
+  <span><span class="badge js">JSON</span> JSON document</span>
+</div>
+<h2 class="sec">Shared tables</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">Users</span>
+    <span class="tmeta">1 columns · 3 sample rows</span>
+  </summary>
+  <p class="tdesc">Central user account used across every module.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th></tr></thead>
+    <tbody><tr><td>U-001</td></tr><tr><td>U-002</td></tr><tr><td>U-003</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">SubDomains</span>
+    <span class="tmeta">3 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Skills taxonomy branch (Web Dev, Design, ...).</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">domain_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Domains</span></th><th><span class="colname">name</span><span class="ctype">VARCHAR(100)</span></th></tr></thead>
+    <tbody><tr><td>SBD-001</td><td>D-001</td><td>Web Development</td></tr><tr><td>SBD-002</td><td>D-001</td><td>Mobile Development</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">Skills</span>
+    <span class="tmeta">3 columns · 4 sample rows</span>
+  </summary>
+  <p class="tdesc">Defined skills of the platform.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">category_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; SkillCategories</span></th><th><span class="colname">name</span><span class="ctype">VARCHAR(100)</span></th></tr></thead>
+    <tbody><tr><td>SK-001</td><td>SC-001</td><td>HTML &amp; CSS</td></tr><tr><td>SK-002</td><td>SC-001</td><td>JavaScript</td></tr><tr><td>SK-003</td><td>SC-002</td><td>React</td></tr><tr><td>SK-004</td><td>SC-002</td><td>Node.js</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">Languages</span>
+    <span class="tmeta">2 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Supported languages.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">name</span><span class="badge uq">UQ</span><span class="ctype">VARCHAR(100)</span></th></tr></thead>
+    <tbody><tr><td>LG-001</td><td>English</td></tr><tr><td>LG-002</td><td>Arabic</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">Documents</span>
+    <span class="tmeta">10 columns · 4 sample rows</span>
+  </summary>
+  <p class="tdesc">Central file storage metadata (thumbnail, PDF, recording, certificate).</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">name</span><span class="ctype">VARCHAR(255)</span></th><th><span class="colname">original_name</span><span class="ctype">VARCHAR(255)</span></th><th><span class="colname">storage_path</span><span class="ctype">VARCHAR(500)</span><span class="cnote">internal key</span></th><th><span class="colname">mime_type</span><span class="ctype">VARCHAR(100)</span></th><th><span class="colname">file_size</span><span class="ctype">BIGINT</span><span class="cnote">bytes</span></th><th><span class="colname">document_type</span><span class="ctype">VARCHAR(50)</span><span class="cnote">course_thumbnail / lesson_asset / recording / certificate</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>DOC-001</td><td>U-002</td><td>bootcamp-thumb.png</td><td>bootcamp-thumb.png</td><td>s3://jadara/courses/c-001/thumb.png</td><td>image/png</td><td>245000</td><td>course_thumbnail</td><td>2026-08-01 09:00:00</td><td>2026-08-01 09:00:00</td></tr><tr><td>DOC-002</td><td>U-002</td><td>html-css-handout.pdf</td><td>html-css-handout.pdf</td><td>s3://jadara/lessons/l-001/handout.pdf</td><td>application/pdf</td><td>1840000</td><td>lesson_asset</td><td>2026-08-02 10:00:00</td><td>2026-08-02 10:00:00</td></tr><tr><td>DOC-003</td><td>U-002</td><td>live-rec-0925.mp4</td><td>live-rec-0925.mp4</td><td>s3://jadara/lessons/l-002/rec.mp4</td><td>video/mp4</td><td>1450000000</td><td>recording</td><td>2026-09-25 20:00:00</td><td>2026-09-25 20:00:00</td></tr><tr><td>DOC-004</td><td>U-003</td><td>certificate-jad-2026-000142.pdf</td><td>certificate.pdf</td><td>s3://jadara/certificates/cc-001.pdf</td><td>application/pdf</td><td>312000</td><td>certificate</td><td>2026-08-16 15:30:00</td><td>2026-08-16 15:30:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Courses</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">CourseTypes</span>
+    <span class="tmeta">6 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Lookup of course delivery types.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">code</span><span class="badge en">ENUM</span><span class="ctype">CourseTypeCode</span><span class="enums"><span class="chip">SELF_PACED</span><span class="chip">LIVE</span><span class="chip">COHORT</span><span class="chip">WORKSHOP</span><span class="chip">BOOTCAMP</span><span class="chip">WEBINAR</span></span></th><th><span class="colname">name</span><span class="badge uq">UQ</span><span class="ctype">VARCHAR(100)</span></th><th><span class="colname">description</span><span class="ctype">TEXT</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>CT-001</td><td>BOOTCAMP</td><td>Bootcamp</td><td>Live cohort with trainers, ~6 months</td><td>2026-01-01 08:00:00</td><td>2026-01-01 08:00:00</td></tr><tr><td>CT-002</td><td>SELF_PACED</td><td>Self-paced</td><td>Pre-recorded, learn at your own speed</td><td>2026-01-01 08:00:00</td><td>2026-01-01 08:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">Courses</span>
+    <span class="tmeta">15 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">A course offering.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_type_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; CourseTypes</span></th><th><span class="colname">subdomain_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; SubDomains</span></th><th><span class="colname">title</span><span class="ctype">VARCHAR(200)</span></th><th><span class="colname">description</span><span class="ctype">TEXT</span></th><th><span class="colname">level</span><span class="badge en">ENUM</span><span class="ctype">CourseLevel</span><span class="enums"><span class="chip">BEGINNER</span><span class="chip">INTERMEDIATE</span><span class="chip">ADVANCED</span><span class="chip">EXPERT</span></span></th><th><span class="colname">status</span><span class="badge en">ENUM</span><span class="ctype">CourseStatus</span><span class="enums"><span class="chip">DRAFT</span><span class="chip">PUBLISHED</span><span class="chip">ARCHIVED</span><span class="chip">CANCELLED</span></span></th><th><span class="colname">access_type</span><span class="badge en">ENUM</span><span class="ctype">CourseAccessType</span><span class="enums"><span class="chip">OPEN</span><span class="chip">APPROVAL_REQUIRED</span><span class="chip">INVITE_ONLY</span></span></th><th><span class="colname">requirements</span><span class="badge js">JSON</span><span class="ctype">JSON</span><span class="cnote">prerequisite skills / languages</span></th><th><span class="colname">max_students</span><span class="ctype">INT</span></th><th><span class="colname">enrollment_start</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">enrollment_end</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">thumbnail_document_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Documents</span><span class="cnote">nullable</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>C-001</td><td>CT-001</td><td>SBD-001</td><td>Full-Stack Web Development Bootcamp</td><td>4-month intensive program covering frontend and backend.</td><td>BEGINNER</td><td>PUBLISHED</td><td>OPEN</td><td>{
+  &quot;skills&quot;: [
+    {
+      &quot;skill_id&quot;: &quot;SK-001&quot;,
+      &quot;level&quot;: &quot;INTERMEDIATE&quot;
+    },
+    {
+      &quot;skill_id&quot;: &quot;SK-002&quot;,
+      &quot;level&quot;: &quot;INTERMEDIATE&quot;
+    }
+  ],
+  &quot;languages&quot;: [
+    &quot;English&quot;
+  ],
+  &quot;other&quot;: [
+    &quot;Own laptop&quot;
+  ]
+}</td><td>30</td><td>2026-09-01 00:00:00</td><td>2026-12-31 23:59:59</td><td>DOC-001</td><td>2026-08-01 08:00:00</td><td>2026-08-01 08:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Trainers</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">TrainerProfiles</span>
+    <span class="tmeta">8 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">Trainer-specific profile (1:1 with a user).</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">headline</span><span class="ctype">VARCHAR(200)</span></th><th><span class="colname">bio</span><span class="ctype">TEXT</span></th><th><span class="colname">experience_years</span><span class="ctype">INT</span></th><th><span class="colname">verification_status</span><span class="badge en">ENUM</span><span class="ctype">TrainerVerificationStatus</span><span class="enums"><span class="chip">PENDING</span><span class="chip">VERIFIED</span><span class="chip">REJECTED</span></span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>TP-001</td><td>U-002</td><td>Senior Full-Stack Engineer</td><td>7+ years building web products with React, Node.js and PostgreSQL.</td><td>8</td><td>VERIFIED</td><td>2026-01-15 10:00:00</td><td>2026-01-15 10:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">CourseTrainers</span>
+    <span class="tmeta">6 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">Assigns trainers to a course (many-to-many).</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Courses</span></th><th><span class="colname">trainer_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; TrainerProfiles</span></th><th><span class="colname">role</span><span class="badge en">ENUM</span><span class="ctype">CourseTrainerRole</span><span class="enums"><span class="chip">PRIMARY</span><span class="chip">CO_TRAINER</span><span class="chip">ASSISTANT</span></span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>UQ-C1</td><td>C-001</td><td>TP-001</td><td>PRIMARY</td><td>2026-08-01 08:30:00</td><td>2026-08-01 08:30:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Course structure</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">CourseSections</span>
+    <span class="tmeta">7 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Chapters/units inside a course.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Courses</span></th><th><span class="colname">title</span><span class="ctype">VARCHAR(200)</span></th><th><span class="colname">description</span><span class="ctype">TEXT</span></th><th><span class="colname">position</span><span class="ctype">INT</span><span class="cnote">ordering</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>CS-001</td><td>C-001</td><td>Frontend Fundamentals</td><td>HTML, CSS and modern JavaScript.</td><td>1</td><td>2026-08-01 09:00:00</td><td>2026-08-01 09:00:00</td></tr><tr><td>CS-002</td><td>C-001</td><td>Backend &amp; APIs</td><td>Node.js, REST and databases.</td><td>2</td><td>2026-08-01 09:00:00</td><td>2026-08-01 09:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">Lessons</span>
+    <span class="tmeta">11 columns · 3 sample rows</span>
+  </summary>
+  <p class="tdesc">A single learning unit inside a section.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">section_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; CourseSections</span></th><th><span class="colname">title</span><span class="ctype">VARCHAR(200)</span></th><th><span class="colname">description</span><span class="ctype">TEXT</span></th><th><span class="colname">content_type</span><span class="badge en">ENUM</span><span class="ctype">LessonContentType</span><span class="enums"><span class="chip">VIDEO</span><span class="chip">ARTICLE</span><span class="chip">PDF</span><span class="chip">LIVE_SESSION</span><span class="chip">QUIZ</span><span class="chip">ASSIGNMENT</span></span></th><th><span class="colname">content</span><span class="ctype">TEXT</span><span class="cnote">video key / article body</span></th><th><span class="colname">position</span><span class="ctype">INT</span><span class="cnote">ordering</span></th><th><span class="colname">duration_minutes</span><span class="ctype">INT</span></th><th><span class="colname">is_required</span><span class="ctype">BOOLEAN</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>L-001</td><td>CS-001</td><td>Build a Landing Page</td><td>Hands-on: create a responsive landing page.</td><td>VIDEO</td><td>s3://jadara/videos/l-001.mp4</td><td>1</td><td>45</td><td><span class="tk chk">TRUE</span></td><td>2026-08-02 09:00:00</td><td>2026-08-02 09:00:00</td></tr><tr><td>L-002</td><td>CS-001</td><td>Live: HTML &amp; CSS Q&amp;A</td><td>Live Q&amp;A session with the trainer.</td><td>LIVE_SESSION</td><td></td><td>2</td><td>120</td><td><span class="tk chk">TRUE</span></td><td>2026-08-02 09:05:00</td><td>2026-08-02 09:05:00</td></tr><tr><td>L-003</td><td>CS-002</td><td>Node.js REST API</td><td>Build a CRUD API with Express.</td><td>VIDEO</td><td>s3://jadara/videos/l-003.mp4</td><td>1</td><td>60</td><td><span class="tk chk">TRUE</span></td><td>2026-08-02 09:10:00</td><td>2026-08-02 09:10:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">LessonDocuments</span>
+    <span class="tmeta">5 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">Files attached to a lesson (many-to-many).</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">lesson_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Lessons</span></th><th><span class="colname">document_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Documents</span></th><th><span class="colname">document_role</span><span class="ctype">VARCHAR(50)</span><span class="cnote">slides / handout / source</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>LD-001</td><td>L-001</td><td>DOC-002</td><td>handout</td><td>2026-08-02 10:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Live / scheduled lessons</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">ExternalServices</span>
+    <span class="tmeta">7 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">Meeting providers (Google Meet, Zoom, ...).</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">name</span><span class="ctype">VARCHAR(100)</span></th><th><span class="colname">provider</span><span class="ctype">VARCHAR(100)</span></th><th><span class="colname">service_type</span><span class="ctype">VARCHAR(50)</span></th><th><span class="colname">is_active</span><span class="ctype">BOOLEAN</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>ES-001</td><td>Google Meet</td><td>Google</td><td>video_conf</td><td><span class="tk chk">TRUE</span></td><td>2026-01-01 08:00:00</td><td>2026-01-01 08:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">LessonSchedules</span>
+    <span class="tmeta">13 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Date/time slot for a live lesson.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">lesson_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Lessons</span></th><th><span class="colname">external_service_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; ExternalServices</span></th><th><span class="colname">schedule_type</span><span class="badge en">ENUM</span><span class="ctype">LessonScheduleType</span><span class="enums"><span class="chip">LIVE</span><span class="chip">WORKSHOP</span></span></th><th><span class="colname">starts_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">ends_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">timezone</span><span class="ctype">VARCHAR(100)</span></th><th><span class="colname">external_url</span><span class="ctype">VARCHAR(500)</span><span class="cnote">join link</span></th><th><span class="colname">external_meeting_id</span><span class="ctype">VARCHAR(255)</span></th><th><span class="colname">recording_document_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Documents</span><span class="cnote">nullable, after session</span></th><th><span class="colname">status</span><span class="badge en">ENUM</span><span class="ctype">LessonScheduleStatus</span><span class="enums"><span class="chip">SCHEDULED</span><span class="chip">LIVE</span><span class="chip">COMPLETED</span><span class="chip">CANCELLED</span></span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>LS-001</td><td>L-002</td><td>ES-001</td><td>LIVE</td><td>2026-09-25 18:00:00</td><td>2026-09-25 20:00:00</td><td>Asia/Riyadh</td><td>https://meet.google.com/abc-defg-hij</td><td>m-abc-defg-hij</td><td>DOC-003</td><td>COMPLETED</td><td>2026-09-01 09:00:00</td><td>2026-09-25 20:00:00</td></tr><tr><td>LS-002</td><td>L-001</td><td>ES-001</td><td>WORKSHOP</td><td>2026-09-28 10:00:00</td><td>2026-09-28 12:00:00</td><td>Asia/Riyadh</td><td>https://meet.google.com/xyz-uvwq-123</td><td>m-xyz-uvwq-123</td><td></td><td>SCHEDULED</td><td>2026-09-01 09:00:00</td><td>2026-09-01 09:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Enrollment & progress</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">CourseEnrollments</span>
+    <span class="tmeta">9 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">A student enrolled in a course.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Courses</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">status</span><span class="badge en">ENUM</span><span class="ctype">EnrollmentStatus</span><span class="enums"><span class="chip">ENROLLED</span><span class="chip">IN_PROGRESS</span><span class="chip">COMPLETED</span><span class="chip">DROPPED</span></span></th><th><span class="colname">progress_percent</span><span class="ctype">DECIMAL(5,2)</span><span class="cnote">0.00-100.00</span></th><th><span class="colname">enrolled_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">completed_at</span><span class="ctype">TIMESTAMP</span><span class="cnote">nullable</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>CE-001</td><td>C-001</td><td>U-001</td><td>IN_PROGRESS</td><td>45.00</td><td>2026-09-05 10:00:00</td><td></td><td>2026-09-05 10:00:00</td><td>2026-09-15 12:00:00</td></tr><tr><td>CE-002</td><td>C-001</td><td>U-003</td><td>COMPLETED</td><td>100.00</td><td>2026-03-01 09:00:00</td><td>2026-08-15 16:00:00</td><td>2026-03-01 09:00:00</td><td>2026-08-15 16:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">LessonProgress</span>
+    <span class="tmeta">9 columns · 3 sample rows</span>
+  </summary>
+  <p class="tdesc">Per-student progress on a lesson.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">enrollment_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; CourseEnrollments</span></th><th><span class="colname">lesson_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Lessons</span></th><th><span class="colname">status</span><span class="badge en">ENUM</span><span class="ctype">LessonProgressStatus</span><span class="enums"><span class="chip">NOT_STARTED</span><span class="chip">IN_PROGRESS</span><span class="chip">COMPLETED</span></span></th><th><span class="colname">progress_percent</span><span class="ctype">DECIMAL(5,2)</span><span class="cnote">0.00-100.00</span></th><th><span class="colname">started_at</span><span class="ctype">TIMESTAMP</span><span class="cnote">nullable</span></th><th><span class="colname">completed_at</span><span class="ctype">TIMESTAMP</span><span class="cnote">nullable</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>LP-001</td><td>CE-001</td><td>L-001</td><td>COMPLETED</td><td>100.00</td><td>2026-09-05 10:10:00</td><td>2026-09-05 11:00:00</td><td>2026-09-05 10:10:00</td><td>2026-09-05 11:00:00</td></tr><tr><td>LP-002</td><td>CE-001</td><td>L-002</td><td>COMPLETED</td><td>100.00</td><td>2026-09-05 11:05:00</td><td>2026-09-05 11:20:00</td><td>2026-09-05 11:05:00</td><td>2026-09-05 11:20:00</td></tr><tr><td>LP-003</td><td>CE-001</td><td>L-003</td><td>IN_PROGRESS</td><td>20.00</td><td>2026-09-14 09:00:00</td><td></td><td>2026-09-14 09:00:00</td><td>2026-09-14 09:12:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Course reviews</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">CourseReviews</span>
+    <span class="tmeta">7 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">Review/rating of a course by an enrolled student.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Courses</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">rating</span><span class="ctype">INT</span><span class="cnote">1-5</span></th><th><span class="colname">review</span><span class="ctype">TEXT</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>CR-001</td><td>C-001</td><td>U-003</td><td>5</td><td>Excellent program. The live sessions made a huge difference.</td><td>2026-08-16 17:00:00</td><td>2026-08-16 17:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Lesson comments</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">LessonComments</span>
+    <span class="tmeta">7 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Comments + threaded replies on a lesson.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">lesson_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Lessons</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">parent_comment_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; LessonComments</span><span class="cnote">nullable = reply</span></th><th><span class="colname">content</span><span class="ctype">TEXT</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>LC-001</td><td>L-001</td><td>U-001</td><td></td><td>Great lesson, the landing page turned out exactly like the demo!</td><td>2026-09-06 09:15:00</td><td>2026-09-06 09:15:00</td></tr><tr><td>LC-002</td><td>L-001</td><td>U-002</td><td>LC-001</td><td>Glad you liked it, Sarah! Ship it on Netlify and you are done.</td><td>2026-09-06 09:40:00</td><td>2026-09-06 09:40:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Assessments</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">Assessments</span>
+    <span class="tmeta">8 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">Quiz/exam/final attached to a course.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Courses</span></th><th><span class="colname">title</span><span class="ctype">VARCHAR(200)</span></th><th><span class="colname">description</span><span class="ctype">TEXT</span></th><th><span class="colname">type</span><span class="badge en">ENUM</span><span class="ctype">AssessmentType</span><span class="enums"><span class="chip">QUIZ</span><span class="chip">EXAM</span><span class="chip">FINAL</span></span></th><th><span class="colname">passing_score</span><span class="ctype">DECIMAL(5,2)</span><span class="cnote">percent to pass</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>A-001</td><td>C-001</td><td>HTML &amp; CSS Quiz</td><td>Covers section 1.</td><td>QUIZ</td><td>60.00</td><td>2026-08-03 09:00:00</td><td>2026-08-03 09:00:00</td></tr><tr><td>A-002</td><td>C-001</td><td>Final Project Exam</td><td>Submit final project + code review.</td><td>FINAL</td><td>70.00</td><td>2026-08-03 09:00:00</td><td>2026-08-03 09:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">AssessmentQuestions</span>
+    <span class="tmeta">8 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">A question inside an assessment.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">assessment_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Assessments</span></th><th><span class="colname">question</span><span class="ctype">TEXT</span></th><th><span class="colname">type</span><span class="badge en">ENUM</span><span class="ctype">QuestionType</span><span class="enums"><span class="chip">SINGLE_CHOICE</span><span class="chip">MULTIPLE_CHOICE</span><span class="chip">TRUE_FALSE</span><span class="chip">TEXT</span></span></th><th><span class="colname">points</span><span class="ctype">DECIMAL(5,2)</span></th><th><span class="colname">position</span><span class="ctype">INT</span><span class="cnote">ordering</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>AQ-001</td><td>A-001</td><td>What does CSS stand for?</td><td>SINGLE_CHOICE</td><td>10.00</td><td>1</td><td>2026-08-03 10:00:00</td><td>2026-08-03 10:00:00</td></tr><tr><td>AQ-002</td><td>A-001</td><td>H1 is a block-level element.</td><td>TRUE_FALSE</td><td>5.00</td><td>2</td><td>2026-08-03 10:00:00</td><td>2026-08-03 10:00:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">AssessmentOptions</span>
+    <span class="tmeta">7 columns · 5 sample rows</span>
+  </summary>
+  <p class="tdesc">Answer choices for a question.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">question_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; AssessmentQuestions</span></th><th><span class="colname">option_text</span><span class="ctype">TEXT</span></th><th><span class="colname">is_correct</span><span class="ctype">BOOLEAN</span></th><th><span class="colname">position</span><span class="ctype">INT</span><span class="cnote">ordering</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>AO-001</td><td>AQ-001</td><td>Cascading Style Sheets</td><td><span class="tk chk">TRUE</span></td><td>1</td><td>2026-08-03 10:05:00</td><td>2026-08-03 10:05:00</td></tr><tr><td>AO-002</td><td>AQ-001</td><td>Computer Style Sheets</td><td><span class="tk chk">FALSE</span></td><td>2</td><td>2026-08-03 10:05:00</td><td>2026-08-03 10:05:00</td></tr><tr><td>AO-003</td><td>AQ-001</td><td>Creative Style System</td><td><span class="tk chk">FALSE</span></td><td>3</td><td>2026-08-03 10:05:00</td><td>2026-08-03 10:05:00</td></tr><tr><td>AO-004</td><td>AQ-002</td><td>TRUE</td><td><span class="tk chk">TRUE</span></td><td>1</td><td>2026-08-03 10:05:00</td><td>2026-08-03 10:05:00</td></tr><tr><td>AO-005</td><td>AQ-002</td><td>FALSE</td><td><span class="tk chk">FALSE</span></td><td>2</td><td>2026-08-03 10:05:00</td><td>2026-08-03 10:05:00</td></tr></tbody>
+  </table>
+  </div>
+</details><details class="tbl" open>
+  <summary>
+    <span class="tname">AssessmentAttempts</span>
+    <span class="tmeta">9 columns · 2 sample rows</span>
+  </summary>
+  <p class="tdesc">A student's attempt at an assessment.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">assessment_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Assessments</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">score</span><span class="ctype">DECIMAL(5,2)</span><span class="cnote">0-100</span></th><th><span class="colname">status</span><span class="badge en">ENUM</span><span class="ctype">AssessmentAttemptStatus</span><span class="enums"><span class="chip">IN_PROGRESS</span><span class="chip">COMPLETED</span><span class="chip">PASSED</span><span class="chip">FAILED</span></span></th><th><span class="colname">started_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">completed_at</span><span class="ctype">TIMESTAMP</span><span class="cnote">nullable if in progress</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">updated_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>AT-001</td><td>A-001</td><td>U-001</td><td>80.00</td><td>PASSED</td><td>2026-09-12 09:00:00</td><td>2026-09-12 09:20:00</td><td>2026-09-12 09:00:00</td><td>2026-09-12 09:20:00</td></tr><tr><td>AT-002</td><td>A-002</td><td>U-003</td><td>92.00</td><td>PASSED</td><td>2026-08-14 10:00:00</td><td>2026-08-14 10:45:00</td><td>2026-08-14 10:00:00</td><td>2026-08-14 10:45:00</td></tr></tbody>
+  </table>
+  </div>
+</details><h2 class="sec">Certificates</h2><details class="tbl" open>
+  <summary>
+    <span class="tname">CourseCertificates</span>
+    <span class="tmeta">7 columns · 1 sample row</span>
+  </summary>
+  <p class="tdesc">Certificate issued to a student for completing a course.</p>
+  <div class="wide" class="scroll">
+  <table>
+    <thead><tr><th><span class="colname">id</span><span class="badge pk">PK</span><span class="ctype">UUID</span></th><th><span class="colname">course_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Courses</span></th><th><span class="colname">user_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Users</span></th><th><span class="colname">certificate_number</span><span class="badge uq">UQ</span><span class="ctype">VARCHAR(100)</span></th><th><span class="colname">document_id</span><span class="badge fk">FK</span><span class="ctype">UUID &rarr; Documents</span><span class="cnote">generated PDF</span></th><th><span class="colname">issued_at</span><span class="ctype">TIMESTAMP</span></th><th><span class="colname">created_at</span><span class="ctype">TIMESTAMP</span></th></tr></thead>
+    <tbody><tr><td>CC-001</td><td>C-001</td><td>U-003</td><td>JAD-2026-000142</td><td>DOC-004</td><td>2026-08-16 15:30:00</td><td>2026-08-16 15:30:00</td></tr></tbody>
+  </table>
+  </div>
+</details>
+<footer>1 course (Full-Stack Web Dev Bootcamp) · 3 users · 4 documents · assessments &amp; attempts · all sample values are illustrative.</footer>
+</body>
+</html>

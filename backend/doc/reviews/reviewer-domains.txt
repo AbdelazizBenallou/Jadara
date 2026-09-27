@@ -1,0 +1,33 @@
+================================================================
+  REVIEWER DOMAINS APIs — GET/PUT/DELETE /v1/reviews/domains
+  Base URL: http://localhost:3001
+  Auth: Reviewer ONLY (permission: review_projects)
+  Rate limit: 60 requests per minute (read)
+================================================================
+
+The reviewer's assigned domains. Assigned when the reviewer's
+registration demand is approved, or by admin via the user
+review-domains API.
+
+--------------------------------------------------
+1. MY DOMAINS — GET /v1/reviews/domains
+--------------------------------------------------
+curl -s -b /tmp/jadara/webrev_cookies.txt \
+  "http://localhost:3001/v1/reviews/domains" | python3 -m json.tool
+
+Expected: 200
+{
+  "success": true,
+  "message": "Reviewer domains fetched successfully",
+  "data": [
+    { "id": 1, "name": "Web Development" },
+    { "id": 8, "name": "Databases" }
+  ]
+}
+
+
+NOTES
+- Only these domains' projects appear in GET /v1/reviews/available.
+- After admin approves a reviewer demand, the requested domains are
+  auto-created in reviewer_domains (see doc/demands/approve-demand.txt).
+- Admin can override with the user review-domains endpoints:
