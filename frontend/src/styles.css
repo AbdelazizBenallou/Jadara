@@ -1,0 +1,508 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700;800&family=Tajawal:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+/* ─────────────────────────────────────────────────────────────
+   JADARA Design System v1 — Token Layer
+   Source of truth: DESIGN_SYSTEM.md §2-§8, §13
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Lama Sans Display Font (Baianat Type Design) ── */
+@font-face {
+  font-family: "Lama Sans";
+  src:
+    local("Lama Sans Regular"),
+    local("LamaSans-Regular"),
+    local("LamaSansRegular"),
+    url("/fonts/LamaSans-Regular.woff2") format("woff2"),
+    url("/fonts/LamaSans-Regular.ttf") format("truetype"),
+    url("/fonts/lama-sans-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lama Sans";
+  src:
+    local("Lama Sans Medium"),
+    local("LamaSans-Medium"),
+    local("LamaSansMedium"),
+    url("/fonts/LamaSans-Medium.woff2") format("woff2"),
+    url("/fonts/LamaSans-Medium.ttf") format("truetype"),
+    url("/fonts/lama-sans-medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lama Sans";
+  src:
+    local("Lama Sans SemiBold"),
+    local("LamaSans-SemiBold"),
+    local("LamaSansSemiBold"),
+    url("/fonts/LamaSans-SemiBold.woff2") format("woff2"),
+    url("/fonts/LamaSans-SemiBold.ttf") format("truetype"),
+    url("/fonts/lama-sans-semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lama Sans";
+  src:
+    local("Lama Sans Bold"),
+    local("LamaSans-Bold"),
+    local("LamaSansBold"),
+    url("/fonts/LamaSans-Bold.woff2") format("woff2"),
+    url("/fonts/LamaSans-Bold.ttf") format("truetype"),
+    url("/fonts/lama-sans-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lama Sans";
+  src:
+    local("Lama Sans Black"),
+    local("LamaSans-Black"),
+    local("LamaSansBlack"),
+    url("/fonts/LamaSans-Black.woff2") format("woff2"),
+    url("/fonts/LamaSans-Black.ttf") format("truetype"),
+    url("/fonts/lama-sans-black.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme inline {
+  /* ── Radius (§5) — unified premium scale ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 24px; /* alias — some shadcn components reference 2xl */
+  --radius-full: 999px;
+
+  /* ── Brand purple scale (§2.1 — do NOT regenerate, approved) ── */
+  --color-brand-50: #f9f3fc;
+  --color-brand-100: #f1e3f7;
+  --color-brand-200: #e2c9ee;
+  --color-brand-300: #cda3e0;
+  --color-brand-400: #b573d3;
+  --color-brand-500: #9939c6;
+  --color-brand-600: #752999;
+  --color-brand-700: #4d1b65;
+  --color-brand-800: #381249;
+  --color-brand-900: #260c32;
+  --color-brand-950: #190722;
+
+  /* ── Semantic surface / text / border tokens (§2.3, resolved via CSS vars) ── */
+  --color-bg-page: var(--bg-page);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-hover: var(--bg-surface-hover);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-brand-DEFAULT: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+
+  /* ── Public Home Page Refinement Tokens ── */
+  --color-home-primary-dark: #351b4a;
+  --color-home-main-text: #403a46;
+  --color-home-muted-text: #766d7d;
+  --color-home-brand: #5b247a;
+  --color-home-soft-purple: #f1eaf5;
+  --color-home-page-bg: #fcfafd;
+  --color-home-border: #e9e2ed;
+  --color-home-surface: #ffffff;
+
+  /* ── Status tokens (§2.4) ── */
+  --color-status-success: var(--status-success-fg);
+  --color-status-warning: var(--status-warning-fg);
+  --color-status-error: var(--status-error-fg);
+  --color-status-info: var(--status-info-fg);
+
+  /* ── Existing shadcn/ui mappings (backward compat) ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-glow: var(--primary-glow);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+  --color-primary-950: var(--primary-950);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-bg: var(--destructive-bg);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-bg: var(--warning-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  /* ── Typography (§3) — font families ── */
+  --font-sans: "IBM Plex Sans Arabic", "Inter", "Tajawal", system-ui, -apple-system, sans-serif;
+  --font-display:
+    "Tajawal", "Lama Sans", "IBM Plex Sans Arabic", "Inter", system-ui, -apple-system, sans-serif;
+
+  /* ── Shadows (§6 — light mode only) ── */
+  --shadow-sm: 0 1px 2px rgba(38, 12, 50, 0.06);
+  --shadow-md: 0 4px 12px rgba(38, 12, 50, 0.08);
+  --shadow-lg: 0 12px 32px rgba(38, 12, 50, 0.12);
+  --shadow-card: var(--shadow-card);
+  --shadow-elegant: var(--shadow-elegant);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CSS Custom Properties — Light Only
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Design System semantic tokens (§13 light) ── */
+  --bg-page: #faf9fb;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f3f1f5;
+  --border: #e5dceb;
+  --text-primary: #1c1420;
+  --text-secondary: #3d2e4a;
+  --text-muted: #8b7f97;
+  --brand: #4d1b65;
+  --brand-hover: #752999;
+  --brand-fg: #ffffff;
+  --focus-ring: #9939c6;
+
+  /* ── Status (§2.4 / §13 light) ── */
+  --status-success-bg: #e6f7ef;
+  --status-success-fg: #1b8a5a;
+  --status-warning-bg: #fdf1dc;
+  --status-warning-fg: #b45309;
+  --status-error-bg: #fbe7ec;
+  --status-error-fg: #c0284f;
+  --status-info-bg: #e8ecfb;
+  --status-info-fg: #3a4fc4;
+
+  /* ── shadcn/ui compat vars (light) ── */
+  --background: #faf9fb;
+  --foreground: #1c1420;
+  --card: #ffffff;
+  --card-foreground: #1c1420;
+  --popover: #ffffff;
+  --popover-foreground: #1c1420;
+
+  /* Brand Purple Tonal Scale */
+  --primary-50: #f9f3fc;
+  --primary-100: #f1e3f7;
+  --primary-200: #e2c9ee;
+  --primary-300: #cda3e0;
+  --primary-400: #b573d3;
+  --primary-500: #9939c6;
+  --primary-600: #752999;
+  --primary-700: #4d1b65;
+  --primary-800: #381249;
+  --primary-900: #260c32;
+  --primary-950: #190722;
+
+  --primary: var(--primary-700);
+  --primary-foreground: #ffffff;
+  --primary-hover: var(--primary-600);
+  --primary-glow: var(--primary-300);
+  --primary-soft: var(--primary-50);
+  --secondary: #f1e3f7;
+  --secondary-foreground: var(--primary-700);
+  --muted: #f1e3f7;
+  --muted-foreground: #8b7f97;
+
+  /* ── Gradient button tokens ── */
+  --btn-gradient: linear-gradient(135deg, #752999, #4d1b65);
+  --btn-gradient-hover: linear-gradient(135deg, #9939c6, #752999);
+  --accent: #f9f3fc;
+  --accent-foreground: var(--primary-700);
+  --destructive: #c0284f;
+  --destructive-foreground: #ffffff;
+  --destructive-bg: #fbe7ec;
+  --success: #1b8a5a;
+  --success-foreground: #ffffff;
+  --success-bg: #e6f7ef;
+  --warning: #b45309;
+  --warning-foreground: #b45309;
+  --warning-bg: #fdf1dc;
+  --info: #3a4fc4;
+  --info-bg: #e8ecfb;
+  --input: #e5dceb;
+  --ring: var(--primary-500);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1420;
+  --sidebar-accent: var(--primary-50);
+  --sidebar-accent-foreground: var(--primary-600);
+  --sidebar-border: var(--border);
+
+  /* Shadows (§6 light) */
+  --shadow-card: 0 4px 12px rgba(38, 12, 50, 0.08);
+  --shadow-elegant: 0 12px 32px rgba(38, 12, 50, 0.12);
+
+  /* Gradient */
+  --gradient-hero: linear-gradient(to bottom, #ffffff 0%, #f9f3fc 100%);
+  /* Continuous page gradient: white → brand-50 → brand-100 → brand-200 */
+  --gradient-page: linear-gradient(to bottom, #ffffff 0%, #f9f3fc 25%, #f1e3f7 60%, #e2c9ee 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Custom Utilities
+   ═══════════════════════════════════════════════════════════════ */
+
+@utility bg-gradient-hero {
+  background-image: var(--gradient-hero);
+}
+
+@utility bg-gradient-page {
+  background-image: var(--gradient-page);
+}
+
+@utility shadow-soft {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+
+@utility card-hover {
+  transition:
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Base Layer — Typography (§3), resets
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 15px; /* §3 Body */
+    line-height: 1.6; /* §3 Body */
+    font-weight: 400; /* §3 Body */
+  }
+
+  /* ── Typography scale (§3) — Headings use Lama Sans display font ── */
+  h1 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  label {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  small,
+  caption {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Keyframes & Animations
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes gradient-mesh {
+  0% {
+    background-position:
+      0% 50%,
+      100% 0%,
+      50% 100%;
+  }
+  33% {
+    background-position:
+      100% 50%,
+      0% 100%,
+      50% 0%;
+  }
+  66% {
+    background-position:
+      50% 0%,
+      50% 50%,
+      0% 50%;
+  }
+  100% {
+    background-position:
+      0% 50%,
+      100% 0%,
+      50% 100%;
+  }
+}
+
+@keyframes btn-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Hero Animated Gradient Mesh Blobs (Fix #3) ── */
+@keyframes hero-blob-1 {
+  0% {
+    transform: translate3d(0px, 0px, 0px) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(120px, -60px, 0px) scale(1.2) rotate(45deg);
+  }
+  66% {
+    transform: translate3d(-70px, 80px, 0px) scale(0.9) rotate(-20deg);
+  }
+  100% {
+    transform: translate3d(40px, -30px, 0px) scale(1.05) rotate(15deg);
+  }
+}
+
+@keyframes hero-blob-2 {
+  0% {
+    transform: translate3d(0px, 0px, 0px) scale(1) rotate(0deg);
+  }
+  40% {
+    transform: translate3d(-130px, 80px, 0px) scale(1.25) rotate(-35deg);
+  }
+  80% {
+    transform: translate3d(85px, -90px, 0px) scale(0.85) rotate(30deg);
+  }
+  100% {
+    transform: translate3d(-20px, 40px, 0px) scale(1.1) rotate(-10deg);
+  }
+}
+
+@keyframes hero-blob-3 {
+  0% {
+    transform: translate3d(0px, 0px, 0px) scale(1);
+  }
+  35% {
+    transform: translate3d(90px, -100px, 0px) scale(1.18);
+  }
+  70% {
+    transform: translate3d(-80px, 70px, 0px) scale(0.88);
+  }
+  100% {
+    transform: translate3d(30px, -20px, 0px) scale(1.02);
+  }
+}
+
+@keyframes hero-blob-4 {
+  0% {
+    transform: translate3d(0px, 0px, 0px) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-100px, -80px, 0px) scale(1.3) rotate(60deg);
+  }
+  100% {
+    transform: translate3d(70px, 90px, 0px) scale(0.9) rotate(-40deg);
+  }
+}
+
+.hero-animated-blob-1 {
+  animation: hero-blob-1 18s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.hero-animated-blob-2 {
+  animation: hero-blob-2 24s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.hero-animated-blob-3 {
+  animation: hero-blob-3 31s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.hero-animated-blob-4 {
+  animation: hero-blob-4 27s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-animated-blob-1,
+  .hero-animated-blob-2,
+  .hero-animated-blob-3,
+  .hero-animated-blob-4 {
+    animation: none !important;
+    transform: none !important;
+  }
+}

@@ -1,0 +1,53 @@
+services:
+
+    database:
+        image: postgres:18
+        container_name: jadara_db
+        volumes:
+            - postgres_data:/lib/postgresql/data
+        env_file: .env.db
+        networks:
+            - jadara_network
+
+    api:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        container_name: jadara_web_server
+        ports:
+            - "3001:3000"
+        env_file:
+            - ./backend/.env
+        networks:
+            - jadara_network
+     
+        #   frontend:
+        #       build:
+        #          context: ./frontend
+        #           dockerfile: Dockerfile
+        #      container_name: jadara_front_end
+        #     ports:
+        #        - "3000:3000"
+        #   env_file:
+        #      - ./frontend/.env.production
+        # networks:
+        #    - jadara_network
+
+    minio:
+        image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+        container_name: jadara_drive
+        ports:
+            - "9000:9000"
+        volumes:
+            - minio_data:/data
+        env_file:
+            - .env.minio
+        command: server /data --console-address ":9001"
+        networks:
+            - jadara_network
+volumes:
+    postgres_data:
+    minio_data:
+
+networks:
+    jadara_network:
