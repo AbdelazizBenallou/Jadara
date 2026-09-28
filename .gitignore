@@ -1,0 +1,68 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node modules
+node_modules/
+
+# Build & output directories
+.output/
+.nitro/
+.wrangler/
+dist/
+dist-ssr/
+build/
+.vercel/
+.cache/
+.vinxi/
+.tanstack/
+
+# Auto-generated TanStack Router tree
+src/routeTree.gen.ts
+
+# Environment variables & secrets
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+*.local
+.dev.vars
+backend/.env
+backend/.env.production
+frontend/.env.production
+.env.db
+.env.minio
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.gemini/
+
+# Scratch / local-only files (credentials, test scripts, digests)
+cookies.txt
+
+# Info disclosure / setup docs with credentials
+Env_Var.txt
+setup.txt
+setup_2.txt
+Exp.md
+code.txt

@@ -11,17 +11,17 @@ import type { RegisterInput, LoginInput, ChangePasswordInput } from "./auth.vali
 
 type RegisterResult =
   | {
-      pending: false;
-      user: { id: number; email: string; status: string; profile: unknown; role: string };
-      accessToken: string;
-      refreshToken: string;
-    }
+    pending: false;
+    user: { id: number; email: string; status: string; profile: unknown; role: string };
+    accessToken: string;
+    refreshToken: string;
+  }
   | {
-      pending: true;
-      user: { id: number; email: string; status: string; profile: unknown; role: string };
-      demandId: number;
-      documents: unknown[];
-    };
+    pending: true;
+    user: { id: number; email: string; status: string; profile: unknown; role: string };
+    demandId: number;
+    documents: unknown[];
+  };
 
 export const authService = {
   async register(data: RegisterInput, files: Express.Multer.File[] = []): Promise<RegisterResult> {

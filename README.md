@@ -32,8 +32,8 @@ and companies discover pre-vetted talent across all 69 wilayas.
 - [Repository Layout](#repository-layout)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-  - [Option A — Docker Compose (recommended)](#option-a--docker-compose-recommended)
-  - [Option B — Local development](#option-b--local-development)
+  - [Option A — Local (no Docker)](#option-a--local-no-docker)
+  - [Option B — Docker Compose](#option-b--docker-compose)
 - [Default Accounts](#default-accounts)
 - [Environment Variables](#environment-variables)
 - [Database & Prisma](#database--prisma)
@@ -213,29 +213,316 @@ jadara/
 
 ## Prerequisites
 
-| Requirement | Version | Notes |
+| Requirement | Version | Needed for |
 |---|---|---|
-| **Node.js** | ≥ 20 (24 recommended) | Matches `node:24-alpine` images |
-| **npm** | ≥ 10 | Ships with Node; **npm only** — no yarn/pnpm |
-| **Docker + Docker Compose** | v2 / v5+ | Easiest path — brings Postgres & MinIO with it |
-| **PostgreSQL** | 16+ (18 in compose) | Only needed for Option B |
-| **MinIO** | latest | Only needed for Option B |
-| **TeX Live** (`pdflatex`) | any recent | **Required for CV → PDF.** Not installed in the API image |
+| **Node.js** | ≥ 20 (24 recommended) | everything |
+| **npm** | ≥ 10 | everything — **npm only**, do not use yarn/pnpm |
+| **PostgreSQL** | 16+ (18 recommended) | local dev (no Docker) |
+| **MinIO** | latest | local dev (no Docker) |
+| **TeX Live** (`pdflatex`) | any recent | CV → PDF generation, optional |
+| **Docker + Compose** | v2 / v5+ | only for [Option B](#option-b--docker-compose) |
 
 ```bash
 node -v    # v22+ / v24
 npm -v     # 10+
-docker compose version
-pdflatex --version   # only for CV PDF generation
 ```
 
 ---
 
 ## Quick Start
 
-### Option A — Docker Compose (recommended)
+Two ways to run it. **Pick one** — they use the same database, the same env vars,
+and the same commands; they only differ in where PostgreSQL and MinIO live.
 
-Brings up **PostgreSQL + API + MinIO** in one command.
+| | [Option A — Local](#option-a--local-no-docker) | [Option B — Docker Compose](#option-b--docker-compose) |
+|---|---|---|
+| PostgreSQL & MinIO | installed natively on your machine | containers, auto-configured |
+| Hot reload | ✅ native, instant | ❌ requires rebuild |
+| Setup time | ~5 min | ~1 min |
+| Best for | day-to-day development | reproducing the deployed topology, CI |
+
+---
+
+### Option A — Local (no Docker)
+
+Everything runs directly on your machine: PostgreSQL, MinIO, the API via `tsx`, and
+the frontend via Vite. **This is the recommended setup for day-to-day development.**
+
+```bash
+# 0. Clone
+git clone <repo-url> jadara
+cd jadara
+```
+
+#### A.1 — Install Node.js 24
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v && npm -v
+```
+
+#### A.2 — Install PostgreSQL 18
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+psql --version
+```
+
+Create the role and database. `postgres` here means the Linux user, **not** a table.
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE USER jadara_user WITH PASSWORD 'jadara123' CREATEDB;
+CREATE DATABASE jadara OWNER jadara_user;
+GRANT ALL PRIVILEGES ON DATABASE jadara TO jadara_user;
+\q
+```
+
+Start and enable the service, then confirm it is accepting connections:
+
+```bash
+sudo systemctl enable --now postgresql
+sudo systemctl status postgresql --no-pager
+sudo -u postgres psql -c '\l' | grep jadara
+```
+
+<details>
+<summary>Already have PostgreSQL running? Just create the role and DB</summary>
+
+```bash
+sudo -u postgres psql -c "CREATE USER jadara_user WITH PASSWORD 'jadara123' CREATEDB;"
+sudo -u postgres psql -c "CREATE DATABASE jadara OWNER jadara_user;"
+```
+
+</details>
+
+#### A.3 — Install MinIO
+
+```bash
+sudo mkdir -p /opt/minio /var/minio/data
+
+curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio \
+  -o /tmp/minio && sudo install /tmp/minio /usr/local/bin/minio
+minio --version
+```
+
+Create a systemd unit so MinIO starts with the machine:
+
+```bash
+sudo tee /etc/systemd/system/minio.service > /dev/null <<'EOF'
+[Unit]
+Description=MinIO Object Storage
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/minio server /var/minio/data --address :9000 --console-address :9001
+Environment=MINIO_ROOT_USER=minioadmin
+Environment=MINIO_ROOT_PASSWORD=minioadmin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now minio
+sudo systemctl status minio --no-pager
+```
+
+Verify it responds (S3 API on `:9000`, web console on `:9001`):
+
+```bash
+curl -s http://localhost:9000/minio/health/live && echo "MinIO is live"
+```
+
+> The four buckets — `avatars`, `documents`, `evidence`, `certifications` — are
+> created **automatically by the API on startup**; nothing to do by hand.
+
+<details>
+<summary>Prefer running MinIO in the foreground (no systemd)?</summary>
+
+```bash
+MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin \
+  minio server /var/minio/data --address :9000 --console-address :9001
+```
+
+Keep it in a dedicated terminal, or background it with `nohup … &`.
+
+</details>
+
+#### A.4 — Optional: TeX Live for CV → PDF
+
+Only needed to generate CV PDFs. Without it, every other feature works.
+
+```bash
+sudo apt install -y texlive-latex-base texlive-latex-recommended texlive-fonts-recommended
+pdflatex --version
+```
+
+#### A.5 — Backend
+
+```bash
+cd backend
+npm install
+```
+
+Create `.env` — for local development everything points at **`localhost`**:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+NODE_ENV=development
+PORT=3001
+API_URL=http://localhost:3001
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:3001
+SWAGGER_ENABLED=true
+
+DATABASE_URL=postgresql://jadara_user:jadara123@localhost:5432/jadara
+
+ACCESS_SECRET=dev-access-secret-change-this-please
+REFRESH_SECRET=dev-refresh-secret-change-this-please
+ACCESS_EXPIRY=15m
+REFRESH_EXPIRY=7d
+FRONTEND_URL=http://localhost:3000
+
+UPLOAD_DIR=uploads
+UPLOAD_MAX_FILE_SIZE=10485760
+UPLOAD_MAX_AVATAR_SIZE=2097152
+
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=jadara
+MINIO_USE_SSL=false
+
+SMTP_HOST=127.0.0.1
+SMTP_PORT=25
+SMTP_SECURE=false
+SMTP_FROM=Jadara <benallouaziz1414@gmail.com>
+```
+
+> **Port layout (identical to Docker):** frontend `3000` · API `3001` · MinIO `9000`
+> (console `9001`) · PostgreSQL `5432`. That is why `PORT=3001` here — the API binds
+> `3001` directly on the host instead of relying on a Docker port mapping.
+>
+> Generate real secrets any time with `openssl rand -base64 48`.
+> The API **validates this file with Zod at boot** — an invalid value prints
+> `❌ Invalid environment variables:` and exits.
+
+Set up the database, in order:
+
+```bash
+npm run db:generate     # 1. generate the Prisma client from schema.prisma
+npm run db:migrate      # 2. create + apply the 14 migrations
+npm run db:seed         # 3. seed roles, permissions, domains, skills, languages, users
+```
+
+Start the API with hot reload:
+
+```bash
+npm run dev             # nodemon + tsx  →  http://localhost:3001
+```
+
+#### A.6 — Frontend
+
+In a second terminal:
+
+```bash
+cd frontend
+npm install
+
+printf 'VITE_API_URL=http://localhost:3001\n' > .env
+npm run dev -- --port 3000    # Vite + HMR  →  http://localhost:3000
+```
+
+> `VITE_API_URL` is the **host** the browser calls — the same value whether you
+> run natively or in Docker. The client appends `/v1` and sends cookies itself.
+> `--port 3000` is passed explicitly so the frontend can never collide with the API.
+
+#### A.7 — Verify
+
+```bash
+curl http://localhost:3001/health
+# {"status":"ok","database":"connected","timestamp":"…","uptime":12.3}
+```
+
+| URL | What |
+|---|---|
+| `http://localhost:3000` | Frontend (Vite dev server) |
+| `http://localhost:3001/health` | API health + DB connectivity |
+| `http://localhost:3001/api-docs` | **Swagger UI** — interactive API reference |
+| `http://localhost:3001/api-json` | Raw OpenAPI 3 spec |
+| `http://localhost:9000` | MinIO S3 API |
+| `http://localhost:9001` | MinIO web console · `minioadmin` / `minioadmin` |
+| `http://localhost:5432` | PostgreSQL |
+
+```bash
+# end-to-end smoke test
+curl -c /tmp/jadara-cookies.txt -X POST http://localhost:3001/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: http://localhost:3000' \
+  -d '{"email":"admin@jadara.com","password":"Admin@12345"}'
+
+curl -b /tmp/jadara-cookies.txt http://localhost:3001/v1/users/me/profile
+```
+
+#### A.8 — Everyday commands
+
+```bash
+# backend
+cd backend
+npm run dev            # start with hot reload
+npm run build          # compile to dist/
+npm start              # run the compiled build
+npm run db:migrate     # create + apply a migration after editing schema.prisma
+npm run db:generate    # regenerate the Prisma client
+npm run db:studio      # browse the data in a GUI
+npm run db:seed        # re-seed (idempotent, safe to repeat)
+
+# database
+sudo systemctl status postgresql --no-pager
+sudo systemctl restart postgresql
+sudo -u postgres psql -d jadara
+sudo -u postgres psql -c "SELECT datname FROM pg_database WHERE datname='jadara';"
+
+# minio
+sudo systemctl status minio --no-pager
+sudo systemctl restart minio
+sudo systemctl stop minio
+journalctl -u minio -n 50 --no-pager
+
+# frontend
+cd frontend
+npm run dev            # dev server with HMR
+npm run build          # production build
+npm run preview        # serve the production build locally
+npm run lint           # eslint
+```
+
+**Reset everything and start over:**
+
+```bash
+sudo systemctl stop postgresql minio
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS jadara;"
+sudo rm -rf /var/minio/data            # deletes all uploaded files
+sudo systemctl start postgresql minio
+cd backend && npm run db:migrate && npm run db:seed
+```
+
+---
+
+### Option B — Docker Compose
+
+Brings up **PostgreSQL + API + MinIO** with no manual installation.
 
 ```bash
 # 0. Clone
@@ -245,8 +532,11 @@ cd jadara
 # 1. Review the resolved Compose config (catches syntax errors early)
 docker compose config
 
-# 2. Create your local env files (they are git-ignored)
-cp backend/.env.example backend/.env        # then edit it — see Environment Variables
+# 2. Create your local env file (git-ignored)
+cp backend/.env.example backend/.env
+# Under Docker, service names replace localhost:
+#   DATABASE_URL=postgresql://jadara_user:jadara123@database:5432/jadara
+#   MINIO_ENDPOINT=minio
 
 # 3. Build images
 docker compose build
@@ -275,8 +565,11 @@ curl http://localhost:3001/health
 | `http://localhost:3001/health` | API health + DB connectivity |
 | `http://localhost:3001/api-docs` | **Swagger UI** — full interactive API reference |
 | `http://localhost:3001/api-json` | Raw OpenAPI 3 spec |
-| `http://localhost:9000` | MinIO S3 API (console on `:9001`, not published) |
 | `http://localhost:3000` | Frontend (see below) |
+| `http://localhost:9000` | MinIO S3 API (console on `:9001`, not published) |
+
+> **Postgres is internal only** in the compose file — there is no `ports:` mapping,
+> so `psql` from the host will not connect. Use `docker compose exec database psql -U jadara_user -d jadara`.
 
 **Start the frontend in Docker** — the `frontend` service is commented out in
 `docker-compose.yml` by default. Either uncomment it (lines 24–34) or run it locally:
@@ -299,69 +592,14 @@ docker compose down                        # stop (keeps volumes)
 docker compose down -v                     # stop and DELETE all data
 docker compose restart api                 # restart one service
 docker compose build api && docker compose up -d api   # rebuild one service
+
+docker compose exec database psql -U jadara_user -d jadara   # SQL shell
+docker compose exec api npx prisma studio                     # Prisma Studio
 ```
 
 > **Note:** no source directories are volume-mounted, so code changes require a
 > rebuild (`docker compose build api && docker compose up -d api`). For live-reload
-> development prefer **Option B**.
-
----
-
-### Option B — Local development
-
-Run Postgres and MinIO in Docker, the API and frontend on your host (hot reload).
-
-```bash
-git clone <repo-url> jadara
-cd jadara
-
-# ── 1. Infrastructure only ────────────────────────────────────────────────
-# Expose Postgres to the host by adding a ports mapping to the
-# `database` service in docker-compose.yml:
-#
-#   database:
-#     ports:
-#       - "5432:5432"
-docker compose up -d database minio
-```
-
-```bash
-# ── 2. Backend ────────────────────────────────────────────────────────────
-cd backend
-npm install
-
-cp .env.example .env
-# Edit .env — for host-based development use localhost, not service names:
-#   DATABASE_URL=postgresql://jadara_user:YOUR_PASSWORD@localhost:5432/jadara
-#   MINIO_ENDPOINT=localhost
-#   API_URL=http://localhost:3001
-#   CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:3001
-#   ACCESS_SECRET=<random string, min 16 chars>
-#   REFRESH_SECRET=<random string, min 16 chars>
-
-npm run db:generate     # generate the Prisma client
-npm run db:migrate      # create + apply migrations
-npm run db:seed         # seed roles, permissions, catalog, admin users
-
-npm run dev             # nodemon + tsx watch  →  http://localhost:3001
-```
-
-```bash
-# ── 3. Frontend (second terminal) ─────────────────────────────────────────
-cd frontend
-npm install
-
-# Frontend reads VITE_API_URL; without a .env it defaults to http://localhost:3000
-#   echo 'VITE_API_URL=http://localhost:3001' > .env
-npm run dev             # → http://localhost:3000
-```
-
-```bash
-# ── 4. Sanity check ───────────────────────────────────────────────────────
-curl http://localhost:3001/health
-open http://localhost:3001/api-docs
-open http://localhost:3000
-```
+> development prefer **Option A**.
 
 ---
 
@@ -435,7 +673,7 @@ automatically at startup.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VITE_API_URL` | `http://localhost:3000` | Base URL; the client appends `/v1` and sends cookies |
+| `VITE_API_URL` | `http://localhost:3000` | Base URL the browser calls; the client appends `/v1` and sends cookies. Set `http://localhost:3001` for dev and production |
 
 ### `docker-compose.yml` service env files
 
@@ -608,7 +846,8 @@ curl -b cookies.txt http://localhost:3001/v1/users/me/profile
 ```bash
 cd frontend
 npm install
-npm run dev          # http://localhost:3000
+printf 'VITE_API_URL=http://localhost:3001\n' > .env
+npm run dev -- --port 3000    # → http://localhost:3000
 npm run build
 npm run preview
 ```
