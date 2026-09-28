@@ -392,7 +392,6 @@ model projects {
   @@index([status], map: "idx_projects_status")
 }
 
-
 model evidence {
   id           Int       @id @default(autoincrement())
   project_id   Int
@@ -486,6 +485,11 @@ model cv_versions {
   @@index([user_id])
   @@index([user_id, language])
 }
+
+
+
+
+
 
 enum UserStatus {
   active
