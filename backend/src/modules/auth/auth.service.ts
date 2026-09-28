@@ -8,6 +8,7 @@ import { refreshTokenRepository } from "./refresh-token.repository.js";
 import { loginHistoryRepository } from "./login-history.repository.js";
 import { deviceRepository } from "./device.repository.js";
 import type { RegisterInput, LoginInput, ChangePasswordInput } from "./auth.validator.js";
+import { userSocialSelect, mapUserSocial } from "../users/user.repository.js";
 
 type RegisterResult =
   | {
@@ -188,7 +189,7 @@ export const authService = {
         profiles: true,
         roles: true,
         user_socials: {
-          select: { id: true, platform: true, url: true, created_at: true },
+          select: userSocialSelect,
           orderBy: { id: "asc" },
         },
       },
@@ -223,7 +224,7 @@ export const authService = {
         status: user.status,
         profile: user.profiles,
         role: user.roles.name,
-        user_socials: user.user_socials,
+        user_socials: user.user_socials.map(mapUserSocial),
       },
       accessToken,
       refreshToken,

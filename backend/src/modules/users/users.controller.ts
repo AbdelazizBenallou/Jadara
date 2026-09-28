@@ -4,7 +4,7 @@ import { response } from "../../../framework/utils/response.js";
 import { usersService } from "./users.service.js";
 import { reviewService } from "../reviews/reviews.service.js";
 import type { SetReviewerDomainsInput } from "../reviews/reviews.validator.js";
-import type { UpdateUserInput } from "./users.validator.js";
+import type { UpdateUserInput, AddSocialInput } from "./users.validator.js";
 
 export const usersController = {
   getAll: asyncHandler(async (req: Request, res: Response) => {
@@ -79,11 +79,16 @@ export const usersController = {
     response.success(res, activity, "Activity retrieved");
   }),
 
-  // ─── Socials (add/remove only, list is in profile) ───────
+  // ─── Socials (platforms catalog + add/remove) ────────────
+  getMySocialPlatforms: asyncHandler(async (req: Request, res: Response) => {
+    const platforms = await usersService.getSocialPlatforms();
+    response.success(res, platforms, "Social platforms retrieved");
+  }),
+
   addMySocial: asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
-    const { platform, url } = req.body;
-    const social = await usersService.addSocial(userId, platform, url);
+    const { platform_id, url } = req.body as AddSocialInput;
+    const social = await usersService.addSocial(userId, platform_id, url);
     response.success(res, social, "Social link added", 201);
   }),
 

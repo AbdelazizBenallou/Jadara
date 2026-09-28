@@ -349,22 +349,43 @@ const LANGUAGES_DATA = [
 ];
 
 const SOCIAL_PLATFORMS = [
-  "LinkedIn",
-  "GitHub",
-  "GitLab",
-  "Facebook",
-  "Instagram",
-  "X",
-  "YouTube",
-  "TikTok",
-  "Telegram",
-  "WhatsApp",
-  "Discord",
-  "Behance",
-  "Dribbble",
-  "Stack Overflow",
-  "Medium",
+  "linkedin",
+  "github",
+  "gitlab",
+  "facebook",
+  "instagram",
+  "x",
+  "youtube",
+  "tiktok",
+  "telegram",
+  "whatsapp",
+  "discord",
+  "behance",
+  "dribbble",
+  "stackoverflow",
+  "medium",
+  "portfolio",
 ];
+
+// Legacy display names written by older seeds; renamed in place so existing
+// user_socials.platform_id foreign keys stay valid.
+const LEGACY_PLATFORM_NAMES: Record<string, string> = {
+  LinkedIn: "linkedin",
+  GitHub: "github",
+  GitLab: "gitlab",
+  Facebook: "facebook",
+  Instagram: "instagram",
+  X: "x",
+  YouTube: "youtube",
+  TikTok: "tiktok",
+  Telegram: "telegram",
+  WhatsApp: "whatsapp",
+  Discord: "discord",
+  Behance: "behance",
+  Dribbble: "dribbble",
+  "Stack Overflow": "stackoverflow",
+  Medium: "medium",
+};
 
 const DEFAULT_USERS = [
   {
@@ -474,6 +495,14 @@ async function seedLanguages(): Promise<void> {
 }
 
 async function seedSocialPlatforms(): Promise<void> {
+  for (const [legacy, slug] of Object.entries(LEGACY_PLATFORM_NAMES)) {
+    if (legacy === slug) continue;
+    await prisma.social_platforms.updateMany({
+      where: { name: legacy },
+      data: { name: slug },
+    });
+  }
+
   for (const name of SOCIAL_PLATFORMS) {
     await prisma.social_platforms.upsert({
       where: { name },

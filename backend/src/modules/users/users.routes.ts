@@ -50,8 +50,13 @@ router.patch(
 // ─── /me/activity (login history + devices combined) ────────
 router.get("/me/activity", verifyAccessToken, usersController.getMyActivity);
 
-// ─── /me/socials (add/remove only, list is in profile) ──────
-
+// ─── /me/socials (platforms catalog + add/remove) ─────────
+router.get(
+  "/me/socials/platforms",
+  verifyAccessToken,
+  getMyProfileRateLimit,
+  usersController.getMySocialPlatforms,
+);
 
 router.post(
   "/me/socials",
