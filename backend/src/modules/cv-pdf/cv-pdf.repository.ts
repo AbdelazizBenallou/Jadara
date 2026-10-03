@@ -156,7 +156,7 @@ export const cvPdfRepository = {
       }),
       prisma.user_socials.findMany({
         where: { user_id: userId },
-        select: { platform: true, url: true },
+        select: { url: true, social_platforms: { select: { name: true } } },
       }),
       prisma.projects.findMany({
         where: { user_id: userId },

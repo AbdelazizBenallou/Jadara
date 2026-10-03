@@ -31,6 +31,30 @@ const userSelect = {
   },
 };
 
+export const userSocialSelect = {
+  id: true,
+  platform_id: true,
+  url: true,
+  created_at: true,
+  social_platforms: { select: { name: true } },
+};
+
+type UserSocialRow = {
+  id: number;
+  platform_id: number;
+  url: string;
+  created_at: Date | null;
+  social_platforms: { name: string };
+};
+
+export const mapUserSocial = (row: UserSocialRow) => ({
+  id: row.id,
+  platform_id: row.platform_id,
+  platform: row.social_platforms.name,
+  url: row.url,
+  created_at: row.created_at,
+});
+
 const profileSelect = {
   id: true,
   email: true,
@@ -56,12 +80,7 @@ const profileSelect = {
     select: { id: true, name: true },
   },
   user_socials: {
-    select: {
-      id: true,
-      platform: true,
-      url: true,
-      created_at: true,
-    },
+    select: userSocialSelect,
     orderBy: { id: "asc" as const },
   },
 };
@@ -208,7 +227,7 @@ export const userRepository = {
         },
         roles: { select: { id: true, name: true } },
         user_socials: {
-          select: { id: true, platform: true, url: true, created_at: true },
+          select: userSocialSelect,
           orderBy: { id: "asc" as const },
         },
         work_experiences: {
@@ -293,6 +312,7 @@ export const userRepository = {
     return {
       ...rest,
       role: roles.name,
+      user_socials: user.user_socials.map(mapUserSocial),
       profiles: user.profiles ? { ...user.profiles, avatar_url: avatarUrl } : null,
     };
   },
@@ -314,6 +334,7 @@ export const userRepository = {
     return {
       ...rest,
       role: roles.name,
+      user_socials: user.user_socials.map(mapUserSocial),
       profiles: {
         ...user.profiles,
         avatar_url: avatarUrl,
@@ -363,22 +384,28 @@ export const userRepository = {
   },
 
   // ─── Socials ─────────────────────────────────────────────
-  async addSocial(userId: number, platform: string, url: string) {
-    const existing = await prisma.user_socials.findFirst({
-      where: { user_id: userId, platform },
-      select: { id: true },
+  async findAllPlatforms() {
+    return prisma.social_platforms.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
-    if (existing) {
-      return prisma.user_socials.update({
-        where: { id: existing.id },
-        data: { url },
-        select: { id: true, platform: true, url: true, created_at: true },
-      });
-    }
-    return prisma.user_socials.create({
-      data: { user_id: userId, platform, url },
-      select: { id: true, platform: true, url: true, created_at: true },
+  },
+
+  async findPlatformById(id: number) {
+    return prisma.social_platforms.findUnique({
+      where: { id },
+      select: { id: true, name: true },
     });
+  },
+
+  async addSocial(userId: number, platformId: number, url: string) {
+    const social = await prisma.user_socials.upsert({
+      where: { user_id_platform_id: { user_id: userId, platform_id: platformId } },
+      update: { url },
+      create: { user_id: userId, platform_id: platformId, url },
+      select: userSocialSelect,
+    });
+    return mapUserSocial(social);
   },
 
   async removeSocial(userId: number, socialId: number) {

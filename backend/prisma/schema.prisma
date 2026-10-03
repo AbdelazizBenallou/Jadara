@@ -34,6 +34,11 @@ model users {
   user_socials           user_socials[]
   roles                  roles                    @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   work_experiences       work_experience[]
+  organizations             organizations[]
+  volunteering_activities   volunteering_activities[] @relation("ActivityApprover")
+  volunteer_applications    volunteer_applications[]
+  completed_volunteering    user_completed_volunteering[]
+
 
   @@index([email], map: "idx_users_email")
   @@index([role_id], map: "idx_users_role")
@@ -323,6 +328,7 @@ model skills {
   category      skill_categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   skill_domains skill_domains[]
   user_skills   user_skills[]
+  activity_required_skills activity_required_skills[]
 
   @@index([name], map: "idx_skills_name")
   @@index([category_id], map: "idx_skills_category")
@@ -391,7 +397,6 @@ model projects {
   @@index([sub_domain_id], map: "idx_projects_sub_domain")
   @@index([status], map: "idx_projects_status")
 }
-
 
 model evidence {
   id           Int       @id @default(autoincrement())
@@ -485,6 +490,172 @@ model cv_versions {
   @@unique([user_id, language, version])
   @@index([user_id])
   @@index([user_id, language])
+}
+
+// The voltaring part 
+
+model organizations {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  name        String   @db.VarChar(255)
+  description String?
+  website     String?  @db.VarChar(500)
+  email       String   @db.VarChar(255)
+  phone       String?  @db.VarChar(50)
+  location    String?  @db.VarChar(255)
+
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @default(now()) @db.Timestamp(6)
+
+  user       users                    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  activities volunteering_activities[]
+
+  @@index([user_id])
+}
+
+model activity_categories {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?
+
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+
+  activities volunteering_activities[]
+}
+
+model volunteering_activities {
+  id                    Int            @id @default(autoincrement())
+  organization_id       Int
+  category_id           Int?
+  approved_by           Int?
+
+  title                 String         @db.VarChar(255)
+  description           String?
+  location              String?        @db.VarChar(255)
+
+  start_date            DateTime       @db.Timestamp(6)
+  end_date              DateTime       @db.Timestamp(6)
+
+  required_volunteers   Int
+  requirements          String?
+  registration_deadline DateTime?
+
+  status                ActivityStatus @default(pending_review)
+
+  created_at            DateTime       @default(now()) @db.Timestamp(6)
+  updated_at            DateTime       @default(now()) @db.Timestamp(6)
+
+  organization organizations       @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  category     activity_categories? @relation(fields: [category_id], references: [id])
+  approver     users?              @relation("ActivityApprover", fields: [approved_by], references: [id])
+
+  required_skills activity_required_skills[]
+  applications    volunteer_applications[]
+  completed       user_completed_volunteering[]
+
+  @@index([organization_id])
+  @@index([category_id])
+  @@index([approved_by])
+  @@index([status])
+}
+
+model activity_required_skills {
+  id          Int @id @default(autoincrement())
+  activity_id Int
+  skill_id    Int
+
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  activity volunteering_activities @relation(
+    fields: [activity_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  skill skills @relation(
+    fields: [skill_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@unique([activity_id, skill_id])
+  @@index([activity_id])
+  @@index([skill_id])
+}
+
+model volunteer_applications {
+  id              Int               @id @default(autoincrement())
+  user_id         Int
+  activity_id     Int
+  application_date DateTime          @default(now()) @db.Timestamp(6)
+  status           ApplicationStatus @default(pending)
+
+  user     users @relation(
+    fields: [user_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  activity volunteering_activities @relation(
+    fields: [activity_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@unique([user_id, activity_id])
+  @@index([user_id])
+  @@index([activity_id])
+  @@index([status])
+}
+
+model user_completed_volunteering {
+  id              Int      @id @default(autoincrement())
+  user_id         Int
+  activity_id     Int
+  organization_id Int
+  completed_at    DateTime @default(now()) @db.Timestamp(6)
+
+  user users @relation(
+    fields: [user_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  activity volunteering_activities @relation(
+    fields: [activity_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  organization organizations @relation(
+    fields: [organization_id],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@unique([user_id, activity_id])
+  @@index([user_id])
+  @@index([activity_id])
+  @@index([organization_id])
+}
+
+
+
+enum ActivityStatus {
+  pending_review
+  published
+  rejected
+  ongoing
+  completed
+  cancelled
+}
+
+enum ApplicationStatus {
+  pending
+  accepted
+  rejected
+  completed
 }
 
 enum UserStatus {
