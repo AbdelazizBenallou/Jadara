@@ -188,7 +188,17 @@ export const authService = {
         profiles: true,
         roles: true,
         user_socials: {
-          select: { id: true, platform: true, url: true, created_at: true },
+          select: {
+            id: true,
+            url: true,
+            created_at: true,
+            social_platforms: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
           orderBy: { id: "asc" },
         },
       },
@@ -223,7 +233,12 @@ export const authService = {
         status: user.status,
         profile: user.profiles,
         role: user.roles.name,
-        user_socials: user.user_socials,
+        user_socials: user.user_socials.map((s) => ({
+          id: s.id,
+          platform: s.social_platforms.name,
+          url: s.url,
+          created_at: s.created_at,
+        })),
       },
       accessToken,
       refreshToken,

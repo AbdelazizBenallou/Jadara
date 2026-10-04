@@ -5,8 +5,13 @@ const skillSelect = {
   name: true,
   description: true,
   status: true,
-  created_at: true,
-  updated_at: true,
+  category_id: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
 };
 
 export const skillRepository = {
@@ -40,16 +45,26 @@ export const skillRepository = {
     });
   },
 
-  async create(name: string, description?: string, status?: "active" | "inactive") {
+  async create(
+    name: string,
+    category_id: number,
+    description?: string,
+    status?: "active" | "inactive",
+  ) {
     return prisma.skills.create({
-      data: { name, description, status },
+      data: { name, category_id, description, status },
       select: skillSelect,
     });
   },
 
   async update(
     id: number,
-    data: { name?: string; description?: string | null; status?: "active" | "inactive" },
+    data: {
+      name?: string;
+      description?: string | null;
+      status?: "active" | "inactive";
+      category_id?: number;
+    },
   ) {
     return prisma.skills.update({
       where: { id },

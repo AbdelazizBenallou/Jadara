@@ -11,8 +11,9 @@ export const listReviewsSchema = z.object({
 });
 
 export const setReviewerDomainsSchema = z.object({
-  domain_ids: z.array(z.number().int().positive()).min(1),
+  domain_id: z.number().int().positive(),
 });
 
 export type RatingInput = z.infer<typeof ratingSchema>;
 export type SetReviewerDomainsInput = z.infer<typeof setReviewerDomainsSchema>;
+

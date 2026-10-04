@@ -10,10 +10,17 @@ export const reviewService = {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
 
-    const domainIds = await reviewRepository.findReviewerDomainIds(reviewerId);
+    const reviewerDomainId = await reviewRepository.findReviewerDomainId(reviewerId);
+    if (!reviewerDomainId) {
+      return {
+        reviews: [],
+        meta: { total: 0, page, limit, totalPages: 0, nextCursor: null },
+      };
+    }
+
     const { projects, total } = await reviewRepository.findAvailable(
       reviewerId,
-      domainIds,
+      reviewerDomainId,
       page,
       limit,
     );
@@ -35,12 +42,15 @@ export const reviewService = {
           id: p.id,
           title: p.title,
           description: p.description,
+          sub_domain_id: p.sub_domain_id,
+          sub_domain: p.sub_domain,
+          sub_domains: p.sub_domain,
+          domain: p.sub_domain?.domain ?? null,
           user: {
             id: p.users.id,
             email: p.users.email,
             profile: p.users.profiles,
           },
-          domain: p.domains,
         },
       })),
       meta: { total, page, limit, totalPages, nextCursor: page < totalPages ? page + 1 : null },
@@ -71,12 +81,15 @@ export const reviewService = {
           title: r.projects.title,
           description: r.projects.description,
           status: r.projects.status,
+          sub_domain_id: r.projects.sub_domain_id,
+          sub_domain: r.projects.sub_domain,
+          sub_domains: r.projects.sub_domain,
+          domain: r.projects.sub_domain?.domain ?? null,
           user: {
             id: r.projects.users.id,
             email: r.projects.users.email,
             profile: r.projects.users.profiles,
           },
-          domain: r.projects.domains,
         },
       })),
       meta: { total, page, limit, totalPages, nextCursor: page < totalPages ? page + 1 : null },
@@ -89,13 +102,18 @@ export const reviewService = {
       throw new AppError("Project not found", 404);
     }
 
-    const domainIds = await reviewRepository.findReviewerDomainIds(reviewerId);
     const ownProject = project.user_id === reviewerId;
     const ownReview = await reviewRepository.findReview(projectId, reviewerId);
-    const inDomain = project.domain_id !== null && domainIds.includes(project.domain_id);
+
+    const reviewerDomainId = await reviewRepository.findReviewerDomainId(reviewerId);
+    const projectDomainId = project.sub_domain?.domain_id;
+    const inDomain =
+      reviewerDomainId !== null &&
+      projectDomainId !== undefined &&
+      projectDomainId === reviewerDomainId;
 
     if (!ownProject && !ownReview && !inDomain) {
-      throw new AppError("This project is not in your assigned domains", 403);
+      throw new AppError("This project is not in your assigned domain", 403);
     }
 
     const reviews = await reviewRepository.findReviewsByProject(projectId);
@@ -131,6 +149,8 @@ export const reviewService = {
       })),
       project: {
         ...project,
+        domain: project.sub_domain?.domain ?? null,
+        sub_domains: project.sub_domain ?? null,
         evidence: evidenceWithUrls,
       },
     };
@@ -147,13 +167,13 @@ export const reviewService = {
     if (project.user_id === reviewerId) {
       throw new AppError("You cannot rate your own project", 400);
     }
-    if (project.domain_id === null) {
-      throw new AppError("Project has no domain assigned; cannot be rated", 400);
+    if (!project.sub_domain || !project.sub_domain.domain_id) {
+      throw new AppError("This project is not in your assigned domain", 403);
     }
 
-    const domainIds = await reviewRepository.findReviewerDomainIds(reviewerId);
-    if (!domainIds.includes(project.domain_id)) {
-      throw new AppError("This project is not in your assigned domains", 403);
+    const reviewerDomainId = await reviewRepository.findReviewerDomainId(reviewerId);
+    if (!reviewerDomainId || project.sub_domain.domain_id !== reviewerDomainId) {
+      throw new AppError("This project is not in your assigned domain", 403);
     }
 
     const existing = await reviewRepository.findReview(projectId, reviewerId);
@@ -193,13 +213,13 @@ export const reviewService = {
       throw new AppError("Project not found", 404);
     }
 
-    if (project.domain_id === null) {
-      throw new AppError("Project has no domain assigned; cannot be rated", 400);
+    if (!project.sub_domain || !project.sub_domain.domain_id) {
+      throw new AppError("This project is not in your assigned domain", 403);
     }
 
-    const domainIds = await reviewRepository.findReviewerDomainIds(reviewerId);
-    if (!domainIds.includes(project.domain_id)) {
-      throw new AppError("This project is not in your assigned domains", 403);
+    const reviewerDomainId = await reviewRepository.findReviewerDomainId(reviewerId);
+    if (!reviewerDomainId || project.sub_domain.domain_id !== reviewerDomainId) {
+      throw new AppError("This project is not in your assigned domain", 403);
     }
 
     await reviewRepository.updateReview(projectId, reviewerId, data.rating, data.feedback);
@@ -216,33 +236,34 @@ export const reviewService = {
     };
   },
 
+  async getReviewerDomain(reviewerId: number) {
+    return reviewRepository.findReviewerDomain(reviewerId);
+  },
+
   async getReviewerDomains(reviewerId: number) {
-    const rows = await reviewRepository.findReviewerDomains(reviewerId);
-    return rows.map((r) => r.domains);
+    return reviewRepository.findReviewerDomain(reviewerId);
   },
 
   async setReviewerDomains(reviewerId: number, data: SetReviewerDomainsInput) {
-    const { domain_ids: domainIds } = data;
+    const domainId = data.domain_id;
 
-    const existingDomains = await prisma.domains.findMany({
-      where: { id: { in: domainIds } },
-      select: { id: true },
+    const existingDomain = await prisma.domains.findUnique({
+      where: { id: domainId },
+      select: { id: true, name: true },
     });
-    const existingIds = new Set(existingDomains.map((d) => d.id));
-    const missing = domainIds.filter((id) => !existingIds.has(id));
-    if (missing.length > 0) {
-      throw new AppError(`Domains not found: ${missing.join(", ")}`, 400);
+    if (!existingDomain) {
+      throw new AppError(`Domain with ID ${domainId} not found`, 404);
     }
 
-    await reviewRepository.setReviewerDomains(reviewerId, domainIds);
-    return this.getReviewerDomains(reviewerId);
+    await reviewRepository.setReviewerDomains(reviewerId, domainId);
+    return this.getReviewerDomain(reviewerId);
   },
 
-  async removeReviewerDomain(reviewerId: number, domainId: number) {
+  async removeReviewerDomain(reviewerId: number, domainId?: number) {
     const count = await reviewRepository.removeReviewerDomain(reviewerId, domainId);
     if (count === 0) {
       throw new AppError("Reviewer domain assignment not found", 404);
     }
-    return this.getReviewerDomains(reviewerId);
+    return this.getReviewerDomain(reviewerId);
   },
 };

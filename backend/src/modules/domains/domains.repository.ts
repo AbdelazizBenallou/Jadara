@@ -59,7 +59,7 @@ export const domainRepository = {
   },
 
   async countProjectsByDomainId(id: number) {
-    return prisma.projects.count({ where: { domain_id: id } });
+    return prisma.projects.count({ where: { sub_domain: { domain_id: id } } });
   },
 
   async getSkillsByDomainId(id: number) {

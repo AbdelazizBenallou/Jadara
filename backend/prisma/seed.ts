@@ -81,50 +81,147 @@ async function main() {
   }
   console.log(`Created ${domainsData.length} domains`);
 
-  const skillsData: Array<{ name: string; domains: string[] }> = [
-    { name: "JavaScript", domains: ["Web Development"] },
-    { name: "TypeScript", domains: ["Web Development"] },
-    { name: "HTML/CSS", domains: ["Web Development", "UI/UX Design"] },
-    { name: "React", domains: ["Web Development", "UI/UX Design"] },
-    { name: "Next.js", domains: ["Web Development"] },
-    { name: "Node.js", domains: ["Web Development"] },
-    { name: "Express.js", domains: ["Web Development"] },
-    { name: "Tailwind CSS", domains: ["Web Development", "UI/UX Design"] },
-    { name: "Flutter", domains: ["Mobile Development"] },
-    { name: "React Native", domains: ["Mobile Development", "Web Development"] },
-    { name: "Kotlin", domains: ["Mobile Development"] },
-    { name: "Swift", domains: ["Mobile Development"] },
-    { name: "Python", domains: ["Data Science & AI", "Cybersecurity"] },
-    { name: "TensorFlow", domains: ["Data Science & AI"] },
-    { name: "PyTorch", domains: ["Data Science & AI"] },
-    { name: "Machine Learning", domains: ["Data Science & AI"] },
-    { name: "Penetration Testing", domains: ["Cybersecurity"] },
-    { name: "Network Security", domains: ["Cybersecurity"] },
-    { name: "Cryptography", domains: ["Cybersecurity"] },
-    { name: "Docker", domains: ["Cloud & DevOps"] },
-    { name: "Kubernetes", domains: ["Cloud & DevOps"] },
-    { name: "AWS", domains: ["Cloud & DevOps"] },
-    { name: "CI/CD", domains: ["Cloud & DevOps"] },
-    { name: "Linux", domains: ["Cloud & DevOps", "Cybersecurity"] },
-    { name: "Git", domains: ["Cloud & DevOps", "Web Development", "Mobile Development"] },
-    { name: "Figma", domains: ["UI/UX Design"] },
-    { name: "Adobe XD", domains: ["UI/UX Design"] },
-    { name: "Unity", domains: ["Game Development"] },
-    { name: "Unreal Engine", domains: ["Game Development"] },
-    { name: "C#", domains: ["Game Development"] },
-    { name: "C++", domains: ["Game Development"] },
-    { name: "SQL", domains: ["Databases"] },
-    { name: "PostgreSQL", domains: ["Databases", "Web Development"] },
-    { name: "MongoDB", domains: ["Databases"] },
-    { name: "Redis", domains: ["Databases", "Cloud & DevOps"] },
+  // Create sub-domains linked to parent domains
+  const subDomainsData: Array<{ domain: string; name: string; description?: string }> = [
+    { domain: "Web Development", name: "Frontend Development", description: "Client-side web development using modern JS/CSS frameworks" },
+    { domain: "Web Development", name: "Backend Development", description: "Server-side web development, APIs, and microservices" },
+    { domain: "Web Development", name: "Full Stack Development", description: "End-to-end full stack web architecture" },
+    { domain: "Mobile Development", name: "iOS Development", description: "Native iOS app development with Swift" },
+    { domain: "Mobile Development", name: "Android Development", description: "Native Android app development with Kotlin" },
+    { domain: "Mobile Development", name: "Cross-Platform Mobile", description: "Multi-platform mobile apps with Flutter and React Native" },
+    { domain: "Data Science & AI", name: "Machine Learning", description: "Statistical modeling and applied machine learning" },
+    { domain: "Data Science & AI", name: "Deep Learning & NLP", description: "Neural networks, computer vision, and language models" },
+    { domain: "Data Science & AI", name: "Data Engineering", description: "Big data pipelines, ETL, and data warehousing" },
+    { domain: "Cybersecurity", name: "Penetration Testing", description: "Ethical hacking and vulnerability assessments" },
+    { domain: "Cybersecurity", name: "Application Security", description: "Secure coding practices and AppSec" },
+    { domain: "Cybersecurity", name: "Cloud Security", description: "Security configurations for cloud environments" },
+    { domain: "Cloud & DevOps", name: "Cloud Architecture", description: "Designing scalable multi-cloud infrastructure" },
+    { domain: "Cloud & DevOps", name: "CI/CD & DevOps Automation", description: "Deployment pipelines and automated infrastructure" },
+    { domain: "Cloud & DevOps", name: "Site Reliability Engineering", description: "High availability, monitoring, and observability" },
+    { domain: "UI/UX Design", name: "User Interface (UI)", description: "Visual design, prototyping, and components" },
+    { domain: "UI/UX Design", name: "User Experience (UX)", description: "User research, wireframing, and usability testing" },
+    { domain: "UI/UX Design", name: "Design Systems", description: "Design tokens, style guides, and component libraries" },
+    { domain: "Game Development", name: "Game Engine Programming", description: "Unity and Unreal engine development" },
+    { domain: "Game Development", name: "3D Graphics & Shaders", description: "Real-time rendering and shader development" },
+    { domain: "Databases", name: "Relational Databases", description: "PostgreSQL, MySQL design and optimization" },
+    { domain: "Databases", name: "NoSQL & Distributed Systems", description: "Document stores, key-value stores, and distributed caching" },
+  ];
+
+  let subDomainCount = 0;
+  for (const sd of subDomainsData) {
+    const parentDomainId = domainIds.get(sd.domain);
+    if (!parentDomainId) continue;
+    await prisma.sub_domains.upsert({
+      where: {
+        domain_id_name: { domain_id: parentDomainId, name: sd.name },
+      },
+      update: { description: sd.description },
+      create: {
+        domain_id: parentDomainId,
+        name: sd.name,
+        description: sd.description,
+      },
+    });
+    subDomainCount++;
+  }
+  console.log(`Created ${subDomainCount} sub-domains`);
+
+  // Create skill categories
+  const skillCategoriesData = [
+    {
+      name: "Programming Languages",
+      description: "Core programming and scripting languages",
+    },
+    {
+      name: "Frameworks & Libraries",
+      description: "Frontend, backend, and mobile application frameworks and libraries",
+    },
+    {
+      name: "Data Science & AI",
+      description: "Machine learning, deep learning, and AI frameworks",
+    },
+    {
+      name: "Cloud & DevOps",
+      description: "Cloud platforms, infrastructure as code, containerization, and CI/CD tools",
+    },
+    {
+      name: "Cybersecurity",
+      description: "Security assessment, penetration testing, and cryptography tools",
+    },
+    {
+      name: "UI/UX Design",
+      description: "User experience and interface design tools",
+    },
+    {
+      name: "Game Development",
+      description: "Game engines and real-time graphics development tools",
+    },
+    {
+      name: "Databases",
+      description: "Relational, NoSQL, and memory-cache data management systems",
+    },
+  ];
+
+  const categoryIds = new Map<string, number>();
+  for (const c of skillCategoriesData) {
+    const category = await prisma.skill_categories.upsert({
+      where: { name: c.name },
+      update: { description: c.description },
+      create: c,
+    });
+    categoryIds.set(c.name, category.id);
+  }
+  console.log(`Created ${skillCategoriesData.length} skill categories`);
+
+  const skillsData: Array<{ name: string; category: string; domains: string[] }> = [
+    { name: "JavaScript", category: "Programming Languages", domains: ["Web Development"] },
+    { name: "TypeScript", category: "Programming Languages", domains: ["Web Development"] },
+    { name: "HTML/CSS", category: "Frameworks & Libraries", domains: ["Web Development", "UI/UX Design"] },
+    { name: "React", category: "Frameworks & Libraries", domains: ["Web Development", "UI/UX Design"] },
+    { name: "Next.js", category: "Frameworks & Libraries", domains: ["Web Development"] },
+    { name: "Node.js", category: "Frameworks & Libraries", domains: ["Web Development"] },
+    { name: "Express.js", category: "Frameworks & Libraries", domains: ["Web Development"] },
+    { name: "Tailwind CSS", category: "Frameworks & Libraries", domains: ["Web Development", "UI/UX Design"] },
+    { name: "Flutter", category: "Frameworks & Libraries", domains: ["Mobile Development"] },
+    { name: "React Native", category: "Frameworks & Libraries", domains: ["Mobile Development", "Web Development"] },
+    { name: "Kotlin", category: "Programming Languages", domains: ["Mobile Development"] },
+    { name: "Swift", category: "Programming Languages", domains: ["Mobile Development"] },
+    { name: "Python", category: "Programming Languages", domains: ["Data Science & AI", "Cybersecurity"] },
+    { name: "TensorFlow", category: "Data Science & AI", domains: ["Data Science & AI"] },
+    { name: "PyTorch", category: "Data Science & AI", domains: ["Data Science & AI"] },
+    { name: "Machine Learning", category: "Data Science & AI", domains: ["Data Science & AI"] },
+    { name: "Penetration Testing", category: "Cybersecurity", domains: ["Cybersecurity"] },
+    { name: "Network Security", category: "Cybersecurity", domains: ["Cybersecurity"] },
+    { name: "Cryptography", category: "Cybersecurity", domains: ["Cybersecurity"] },
+    { name: "Docker", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
+    { name: "Kubernetes", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
+    { name: "AWS", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
+    { name: "CI/CD", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
+    { name: "Linux", category: "Cloud & DevOps", domains: ["Cloud & DevOps", "Cybersecurity"] },
+    { name: "Git", category: "Cloud & DevOps", domains: ["Cloud & DevOps", "Web Development", "Mobile Development"] },
+    { name: "Figma", category: "UI/UX Design", domains: ["UI/UX Design"] },
+    { name: "Adobe XD", category: "UI/UX Design", domains: ["UI/UX Design"] },
+    { name: "Unity", category: "Game Development", domains: ["Game Development"] },
+    { name: "Unreal Engine", category: "Game Development", domains: ["Game Development"] },
+    { name: "C#", category: "Programming Languages", domains: ["Game Development"] },
+    { name: "C++", category: "Programming Languages", domains: ["Game Development"] },
+    { name: "SQL", category: "Programming Languages", domains: ["Databases"] },
+    { name: "PostgreSQL", category: "Databases", domains: ["Databases", "Web Development"] },
+    { name: "MongoDB", category: "Databases", domains: ["Databases"] },
+    { name: "Redis", category: "Databases", domains: ["Databases", "Cloud & DevOps"] },
   ];
 
   let skillDomainLinks = 0;
   for (const s of skillsData) {
+    const categoryId = categoryIds.get(s.category);
+    if (!categoryId) {
+      throw new Error(`Category "${s.category}" not found for skill "${s.name}"`);
+    }
+
     const skill = await prisma.skills.upsert({
       where: { name: s.name },
-      update: {},
-      create: { name: s.name },
+      update: { category_id: categoryId },
+      create: { name: s.name, category_id: categoryId },
     });
     for (const domainName of s.domains) {
       const domainId = domainIds.get(domainName);
@@ -251,14 +348,14 @@ async function main() {
 
   // Create default reviewer user
   const reviewerEmail = "reviewer@jadara.com";
-  const existingReviewer = await prisma.users.findUnique({
+  let reviewer = await prisma.users.findUnique({
     where: { email: reviewerEmail },
   });
 
-  if (!existingReviewer) {
+  if (!reviewer) {
     const passwordHash = await argon2.hash("Reviewer@12345");
 
-    const reviewer = await prisma.users.create({
+    reviewer = await prisma.users.create({
       data: {
         email: reviewerEmail,
         password: passwordHash,
@@ -275,7 +372,18 @@ async function main() {
 
     console.log(`Created reviewer user: ${reviewerEmail}`);
   } else {
-    console.log("Reviewer user already exists, skipping");
+    console.log("Reviewer user already exists, skipping creation");
+  }
+
+  // Ensure reviewer is linked to strictly ONE domain
+  const webDevDomainId = domainIds.get("Web Development");
+  if (webDevDomainId && reviewer) {
+    await prisma.reviewer_domains.upsert({
+      where: { user_id: reviewer.id },
+      update: { domain_id: webDevDomainId },
+      create: { user_id: reviewer.id, domain_id: webDevDomainId },
+    });
+    console.log(`Assigned reviewer ${reviewerEmail} to single domain: Web Development (ID: ${webDevDomainId})`);
   }
 
   console.log("Seed completed!");

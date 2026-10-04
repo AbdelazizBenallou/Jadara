@@ -193,7 +193,7 @@ model user_languages {
 model cv_generation_requests {
   id           Int        @id @default(autoincrement())
   user_id      Int
-  language     CVLanguage
+  language     CVLanguage @default(EN)
   status       String     @db.VarChar(50)
   missing_fields Json?
   data_hash    String?    @db.VarChar(255)
@@ -433,6 +433,7 @@ model reviewer_domains {
   domains    domains   @relation(fields: [domain_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([user_id], map: "idx_reviewer_domains_user")
   @@index([domain_id], map: "idx_reviewer_domains_domain")
 }
 

@@ -6,6 +6,8 @@ import type {
   AssignSkillInput,
   CreateDomainInput,
   UpdateDomainInput,
+  CreateSubDomainInput,
+  UpdateSubDomainInput,
 } from "./domains.validator.js";
 
 export const domainController = {
@@ -87,4 +89,48 @@ export const domainController = {
     await domainService.remove(id);
     response.success(res, null, "Domain deleted successfully");
   }),
+
+  // ── Sub-Domains ───────────────────────────────────────────────
+  getAllSubDomains: asyncHandler(async (req: Request, res: Response) => {
+    const result = await domainService.getAllSubDomains(
+      req.query as { page?: string; limit?: string; domain_id?: string },
+    );
+    response.paginated(res, result.sub_domains, result.meta, "Sub-domains fetched successfully");
+  }),
+
+  getSubDomainById: asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      response.error(res, "Invalid sub-domain ID", 400);
+      return;
+    }
+    const data = await domainService.getSubDomainById(id);
+    response.success(res, data, "Sub-domain fetched successfully");
+  }),
+
+  createSubDomain: asyncHandler(async (req: Request, res: Response) => {
+    const data = await domainService.createSubDomain(req.body as CreateSubDomainInput);
+    response.success(res, data, "Sub-domain created successfully", 201);
+  }),
+
+  updateSubDomain: asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      response.error(res, "Invalid sub-domain ID", 400);
+      return;
+    }
+    const data = await domainService.updateSubDomain(id, req.body as UpdateSubDomainInput);
+    response.success(res, data, "Sub-domain updated successfully");
+  }),
+
+  removeSubDomain: asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      response.error(res, "Invalid sub-domain ID", 400);
+      return;
+    }
+    await domainService.removeSubDomain(id);
+    response.success(res, null, "Sub-domain deleted successfully");
+  }),
 };
+

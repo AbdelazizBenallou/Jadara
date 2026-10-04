@@ -6,7 +6,7 @@ export const createProjectSchema = z.object({
   github_url: z.string().url().max(500).optional(),
   live_url: z.string().url().max(500).optional(),
   figma_url: z.string().url().max(500).optional(),
-  domain_id: z.number().int().positive().nullable().optional(),
+  sub_domain_id: z.number().int().positive().nullable().optional(),
 });
 
 export const updateProjectSchema = z.object({
@@ -15,7 +15,7 @@ export const updateProjectSchema = z.object({
   github_url: z.string().url().max(500).nullable().optional(),
   live_url: z.string().url().max(500).nullable().optional(),
   figma_url: z.string().url().max(500).nullable().optional(),
-  domain_id: z.number().int().positive().nullable().optional(),
+  sub_domain_id: z.number().int().positive().nullable().optional(),
 });
 
 export const listProjectsSchema = z.object({

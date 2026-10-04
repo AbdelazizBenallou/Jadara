@@ -53,12 +53,11 @@ export const demandService = {
       });
 
       if (isReviewer && demand.demand_domains.length > 0) {
-        await tx.reviewer_domains.createMany({
-          data: demand.demand_domains.map((dd) => ({
-            user_id: demand.user_id,
-            domain_id: dd.domain_id,
-          })),
-          skipDuplicates: true,
+        const targetDomainId = demand.demand_domains[0].domain_id;
+        await tx.reviewer_domains.upsert({
+          where: { user_id: demand.user_id },
+          update: { domain_id: targetDomainId },
+          create: { user_id: demand.user_id, domain_id: targetDomainId },
         });
       }
 
