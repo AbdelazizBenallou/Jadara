@@ -75,10 +75,17 @@ npx prisma migrate deploy
 # If you have an existing dev database that has drifted, push instead:
 npx prisma db push
 
-# Seed default data (roles, permissions, admin, domains, skills, languages)
+# Seed default data (domains, sub-domains, skills, languages, social platforms)
 npx prisma db seed
+
+# Seed roles, permissions, role permissions and default users
+npm run db:seed:users
 ```
 
+> `npx prisma db seed` runs `prisma/seed.ts`, which already calls the users
+> seed at the end. Run `npm run db:seed:users` on its own to re-apply only
+> roles, permissions, role permissions and default users (idempotent).
+>
 > Note: on a database that has been modified outside of the migration folder
 > (`prisma migrate dev` reports drift), use `npx prisma migrate deploy` or
 > `npx prisma db push` on top of the manual SQL.
@@ -98,14 +105,25 @@ The server runs at `http://localhost:3001` (configurable via `PORT`).
 
 ---
 
-## Default Admin Account
+## Default Accounts
 
-| Field    | Value              |
-| -------- | ------------------ |
-| Email    | `admin@jadara.com` |
-| Password | `Admin@12345`      |
+Seeded by `prisma/seed_users.ts` — all with status `active`.
 
-The seed also creates the baseline **Beneficiary**, **Reviewer**, and **Company** roles (admin role is _not_ selectable at registration) plus the domain catalog, skills linked to domains, and the common languages.
+| Role          | Email                       | Password             |
+| ------------- | --------------------------- | -------------------- |
+| Admin         | `admin@jadara.com`          | `Admin@12345`        |
+| Reviewer      | `reviewer@jadara.com`       | `Reviewer@12345`     |
+| Company       | `company@jadara.com`        | `Company@12345`      |
+| Beneficiary   | `beneficiary@jadara.com`    | `Beneficiary@12345`  |
+| Organization  | `organization@jadara.com`   | `Organization@12345` |
+
+> These are development credentials only — change or remove them before any
+> shared deployment.
+
+The seed also creates the **Beneficiary**, **Reviewer**, **Company**, and
+**Organization** roles as selectable at registration (the Admin role is _not_
+selectable), assigns each role its baseline permissions, plus the domain
+catalog, skills linked to domains, and the common languages.
 
 ---
 
@@ -541,7 +559,8 @@ backend/
 ├── prisma/
 │   ├── schema.prisma              # Database schema (27 models + enums)
 │   ├── migrations/                # Versioned SQL migrations
-│   └── seed.ts                    # Roles, permissions, admin, domains, skills, languages
+│   ├── seed.ts                    # Domains, sub-domains, skills, languages, social platforms
+│   └── seed_users.ts              # Roles, permissions, role permissions, default users
 ├── doc/
 │   ├── schema.puml / schema.png   # ER diagram
 │   ├── architecture.md            # Architecture notes
@@ -568,6 +587,7 @@ Each module follows the same layering: `routes → controller → service → re
 | `npm run db:generate`   | Generate Prisma client                 |
 | `npm run db:migrate`    | Run Prisma migrations                  |
 | `npm run db:seed`       | Seed database with default data        |
+| `npm run db:seed:users` | Seed roles, permissions and users only |
 | `npm run db:studio`     | Open Prisma Studio (DB browser)        |
 | `npm run db:push`       | Push schema to database (no migration) |
 | `npm run lint`          | Run ESLint                             |

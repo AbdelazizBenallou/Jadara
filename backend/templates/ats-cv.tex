@@ -1,146 +1,306 @@
-\documentclass[letterpaper,14pt]{extarticle}
+%----------------------------------------------------------------------------------------
+%   JADARA CV TEMPLATE
+%   Based on the new resume template
+%   Dynamic version for Mustache
+%----------------------------------------------------------------------------------------
 
-\usepackage{latexsym}
-\usepackage[empty]{fullpage}
-\usepackage{titlesec}
-\usepackage{marvosym}
-\usepackage[usenames,dvipsnames]{color}
-\usepackage{verbatim}
-\usepackage{enumitem}
-\usepackage[hidelinks]{hyperref}
-\usepackage{fancyhdr}
-\usepackage[english]{babel}
+\documentclass{resume}
+
+%----------------------------------------------------------------------------------------
+%   Packages
+%----------------------------------------------------------------------------------------
+
+\usepackage[left=0.75in,top=0.6in,right=0.75in,bottom=0.6in]{geometry}
+
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{footnote}
+\usepackage{changepage}
+\usepackage{fontawesome}
 \usepackage{tabularx}
-\input{glyphtounicode}
 
-% Font options
-\usepackage{times}  % Times New Roman style serif font
+% Times-style font
+\usepackage{newtxtext}
+\usepackage{newtxmath}
+
+%----------------------------------------------------------------------------------------
+%   PDF Metadata
+%----------------------------------------------------------------------------------------
 
 \hypersetup{
-  pdftitle={<<pdfTitle>>},
-  pdfauthor={<<fullName>>}
+    pdftitle={{{{pdfTitle}}}},
+    pdfauthor={{{{fullName}}}},
+    hidelinks
 }
 
-\pagestyle{fancy}
-\fancyhf{}
-\fancyfoot{}
-\renewcommand{\headrulewidth}{0pt}
-\renewcommand{\footrulewidth}{0pt}
+%----------------------------------------------------------------------------------------
+%   Custom Commands
+%----------------------------------------------------------------------------------------
 
-\addtolength{\oddsidemargin}{-0.5in}
-\addtolength{\evensidemargin}{-0.5in}
-\addtolength{\textwidth}{1in}
-\addtolength{\topmargin}{-.5in}
-\addtolength{\textheight}{1.0in}
+\newcommand{\italicitem}[1]{\item{\textit{#1}}}
 
-\urlstyle{same}
-\raggedbottom
-\raggedright
-\setlength{\tabcolsep}{0in}
+\newcommand{\bolditem}[1]{\item{\textbf{#1}}}
 
-% Section formatting
-\titleformat{\section}{\Large\bfseries\scshape\raggedright}{}{0em}{}[\titlerule]
+\newcommand{\plainitem}[1]{\item{#1}}
 
-% Ensure PDF is machine readable
-\pdfgentounicode=1
+\newcommand{\link}[2]{\href{#1}{#2}}
 
-% Custom commands
-\newcommand{\resumeItem}[1]{\item{#1}}
-\newcommand{\resumeSubheading}[4]{
-\vspace{-1pt}\item
-  \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
-    \textbf{#1} & #2 \\
-    \textit{#3} & \textit{#4} \\
-  \end{tabular*}\vspace{-7pt}
+\newcommand{\entry}[2]{#1 & #2 \tabularnewline}
+
+%----------------------------------------------------------------------------------------
+%   Table Environment
+%----------------------------------------------------------------------------------------
+
+\newcommand{\tableEnv}[2]{%
+    \begin{rSection}{#1}
+        \begin{adjustwidth}{0.0in}{0.1in}
+            \begin{tabularx}{\linewidth}{@{} >{\bfseries}l @{\hspace{6ex}} X @{}}
+                #2
+            \end{tabularx}
+        \end{adjustwidth}
+    \end{rSection}
 }
-\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
-\newcommand{\resumeSubHeadingList}{\begin{itemize}[leftmargin=0.15in, label={}]}
-\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+
+%----------------------------------------------------------------------------------------
+%   Document
+%----------------------------------------------------------------------------------------
+
+\name{{{fullName}}}
 
 \begin{document}
 
-\begin{center}
-  \textbf{\Huge <<fullName>>} \\
-  \small <<#location>><<location>> $|$ <</location>><<phone>> $|$ \href{mailto:<<email>>}{<<email>>}<<#hasLinkedin>> $|$ \href{<<linkedin>>}{<<linkedin>>} <</hasLinkedin>><<#hasGithub>> $|$ \href{<<github>>}{<<github>>} <</hasGithub>><<#hasPortfolio>> $|$ \href{<<portfolio>>}{<<portfolio>>} <</hasPortfolio>>
-\end{center}
+%----------------------------------------------------------------------------------------
+%   Personal Information
+%----------------------------------------------------------------------------------------
+
+\printPersonalInfo{
+    <<#location>>
+    \personalInfo{\tag{Résidence}\info{{{location}}}}
+    <</location>>
+
+    <<#email>>
+    \personalInfo{\tag{E-mail}\info{{{email}}}}
+    <</email>>
+
+    <<#phone>>
+    \personalInfo{\tag{Téléphone}\info{{{phone}}}}
+    <</phone>>
+
+    <<#dateOfBirth>>
+    \personalInfo{\tag{Date de naissance}\info{{{dateOfBirth}}}}
+    <</dateOfBirth>>
+
+    <<#hasLinkedin>>
+    \personalInfo{\tag{LinkedIn}\info{\href{{{linkedin}}}{{{linkedin}}}}}
+    <</hasLinkedin>>
+
+    <<#hasGithub>>
+    \personalInfo{\tag{GitHub}\info{\href{{{github}}}{{{github}}}}}
+    <</hasGithub>>
+
+    <<#hasPortfolio>>
+    \personalInfo{\tag{Portfolio}\info{\href{{{portfolio}}}{{{portfolio}}}}}
+    <</hasPortfolio>>
+}
+
+%----------------------------------------------------------------------------------------
+%   Profil Professionnel
+%----------------------------------------------------------------------------------------
 
 <<#hasBio>>
-\section*{Summary}
-<<bio>>
+\begin{rSection}{Profil Professionnel}
+
+{{bio}}
+
+\end{rSection}
 <</hasBio>>
 
+%----------------------------------------------------------------------------------------
+%   Compétences
+%----------------------------------------------------------------------------------------
+
 <<#hasSkills>>
-\section{Technical Skills}
-\resumeSubHeadingList
-  <<#skillGroups>>
-  \resumeItem{\textbf{<<group>>}: <<skills>>}
-  <</skillGroups>>
-\resumeSubHeadingListEnd
+\begin{rSection}{Compétences}
+
+<<#skillGroups>>
+
+\begin{rSubsectionNoBullet}{\bf {{{group}}}}{}{}{}
+
+    \plainitem{{{skills}}}
+
+\end{rSubsectionNoBullet}
+
+<</skillGroups>>
+
+\end{rSection}
 <</hasSkills>>
 
+%----------------------------------------------------------------------------------------
+%   Expérience Professionnelle
+%----------------------------------------------------------------------------------------
+
 <<#hasExperience>>
-\section{Experience}
-\resumeSubHeadingList
-  <<#experience>>
-  \resumeSubheading
-      {<<job_title>>}{<<startDate>> -- <<endDate>>}
-      {<<company>>}{<<location>>}
-      <<#hasBullets>>
-      \resumeSubHeadingList
-          <<#bullets>>
-          \resumeItem{\textbullet\ <<.>>}
-          <</bullets>>
-      \resumeSubHeadingListEnd
-      <</hasBullets>>
-  <</experience>>
-\resumeSubHeadingListEnd
+\begin{rSection}{Expérience Professionnelle}
+
+<<#experience>>
+
+\begin{rSubsection}
+    { {{{job_title}}} }
+    { {{{startDate}}} -- {{{endDate}}} }
+    { {{{company}}} }
+    { {{{location}}} }
+
+<<#hasBullets>>
+    <<#bullets>>
+    \item {{{.}}}
+    <</bullets>>
+<</hasBullets>>
+
+\end{rSubsection}
+
+<</experience>>
+
+\end{rSection}
 <</hasExperience>>
 
-<<#hasEducation>>
-\section{Education}
-\resumeSubHeadingList
-  <<#education>>
-  \resumeSubheading
-      {<<school>>}{<<location>>}
-      {<<degree>><<#fieldOfStudy>>, <<fieldOfStudy>><</fieldOfStudy>>}{<<startDate>> -- <<endDate>>}
-  <</education>>
-\resumeSubHeadingListEnd
-<</hasEducation>>
+%----------------------------------------------------------------------------------------
+%   Projets
+%----------------------------------------------------------------------------------------
 
 <<#hasProjects>>
-\section{Projects}
-\resumeSubHeadingList
-  <<#projects>>
-  \resumeSubheading
-      {<<title>><<#domain>> -- <<domain>><</domain>>}{<<startDate>>}
-      {<<#url>>\href{<<url>>}{<<url>>}<</url>><<#status>>, <<status>><</status>>}{}
-      <<#hasBullets>>
-      \resumeSubHeadingList
-          <<#bullets>>
-          \resumeItem{\textbullet\ <<.>>}
-          <</bullets>>
-      \resumeSubHeadingListEnd
-      <</hasBullets>>
-  <</projects>>
-\resumeSubHeadingListEnd
+\begin{rSection}{Projets}
+
+<<#projects>>
+
+\begin{rSubsectionNoBullet}
+    {\bf {{{title}}}}
+    {}
+    {}
+    {}
+
+    <<#domain>>
+    \plainitem{\textbf{Domaine :} {{{domain}}}}
+    <</domain>>
+
+    <<#status>>
+    \plainitem{\textbf{Statut :} {{{status}}}}
+    <</status>>
+
+    <<#startDate>>
+    \plainitem{\textbf{Date :} {{{startDate}}}}
+    <</startDate>>
+
+    <<#url>>
+    \plainitem{\textbf{Lien :} \href{{{url}}}{{{url}}}}
+    <</url>>
+
+    <<#hasBullets>>
+        <<#bullets>>
+        \plainitem{{{.}}}
+        <</bullets>>
+    <</hasBullets>>
+
+\end{rSubsectionNoBullet}
+
+<</projects>>
+
+\end{rSection}
 <</hasProjects>>
 
+%----------------------------------------------------------------------------------------
+%   Formation
+%----------------------------------------------------------------------------------------
+
+<<#hasEducation>>
+\begin{rSection}{Formation}
+
+<<#education>>
+
+\begin{rSubsectionNoBullet}
+    {\bf {{{school}}}}
+    { {{{location}}} }
+    { {{{degree}}}<<#fieldOfStudy>>, {{{fieldOfStudy}}}<</fieldOfStudy>> }
+    { {{{startDate}}} -- {{{endDate}}} }
+
+\end{rSubsectionNoBullet}
+
+<</education>>
+
+\end{rSection}
+<</hasEducation>>
+
+%----------------------------------------------------------------------------------------
+%   Certifications
+%----------------------------------------------------------------------------------------
+
 <<#hasCertifications>>
-\section{Certifications}
-\resumeSubHeadingList
-  <<#certifications>>
-  \resumeItem{\textbullet\ <<name>><<#issuer>> -- <<issuer>><</issuer>><<#issueDate>>, <<issueDate>><</issueDate>>}
-  <</certifications>>
-\resumeSubHeadingListEnd
+\begin{rSection}{Certifications}
+
+<<#certifications>>
+
+\begin{rSubsectionNoBullet}
+    {\bf {{{name}}}}
+    {}
+    {}
+    {}
+
+    <<#issuer>>
+    \plainitem{\textbf{Organisme :} {{{issuer}}}}
+    <</issuer>>
+
+    <<#issueDate>>
+    \plainitem{\textbf{Date :} {{{issueDate}}}}
+    <</issueDate>>
+
+\end{rSubsectionNoBullet}
+
+<</certifications>>
+
+\end{rSection}
 <</hasCertifications>>
 
+%----------------------------------------------------------------------------------------
+%   Langues
+%----------------------------------------------------------------------------------------
+
 <<#hasLanguages>>
-\section{Languages}
-\resumeSubHeadingList
-  <<#languages>>
-  \resumeItem{\textbullet\ <<name>> (<<proficiency>>)}
-  <</languages>>
-\resumeSubHeadingListEnd
+\tableEnv{Langues}{
+    <<#languages>>
+    \entry{{{name}}}{{{proficiency}}}
+    <</languages>>
+}
 <</hasLanguages>>
+
+%----------------------------------------------------------------------------------------
+%   Volunteering Experience
+%----------------------------------------------------------------------------------------
+
+<<#hasVolunteering>>
+\begin{rSection}{Expérience de bénévolat}
+
+<<#volunteering>>
+
+\begin{rSubsectionNoBullet}
+    {\bf {{{title}}}}
+    {}
+    { {{{organization}}} }
+    { {{{date}}} }
+
+    <<#location>>
+    \plainitem{\textbf{Lieu :} {{{location}}}}
+    <</location>>
+
+    <<#description>>
+    \plainitem{{{description}}}
+    <</description>>
+
+<</volunteering>>
+
+\end{rSection}
+<</hasVolunteering>>
+
+%----------------------------------------------------------------------------------------
+%   End Document
+%----------------------------------------------------------------------------------------
 
 \end{document}
