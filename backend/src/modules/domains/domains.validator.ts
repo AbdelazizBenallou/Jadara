@@ -43,3 +43,25 @@ export const assignSkillSchema = z
 export type CreateDomainInput = z.infer<typeof createDomainSchema>;
 export type UpdateDomainInput = z.infer<typeof updateDomainSchema>;
 export type AssignSkillInput = z.infer<typeof assignSkillSchema>;
+
+export const createSubDomainSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  domain_id: z.number().int().positive(),
+});
+
+export const updateSubDomainSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).nullable().optional(),
+  domain_id: z.number().int().positive().optional(),
+});
+
+export const listSubDomainsSchema = z.object({
+  page: z.string().optional(),
+  limit: z.string().optional(),
+  domain_id: z.string().optional(),
+});
+
+export type CreateSubDomainInput = z.infer<typeof createSubDomainSchema>;
+export type UpdateSubDomainInput = z.infer<typeof updateSubDomainSchema>;
+

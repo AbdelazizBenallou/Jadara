@@ -80,7 +80,17 @@ const profileSelect = {
     select: { id: true, name: true },
   },
   user_socials: {
-    select: userSocialSelect,
+    select: {
+      id: true,
+      url: true,
+      created_at: true,
+      social_platforms: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
     orderBy: { id: "asc" as const },
   },
 };
@@ -227,7 +237,17 @@ export const userRepository = {
         },
         roles: { select: { id: true, name: true } },
         user_socials: {
-          select: userSocialSelect,
+          select: {
+            id: true,
+            url: true,
+            created_at: true,
+            social_platforms: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
           orderBy: { id: "asc" as const },
         },
         work_experiences: {
@@ -308,12 +328,18 @@ export const userRepository = {
       ? await storage.getPresignedUrl(BUCKETS.avatars, user.profiles.avatar)
       : null;
 
-    const { roles, ...rest } = user;
+    const { roles, user_socials, ...rest } = user;
     return {
       ...rest,
       role: roles.name,
       user_socials: user.user_socials.map(mapUserSocial),
       profiles: user.profiles ? { ...user.profiles, avatar_url: avatarUrl } : null,
+      user_socials: user_socials.map((s) => ({
+        id: s.id,
+        platform: s.social_platforms.name,
+        url: s.url,
+        created_at: s.created_at,
+      })),
     };
   },
 
@@ -330,7 +356,7 @@ export const userRepository = {
       ? await storage.getPresignedUrl(BUCKETS.avatars, user.profiles.avatar)
       : null;
 
-    const { roles, ...rest } = user;
+    const { roles, user_socials, ...rest } = user;
     return {
       ...rest,
       role: roles.name,
@@ -339,6 +365,12 @@ export const userRepository = {
         ...user.profiles,
         avatar_url: avatarUrl,
       },
+      user_socials: user_socials.map((s) => ({
+        id: s.id,
+        platform: s.social_platforms.name,
+        url: s.url,
+        created_at: s.created_at,
+      })),
     };
   },
 
@@ -384,28 +416,50 @@ export const userRepository = {
   },
 
   // ─── Socials ─────────────────────────────────────────────
-  async findAllPlatforms() {
-    return prisma.social_platforms.findMany({
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
+  async addSocial(userId: number, platform: string, url: string) {
+    const platformRecord = await prisma.social_platforms.upsert({
+      where: { name: platform.toLowerCase() },
+      update: {},
+      create: { name: platform.toLowerCase() },
     });
-  },
 
-  async findPlatformById(id: number) {
-    return prisma.social_platforms.findUnique({
-      where: { id },
-      select: { id: true, name: true },
+    const existing = await prisma.user_socials.findFirst({
+      where: { user_id: userId, platform_id: platformRecord.id },
+      select: { id: true },
     });
-  },
-
-  async addSocial(userId: number, platformId: number, url: string) {
-    const social = await prisma.user_socials.upsert({
-      where: { user_id_platform_id: { user_id: userId, platform_id: platformId } },
-      update: { url },
-      create: { user_id: userId, platform_id: platformId, url },
-      select: userSocialSelect,
+    if (existing) {
+      const updated = await prisma.user_socials.update({
+        where: { id: existing.id },
+        data: { url },
+        select: {
+          id: true,
+          url: true,
+          created_at: true,
+          social_platforms: { select: { id: true, name: true } },
+        },
+      });
+      return {
+        id: updated.id,
+        platform: updated.social_platforms.name,
+        url: updated.url,
+        created_at: updated.created_at,
+      };
+    }
+    const created = await prisma.user_socials.create({
+      data: { user_id: userId, platform_id: platformRecord.id, url },
+      select: {
+        id: true,
+        url: true,
+        created_at: true,
+        social_platforms: { select: { id: true, name: true } },
+      },
     });
-    return mapUserSocial(social);
+    return {
+      id: created.id,
+      platform: created.social_platforms.name,
+      url: created.url,
+      created_at: created.created_at,
+    };
   },
 
   async removeSocial(userId: number, socialId: number) {

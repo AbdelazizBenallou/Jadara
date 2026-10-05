@@ -1,8 +1,10 @@
+import type { CVLanguage } from "@prisma/client";
 import prisma from "../../../framework/config/prisma.js";
 
 const cvGenRequestSelect = {
   id: true,
   status: true,
+  language: true,
   missing_fields: true,
   data_hash: true,
   file_url: true,
@@ -13,27 +15,41 @@ const cvGenRequestSelect = {
 };
 
 export const cvPdfRepository = {
-  async getLatestRequest(userId: number) {
+  async getLatestRequest(userId: number, language?: CVLanguage) {
     return prisma.cv_generation_requests.findFirst({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        ...(language ? { language } : {}),
+      },
       select: cvGenRequestSelect,
       orderBy: { id: "desc" },
     });
   },
 
-  async getLatestCompleted(userId: number) {
+  async getLatestCompleted(userId: number, language?: CVLanguage) {
     return prisma.cv_generation_requests.findFirst({
-      where: { user_id: userId, status: "completed" },
+      where: {
+        user_id: userId,
+        status: "completed",
+        ...(language ? { language } : {}),
+      },
       select: cvGenRequestSelect,
       orderBy: { id: "desc" },
     });
   },
 
-  async createRequest(userId: number, status: string, missingFields?: string[], dataHash?: string) {
+  async createRequest(
+    userId: number,
+    status: string,
+    missingFields?: string[],
+    dataHash?: string,
+    language: CVLanguage = "EN",
+  ) {
     return prisma.cv_generation_requests.create({
       data: {
         user_id: userId,
         status,
+        language,
         missing_fields: missingFields ?? undefined,
         data_hash: dataHash ?? undefined,
       },
@@ -156,7 +172,10 @@ export const cvPdfRepository = {
       }),
       prisma.user_socials.findMany({
         where: { user_id: userId },
-        select: { url: true, social_platforms: { select: { name: true } } },
+        select: {
+          url: true,
+          social_platforms: { select: { name: true } },
+        },
       }),
       prisma.projects.findMany({
         where: { user_id: userId },
@@ -182,7 +201,10 @@ export const cvPdfRepository = {
       skills,
       languages,
       certifications,
-      socials,
+      socials: socials.map((s) => ({
+        platform: s.social_platforms.name,
+        url: s.url,
+      })),
       projects,
     };
   },

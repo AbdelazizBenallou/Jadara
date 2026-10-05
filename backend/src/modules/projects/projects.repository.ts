@@ -3,7 +3,7 @@ import prisma from "../../../framework/config/prisma.js";
 const projectSelect = {
   id: true,
   user_id: true,
-  domain_id: true,
+  sub_domain_id: true,
   title: true,
   description: true,
   github_url: true,
@@ -12,8 +12,14 @@ const projectSelect = {
   status: true,
   created_at: true,
   updated_at: true,
-  domains: {
-    select: { id: true, name: true },
+  sub_domain: {
+    select: {
+      id: true,
+      name: true,
+      domain: {
+        select: { id: true, name: true },
+      },
+    },
   },
   evidence: {
     select: {
@@ -126,7 +132,7 @@ export const projectRepository = {
       github_url?: string;
       live_url?: string;
       figma_url?: string;
-      domain_id?: number | null;
+      sub_domain_id?: number | null;
     },
   ) {
     return prisma.projects.create({
@@ -137,7 +143,7 @@ export const projectRepository = {
         github_url: data.github_url,
         live_url: data.live_url,
         figma_url: data.figma_url,
-        domain_id: data.domain_id,
+        sub_domain_id: data.sub_domain_id,
         status: "draft",
       },
       select: projectSelect,
@@ -152,7 +158,7 @@ export const projectRepository = {
       github_url?: string | null;
       live_url?: string | null;
       figma_url?: string | null;
-      domain_id?: number | null;
+      sub_domain_id?: number | null;
     },
   ) {
     return prisma.projects.update({
@@ -174,10 +180,14 @@ export const projectRepository = {
     await prisma.projects.delete({ where: { id } });
   },
 
-  async findExistingDomain(id: number) {
-    return prisma.domains.findUnique({
+  async findExistingSubDomain(id: number) {
+    return prisma.sub_domains.findUnique({
       where: { id },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        domain: { select: { id: true, name: true } },
+      },
     });
   },
 

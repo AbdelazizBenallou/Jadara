@@ -1,8 +1,60 @@
 import { AppError } from "../../../framework/utils/AppError.js";
 import { skillRepository } from "./skills.repository.js";
-import type { CreateSkillInput, UpdateSkillInput } from "./skills.validator.js";
+import { skillCategoryRepository } from "./skill-categories.repository.js";
+import type {
+  CreateSkillInput,
+  UpdateSkillInput,
+  CreateSkillCategoryInput,
+} from "./skills.validator.js";
 
 export const skillService = {
+  // ── Categories ────────────────────────────────────────────────
+  async getAllCategories(query: { page?: string; limit?: string }) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+
+    const { categories, total } = await skillCategoryRepository.findAll(page, limit);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      categories,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        nextCursor: page < totalPages ? page + 1 : null,
+      },
+    };
+  },
+
+  async createCategory(data: CreateSkillCategoryInput) {
+    const existing = await skillCategoryRepository.findByName(data.name);
+    if (existing) {
+      throw new AppError("Skill category name already exists", 409);
+    }
+
+    return skillCategoryRepository.create(data.name, data.description);
+  },
+
+  async removeCategory(id: number) {
+    const category = await skillCategoryRepository.findById(id);
+    if (!category) {
+      throw new AppError("Skill category not found", 404);
+    }
+
+    const linkedSkillsCount = await skillCategoryRepository.countSkillsByCategoryId(id);
+    if (linkedSkillsCount > 0) {
+      throw new AppError(
+        `Cannot delete skill category: linked to ${linkedSkillsCount} skill(s). Unlink or reassign them first.`,
+        409,
+      );
+    }
+
+    await skillCategoryRepository.remove(id);
+  },
+
+  // ── Skills ────────────────────────────────────────────────────
   async getAll(query: { page?: string; limit?: string }) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
@@ -31,11 +83,22 @@ export const skillService = {
   },
 
   async create(data: CreateSkillInput) {
+    const category = await skillCategoryRepository.findById(data.category_id);
+    if (!category) {
+      throw new AppError("Skill category not found", 404);
+    }
+
     const existing = await skillRepository.findByName(data.name);
     if (existing) {
       throw new AppError("Skill name already exists", 409);
     }
-    return skillRepository.create(data.name, data.description, data.status);
+
+    return skillRepository.create(
+      data.name,
+      data.category_id,
+      data.description,
+      data.status,
+    );
   },
 
   async update(id: number, data: UpdateSkillInput) {
@@ -51,10 +114,18 @@ export const skillService = {
       }
     }
 
+    if (data.category_id !== undefined) {
+      const category = await skillCategoryRepository.findById(data.category_id);
+      if (!category) {
+        throw new AppError("Skill category not found", 404);
+      }
+    }
+
     return skillRepository.update(id, {
       name: data.name,
       description: data.description,
       status: data.status,
+      category_id: data.category_id,
     });
   },
 

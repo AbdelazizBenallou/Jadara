@@ -1,3 +1,4 @@
+import type { CVLanguage } from "@prisma/client";
 import crypto from "crypto";
 import { readFileSync } from "fs";
 import path from "path";
@@ -31,7 +32,7 @@ function computeHash(data: Record<string, unknown>): string {
 }
 
 export const cvPdfService = {
-  async generate(userId: number) {
+  async generate(userId: number, language: CVLanguage = "EN") {
     const cvData = await cvPdfRepository.getAllCvData(userId);
 
     // ─── Check missing fields ──────────────────────────────
@@ -42,7 +43,7 @@ export const cvPdfService = {
     if (!cvData.workExperience.length) missing.push("work_experience");
 
     if (missing.length > 0) {
-      const request = await cvPdfRepository.createRequest(userId, "incomplete", missing);
+      const request = await cvPdfRepository.createRequest(userId, "incomplete", missing, undefined, language);
       return {
         status: "incomplete" as const,
         missing,
@@ -54,7 +55,7 @@ export const cvPdfService = {
 
     // ─── Change detection ──────────────────────────────────
     const dataHash = computeHash(cvData);
-    const latestCompleted = await cvPdfRepository.getLatestCompleted(userId);
+    const latestCompleted = await cvPdfRepository.getLatestCompleted(userId, language);
 
     if (latestCompleted && latestCompleted.file_url && latestCompleted.data_hash === dataHash) {
       return {
@@ -67,7 +68,7 @@ export const cvPdfService = {
     }
 
     // ─── Start processing ──────────────────────────────────
-    const request = await cvPdfRepository.createRequest(userId, "processing", undefined, dataHash);
+    const request = await cvPdfRepository.createRequest(userId, "processing", undefined, dataHash, language);
 
     try {
       // ─── Build template data ───────────────────────────
@@ -253,8 +254,8 @@ export const cvPdfService = {
     }
   },
 
-  async getStatus(userId: number) {
-    const latest = await cvPdfRepository.getLatestRequest(userId);
+  async getStatus(userId: number, language?: CVLanguage) {
+    const latest = await cvPdfRepository.getLatestRequest(userId, language);
     if (!latest) return null;
 
     let downloadUrl: string | null = null;
@@ -265,6 +266,7 @@ export const cvPdfService = {
     return {
       id: latest.id,
       status: latest.status,
+      language: latest.language,
       missing_fields: latest.missing_fields,
       file_size: latest.file_size,
       error_message: latest.error_message,
@@ -286,6 +288,7 @@ export const cvPdfService = {
         requests.map(async (r) => ({
           id: r.id,
           status: r.status,
+          language: r.language,
           missing_fields: r.missing_fields,
           file_size: r.file_size,
           error_message: r.error_message,

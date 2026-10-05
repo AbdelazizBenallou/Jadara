@@ -17,6 +17,8 @@ export const projectService = {
     return {
       projects: projects.map((p) => ({
         ...p,
+        domain: p.sub_domain?.domain ?? null,
+        sub_domains: p.sub_domain,
         evidence_count: p.evidence.length,
         rating: summary.get(p.id)
           ? { average: summary.get(p.id)!.average, count: summary.get(p.id)!.count }
@@ -37,6 +39,8 @@ export const projectService = {
     return {
       projects: projects.map((p) => ({
         ...p,
+        domain: p.sub_domain?.domain ?? null,
+        sub_domains: p.sub_domain,
         evidence_count: p.evidence.length,
         rating: summary.get(p.id)
           ? { average: summary.get(p.id)!.average, count: summary.get(p.id)!.count }
@@ -58,6 +62,8 @@ export const projectService = {
     const { project_reviews, ...projectData } = project;
     return {
       ...projectData,
+      domain: project.sub_domain?.domain ?? null,
+      sub_domains: project.sub_domain,
       rating: summary.get(projectId)
         ? { average: summary.get(projectId)!.average, count: summary.get(projectId)!.count }
         : null,
@@ -82,6 +88,8 @@ export const projectService = {
     const { project_reviews, ...projectData } = project;
     return {
       ...projectData,
+      domain: project.sub_domain?.domain ?? null,
+      sub_domains: project.sub_domain,
       rating: summary.get(projectId)
         ? { average: summary.get(projectId)!.average, count: summary.get(projectId)!.count }
         : null,
@@ -90,10 +98,10 @@ export const projectService = {
   },
 
   async create(userId: number, data: CreateProjectInput) {
-    if (data.domain_id !== undefined && data.domain_id !== null) {
-      const domain = await projectRepository.findExistingDomain(data.domain_id);
-      if (!domain) {
-        throw new AppError(`Domain not found: ${data.domain_id}`, 400);
+    if (data.sub_domain_id !== undefined && data.sub_domain_id !== null) {
+      const subDomain = await projectRepository.findExistingSubDomain(data.sub_domain_id);
+      if (!subDomain) {
+        throw new AppError(`Sub-domain not found: ${data.sub_domain_id}`, 400);
       }
     }
 
@@ -103,7 +111,7 @@ export const projectService = {
       github_url: data.github_url,
       live_url: data.live_url,
       figma_url: data.figma_url,
-      domain_id: data.domain_id,
+      sub_domain_id: data.sub_domain_id,
     });
 
     return this.getById(userId, project.id);
@@ -121,10 +129,10 @@ export const projectService = {
       throw new AppError("Cannot edit a project that is under review or verified", 400);
     }
 
-    if (data.domain_id !== undefined && data.domain_id !== null) {
-      const domain = await projectRepository.findExistingDomain(data.domain_id);
-      if (!domain) {
-        throw new AppError(`Domain not found: ${data.domain_id}`, 400);
+    if (data.sub_domain_id !== undefined && data.sub_domain_id !== null) {
+      const subDomain = await projectRepository.findExistingSubDomain(data.sub_domain_id);
+      if (!subDomain) {
+        throw new AppError(`Sub-domain not found: ${data.sub_domain_id}`, 400);
       }
     }
 
@@ -134,7 +142,7 @@ export const projectService = {
       github_url: data.github_url,
       live_url: data.live_url,
       figma_url: data.figma_url,
-      domain_id: data.domain_id,
+      sub_domain_id: data.sub_domain_id,
     });
 
     return this.getById(userId, projectId);

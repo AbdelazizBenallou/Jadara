@@ -14,9 +14,16 @@ const projectListItemSelect = {
   figma_url: true,
   created_at: true,
   updated_at: true,
-  domain_id: true,
-  domains: {
-    select: { id: true, name: true },
+  sub_domain_id: true,
+  sub_domain: {
+    select: {
+      id: true,
+      name: true,
+      domain_id: true,
+      domain: {
+        select: { id: true, name: true },
+      },
+    },
   },
   users: {
     select: {
@@ -60,11 +67,19 @@ const projectDetailSelect = {
 } as const;
 
 export const reviewRepository = {
-  async findAvailable(reviewerId: number, domainIds: number[], page: number, limit: number) {
+  async findAvailable(
+    reviewerId: number,
+    domainIdOrIds: number | number[],
+    page: number,
+    limit: number,
+  ) {
     const skip = (page - 1) * limit;
+    const domainIds = Array.isArray(domainIdOrIds) ? domainIdOrIds : [domainIdOrIds];
     const where = {
       status: { in: reviewableStatuses },
-      domain_id: { in: domainIds },
+      sub_domain: {
+        domain_id: { in: domainIds },
+      },
       user_id: { not: reviewerId },
       project_reviews: { none: { reviewer_id: reviewerId } },
     };
@@ -159,37 +174,53 @@ export const reviewRepository = {
     );
   },
 
-  async findReviewerDomainIds(userId: number) {
-    const rows = await prisma.reviewer_domains.findMany({
+  async findReviewerDomainId(userId: number): Promise<number | null> {
+    const row = await prisma.reviewer_domains.findUnique({
       where: { user_id: userId },
       select: { domain_id: true },
     });
-    return rows.map((r) => r.domain_id);
+    return row?.domain_id ?? null;
+  },
+
+  async findReviewerDomain(userId: number) {
+    const row = await prisma.reviewer_domains.findUnique({
+      where: { user_id: userId },
+      select: {
+        domain_id: true,
+        created_at: true,
+        domains: { select: { id: true, name: true, description: true } },
+      },
+    });
+    return row?.domains ?? null;
+  },
+
+  async findReviewerDomainIds(userId: number): Promise<number[]> {
+    const domainId = await this.findReviewerDomainId(userId);
+    return domainId !== null ? [domainId] : [];
   },
 
   async findReviewerDomains(userId: number) {
-    return prisma.reviewer_domains.findMany({
+    const domain = await this.findReviewerDomain(userId);
+    return domain ? [{ domains: domain }] : [];
+  },
+
+  async setReviewerDomains(userId: number, domainId: number) {
+    return prisma.reviewer_domains.upsert({
       where: { user_id: userId },
-      select: {
+      update: { domain_id: domainId },
+      create: { user_id: userId, domain_id: domainId },
+      include: {
         domains: { select: { id: true, name: true } },
       },
-      orderBy: { created_at: "asc" },
     });
   },
 
-  async setReviewerDomains(userId: number, domainIds: number[]) {
-    await prisma.$transaction([
-      prisma.reviewer_domains.deleteMany({ where: { user_id: userId } }),
-      prisma.reviewer_domains.createMany({
-        data: domainIds.map((domainId) => ({ user_id: userId, domain_id: domainId })),
-      }),
-    ]);
-  },
-
-  async removeReviewerDomain(userId: number, domainId: number) {
-    const result = await prisma.reviewer_domains.deleteMany({
-      where: { user_id: userId, domain_id: domainId },
-    });
+  async removeReviewerDomain(userId: number, domainId?: number) {
+    const where: { user_id: number; domain_id?: number } = { user_id: userId };
+    if (domainId !== undefined) {
+      where.domain_id = domainId;
+    }
+    const result = await prisma.reviewer_domains.deleteMany({ where });
     return result.count;
   },
 };
