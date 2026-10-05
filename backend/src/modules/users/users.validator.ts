@@ -24,7 +24,7 @@ export const updateProfileSchema = z.object({
 });
 
 export const addSocialSchema = z.object({
-  platform: z.enum(["linkedin", "github", "twitter", "behance", "dribbble", "portfolio"]),
+  platform_id: z.number().int().positive(),
   url: z.string().url().max(500),
 });
 

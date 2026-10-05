@@ -31,6 +31,30 @@ const userSelect = {
   },
 };
 
+export const userSocialSelect = {
+  id: true,
+  platform_id: true,
+  url: true,
+  created_at: true,
+  social_platforms: { select: { name: true } },
+};
+
+type UserSocialRow = {
+  id: number;
+  platform_id: number;
+  url: string;
+  created_at: Date | null;
+  social_platforms: { name: string };
+};
+
+export const mapUserSocial = (row: UserSocialRow) => ({
+  id: row.id,
+  platform_id: row.platform_id,
+  platform: row.social_platforms.name,
+  url: row.url,
+  created_at: row.created_at,
+});
+
 const profileSelect = {
   id: true,
   email: true,
@@ -308,6 +332,7 @@ export const userRepository = {
     return {
       ...rest,
       role: roles.name,
+      user_socials: user.user_socials.map(mapUserSocial),
       profiles: user.profiles ? { ...user.profiles, avatar_url: avatarUrl } : null,
       user_socials: user_socials.map((s) => ({
         id: s.id,
@@ -335,6 +360,7 @@ export const userRepository = {
     return {
       ...rest,
       role: roles.name,
+      user_socials: user.user_socials.map(mapUserSocial),
       profiles: {
         ...user.profiles,
         avatar_url: avatarUrl,

@@ -136,12 +136,16 @@ export const usersService = {
   },
 
   // ─── Socials ─────────────────────────────────────────────
-  async addSocial(userId: number, platform: string, url: string) {
-    const validPlatforms = ["linkedin", "github", "twitter", "behance", "dribbble", "portfolio"];
-    if (!validPlatforms.includes(platform)) {
-      throw new AppError(`Invalid platform. Allowed: ${validPlatforms.join(", ")}`, 400);
+  async getSocialPlatforms() {
+    return userRepository.findAllPlatforms();
+  },
+
+  async addSocial(userId: number, platformId: number, url: string) {
+    const platform = await userRepository.findPlatformById(platformId);
+    if (!platform) {
+      throw new AppError("Invalid social platform", 400);
     }
-    return userRepository.addSocial(userId, platform, url);
+    return userRepository.addSocial(userId, platformId, url);
   },
 
   async removeSocial(userId: number, socialId: number) {

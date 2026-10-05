@@ -202,8 +202,8 @@ Self-service routes work for any authenticated user on their own account. Admin 
 | GET    | `/v1/users/me/profile`           | Self  | My profile (avatar_url presigned)                                                                                                |
 | PATCH  | `/v1/users/me/profile`           | Self  | Update my profile                                                                                                                |
 | GET    | `/v1/users/me/activity`          | Self  | My login history + devices                                                                                                       |
-| GET    | `/v1/users/me/socials`           | Self  | My social links                                                                                                                  |
-| POST   | `/v1/users/me/socials`           | Self  | Add/update a social link                                                                                                         |
+| GET    | `/v1/users/me/socials/platforms` | Self  | Social platform catalog (id + name) to pick from                                                                               |
+| POST   | `/v1/users/me/socials`           | Self  | Add/update a social link (`platform_id` + `url`)                                                                               |
 | DELETE | `/v1/users/me/socials/:socialId` | Self  | Remove a social link                                                                                                             |
 | GET    | `/v1/users/:id/profile`          | Any   | **Public profile** of any user (profile, role, socials, work experience, education, certifications, languages, skills, projects) |
 | GET    | `/v1/users`                      | Admin | List users (paginated)                                                                                                           |

@@ -74,9 +74,11 @@ export const cvPdfService = {
       // ─── Build template data ───────────────────────────
       const p = cvData.profile;
       const socials = cvData.socials;
-      const linkedin = escapeLatex(socials.find((s) => s.platform === "linkedin")?.url || "");
-      const github = escapeLatex(socials.find((s) => s.platform === "github")?.url || "");
-      const portfolio = escapeLatex(socials.find((s) => s.platform === "portfolio")?.url || "");
+      const findSocialUrl = (platform: string) =>
+        escapeLatex(socials.find((s) => s.social_platforms.name === platform)?.url || "");
+      const linkedin = findSocialUrl("linkedin");
+      const github = findSocialUrl("github");
+      const portfolio = findSocialUrl("portfolio");
 
       const templateData = {
         fullName: `${p?.first_name || ""} ${p?.last_name || ""}`.trim(),

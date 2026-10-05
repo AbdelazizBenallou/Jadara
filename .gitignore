@@ -61,8 +61,4 @@ Thumbs.db
 cookies.txt
 
 # Info disclosure / setup docs with credentials
-Env_Var.txt
-setup.txt
-setup_2.txt
-Exp.md
-code.txt
+docker_commands/

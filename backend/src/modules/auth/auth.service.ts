@@ -8,6 +8,7 @@ import { refreshTokenRepository } from "./refresh-token.repository.js";
 import { loginHistoryRepository } from "./login-history.repository.js";
 import { deviceRepository } from "./device.repository.js";
 import type { RegisterInput, LoginInput, ChangePasswordInput } from "./auth.validator.js";
+import { userSocialSelect, mapUserSocial } from "../users/user.repository.js";
 
 type RegisterResult =
   | {
