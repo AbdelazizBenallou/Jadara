@@ -64,6 +64,7 @@ router.post(
   zodValidate(addSocialSchema),
   usersController.addMySocial,
 );
+
 router.delete("/me/socials/:socialId", verifyAccessToken, usersController.removeMySocial);
 
 // ─── /me/skills (self-service, no admin permission) ──────────
