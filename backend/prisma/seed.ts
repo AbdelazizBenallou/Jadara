@@ -1,49 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import * as argon2 from "argon2";
+import { seedRolesAndUsers } from "./seed_users.js";
 
 const prisma = new PrismaClient();
-
-type Permission = { id: number; name: string };
-type Role = { id: number; name: string };
-
-const PERMISSION_NAMES = [
-  "manage_users",
-  "manage_roles",
-  "manage_permissions",
-  "view_users",
-  "update_profile",
-  "view_domains",
-  "create_domain",
-  "update_domain",
-  "delete_domain",
-  "view_skills",
-  "create_skill",
-  "update_skill",
-  "delete_skill",
-  "create_project",
-  "review_projects",
-  "manage_projects",
-  "create_document",
-  "delete_document",
-  "view_own_documents",
-];
-
-const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
-  Beneficiary: [
-    "update_profile",
-    "view_domains",
-    "view_skills",
-    "create_project",
-    "create_document",
-    "delete_document",
-    "view_own_documents",
-  ],
-  Reviewer: ["update_profile", "view_domains", "view_skills", "review_projects"],
-  Company: ["update_profile", "view_domains", "view_skills"],
-};
-
-const SELECTABLE_ROLE_NAMES = ["Beneficiary", "Reviewer", "Company"];
-const ROLE_NAMES = [...SELECTABLE_ROLE_NAMES, "Admin"];
 
 const DOMAINS_DATA = [
   {
@@ -256,209 +214,142 @@ const SKILL_CATEGORIES_DATA = [
   },
 ];
 
-  // Create sub-domains linked to parent domains
-  const subDomainsData: Array<{ domain: string; name: string; description?: string }> = [
-    { domain: "Web Development", name: "Frontend Development", description: "Client-side web development using modern JS/CSS frameworks" },
-    { domain: "Web Development", name: "Backend Development", description: "Server-side web development, APIs, and microservices" },
-    { domain: "Web Development", name: "Full Stack Development", description: "End-to-end full stack web architecture" },
-    { domain: "Mobile Development", name: "iOS Development", description: "Native iOS app development with Swift" },
-    { domain: "Mobile Development", name: "Android Development", description: "Native Android app development with Kotlin" },
-    { domain: "Mobile Development", name: "Cross-Platform Mobile", description: "Multi-platform mobile apps with Flutter and React Native" },
-    { domain: "Data Science & AI", name: "Machine Learning", description: "Statistical modeling and applied machine learning" },
-    { domain: "Data Science & AI", name: "Deep Learning & NLP", description: "Neural networks, computer vision, and language models" },
-    { domain: "Data Science & AI", name: "Data Engineering", description: "Big data pipelines, ETL, and data warehousing" },
-    { domain: "Cybersecurity", name: "Penetration Testing", description: "Ethical hacking and vulnerability assessments" },
-    { domain: "Cybersecurity", name: "Application Security", description: "Secure coding practices and AppSec" },
-    { domain: "Cybersecurity", name: "Cloud Security", description: "Security configurations for cloud environments" },
-    { domain: "Cloud & DevOps", name: "Cloud Architecture", description: "Designing scalable multi-cloud infrastructure" },
-    { domain: "Cloud & DevOps", name: "CI/CD & DevOps Automation", description: "Deployment pipelines and automated infrastructure" },
-    { domain: "Cloud & DevOps", name: "Site Reliability Engineering", description: "High availability, monitoring, and observability" },
-    { domain: "UI/UX Design", name: "User Interface (UI)", description: "Visual design, prototyping, and components" },
-    { domain: "UI/UX Design", name: "User Experience (UX)", description: "User research, wireframing, and usability testing" },
-    { domain: "UI/UX Design", name: "Design Systems", description: "Design tokens, style guides, and component libraries" },
-    { domain: "Game Development", name: "Game Engine Programming", description: "Unity and Unreal engine development" },
-    { domain: "Game Development", name: "3D Graphics & Shaders", description: "Real-time rendering and shader development" },
-    { domain: "Databases", name: "Relational Databases", description: "PostgreSQL, MySQL design and optimization" },
-    { domain: "Databases", name: "NoSQL & Distributed Systems", description: "Document stores, key-value stores, and distributed caching" },
-  ];
+const DEFAULT_SKILL_CATEGORY = "Technical Skills";
 
-  let subDomainCount = 0;
-  for (const sd of subDomainsData) {
-    const parentDomainId = domainIds.get(sd.domain);
-    if (!parentDomainId) continue;
-    await prisma.sub_domains.upsert({
-      where: {
-        domain_id_name: { domain_id: parentDomainId, name: sd.name },
-      },
-      update: { description: sd.description },
-      create: {
-        domain_id: parentDomainId,
-        name: sd.name,
-        description: sd.description,
-      },
-    });
-    subDomainCount++;
-  }
-  console.log(`Created ${subDomainCount} sub-domains`);
-
-  // Create skill categories
-  const skillCategoriesData = [
+const SKILLS_DATA: Array<{
+  name: string;
+  domains: string[];
+  category?: string;
+}> = [
+    { name: "JavaScript", domains: ["Web Development"] },
+    { name: "TypeScript", domains: ["Web Development"] },
+    { name: "HTML/CSS", domains: ["Web Development", "UI/UX Design"] },
+    { name: "React", domains: ["Web Development", "UI/UX Design"] },
+    { name: "Next.js", domains: ["Web Development"] },
+    { name: "Node.js", domains: ["Web Development"] },
+    { name: "Express.js", domains: ["Web Development"] },
+    { name: "Tailwind CSS", domains: ["Web Development", "UI/UX Design"] },
+    { name: "Flutter", domains: ["Mobile Development"] },
+    { name: "React Native", domains: ["Mobile Development", "Web Development"] },
+    { name: "Kotlin", domains: ["Mobile Development"] },
+    { name: "Swift", domains: ["Mobile Development"] },
+    { name: "Python", domains: ["Data Science & AI", "Cybersecurity"] },
+    { name: "TensorFlow", domains: ["Data Science & AI"] },
+    { name: "PyTorch", domains: ["Data Science & AI"] },
+    { name: "Machine Learning", domains: ["Data Science & AI"] },
+    { name: "Penetration Testing", domains: ["Cybersecurity"] },
+    { name: "Network Security", domains: ["Cybersecurity"] },
+    { name: "Cryptography", domains: ["Cybersecurity"] },
+    { name: "Docker", domains: ["Cloud & DevOps"] },
+    { name: "Kubernetes", domains: ["Cloud & DevOps"] },
+    { name: "AWS", domains: ["Cloud & DevOps"] },
+    { name: "CI/CD", domains: ["Cloud & DevOps"] },
+    { name: "Linux", domains: ["Cloud & DevOps", "Cybersecurity"] },
+    { name: "Git", domains: ["Cloud & DevOps", "Web Development", "Mobile Development"] },
+    { name: "Figma", domains: ["UI/UX Design"] },
+    { name: "Adobe XD", domains: ["UI/UX Design"] },
+    { name: "Unity", domains: ["Game Development"] },
+    { name: "Unreal Engine", domains: ["Game Development"] },
+    { name: "C#", domains: ["Game Development"] },
+    { name: "C++", domains: ["Game Development"] },
+    { name: "SQL", domains: ["Databases"] },
+    { name: "PostgreSQL", domains: ["Databases", "Web Development"] },
+    { name: "MongoDB", domains: ["Databases"] },
+    { name: "Redis", domains: ["Databases", "Cloud & DevOps"] },
     {
-      name: "Programming Languages",
-      description: "Core programming and scripting languages",
+      name: "Communication",
+      domains: [],
+      category: "Soft Skills",
     },
     {
-      name: "Frameworks & Libraries",
-      description: "Frontend, backend, and mobile application frameworks and libraries",
+      name: "Teamwork",
+      domains: [],
+      category: "Soft Skills",
     },
     {
-      name: "Data Science & AI",
-      description: "Machine learning, deep learning, and AI frameworks",
-    },
-    {
-      name: "Cloud & DevOps",
-      description: "Cloud platforms, infrastructure as code, containerization, and CI/CD tools",
-    },
-    {
-      name: "Cybersecurity",
-      description: "Security assessment, penetration testing, and cryptography tools",
-    },
-    {
-      name: "UI/UX Design",
-      description: "User experience and interface design tools",
-    },
-    {
-      name: "Game Development",
-      description: "Game engines and real-time graphics development tools",
-    },
-    {
-      name: "Databases",
-      description: "Relational, NoSQL, and memory-cache data management systems",
+      name: "Problem Solving",
+      domains: [],
+      category: "Soft Skills",
     },
   ];
 
-  const categoryIds = new Map<string, number>();
-  for (const c of skillCategoriesData) {
-    const category = await prisma.skill_categories.upsert({
-      where: { name: c.name },
-      update: { description: c.description },
-      create: c,
-    });
-    categoryIds.set(c.name, category.id);
+const LANGUAGES_DATA = [
+  { name: "Arabic", code: "ar" },
+  { name: "English", code: "en" },
+  { name: "French", code: "fr" },
+  { name: "Spanish", code: "es" },
+  { name: "German", code: "de" },
+  { name: "Italian", code: "it" },
+  { name: "Portuguese", code: "pt" },
+  { name: "Turkish", code: "tr" },
+  { name: "Russian", code: "ru" },
+  { name: "Chinese", code: "zh" },
+  { name: "Japanese", code: "ja" },
+  { name: "Korean", code: "ko" },
+  { name: "Hindi", code: "hi" },
+  { name: "Urdu", code: "ur" },
+  { name: "Persian", code: "fa" },
+  { name: "Dutch", code: "nl" },
+  { name: "Swedish", code: "sv" },
+  { name: "Norwegian", code: "no" },
+  { name: "Danish", code: "da" },
+  { name: "Finnish", code: "fi" },
+  { name: "Greek", code: "el" },
+  { name: "Hebrew", code: "he" },
+  { name: "Thai", code: "th" },
+  { name: "Vietnamese", code: "vi" },
+  { name: "Indonesian", code: "id" },
+  { name: "Malay", code: "ms" },
+  { name: "Swahili", code: "sw" },
+  { name: "Polish", code: "pl" },
+  { name: "Czech", code: "cs" },
+  { name: "Romanian", code: "ro" },
+];
+
+const SOCIAL_PLATFORMS = [
+  "linkedin",
+  "github",
+  "gitlab",
+  "facebook",
+  "instagram",
+  "x",
+  "youtube",
+  "tiktok",
+  "telegram",
+  "whatsapp",
+  "discord",
+  "behance",
+  "dribbble",
+  "stackoverflow",
+  "medium",
+  "portfolio",
+];
+
+// Legacy display names written by older seeds; renamed in place so existing
+// user_socials.platform_id foreign keys stay valid.
+const LEGACY_PLATFORM_NAMES: Record<string, string> = {
+  LinkedIn: "linkedin",
+  GitHub: "github",
+  GitLab: "gitlab",
+  Facebook: "facebook",
+  Instagram: "instagram",
+  X: "x",
+  YouTube: "youtube",
+  TikTok: "tiktok",
+  Telegram: "telegram",
+  WhatsApp: "whatsapp",
+  Discord: "discord",
+  Behance: "behance",
+  Dribbble: "dribbble",
+  "Stack Overflow": "stackoverflow",
+  Medium: "medium",
+};
+
+function must<T>(value: T | undefined | null, label: string): T {
+  if (value === undefined || value === null) {
+    throw new Error(`Seed failed: could not resolve "${label}"`);
   }
-  console.log(`Created ${skillCategoriesData.length} skill categories`);
-
-  const skillsData: Array<{ name: string; category: string; domains: string[] }> = [
-    { name: "JavaScript", category: "Programming Languages", domains: ["Web Development"] },
-    { name: "TypeScript", category: "Programming Languages", domains: ["Web Development"] },
-    { name: "HTML/CSS", category: "Frameworks & Libraries", domains: ["Web Development", "UI/UX Design"] },
-    { name: "React", category: "Frameworks & Libraries", domains: ["Web Development", "UI/UX Design"] },
-    { name: "Next.js", category: "Frameworks & Libraries", domains: ["Web Development"] },
-    { name: "Node.js", category: "Frameworks & Libraries", domains: ["Web Development"] },
-    { name: "Express.js", category: "Frameworks & Libraries", domains: ["Web Development"] },
-    { name: "Tailwind CSS", category: "Frameworks & Libraries", domains: ["Web Development", "UI/UX Design"] },
-    { name: "Flutter", category: "Frameworks & Libraries", domains: ["Mobile Development"] },
-    { name: "React Native", category: "Frameworks & Libraries", domains: ["Mobile Development", "Web Development"] },
-    { name: "Kotlin", category: "Programming Languages", domains: ["Mobile Development"] },
-    { name: "Swift", category: "Programming Languages", domains: ["Mobile Development"] },
-    { name: "Python", category: "Programming Languages", domains: ["Data Science & AI", "Cybersecurity"] },
-    { name: "TensorFlow", category: "Data Science & AI", domains: ["Data Science & AI"] },
-    { name: "PyTorch", category: "Data Science & AI", domains: ["Data Science & AI"] },
-    { name: "Machine Learning", category: "Data Science & AI", domains: ["Data Science & AI"] },
-    { name: "Penetration Testing", category: "Cybersecurity", domains: ["Cybersecurity"] },
-    { name: "Network Security", category: "Cybersecurity", domains: ["Cybersecurity"] },
-    { name: "Cryptography", category: "Cybersecurity", domains: ["Cybersecurity"] },
-    { name: "Docker", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
-    { name: "Kubernetes", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
-    { name: "AWS", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
-    { name: "CI/CD", category: "Cloud & DevOps", domains: ["Cloud & DevOps"] },
-    { name: "Linux", category: "Cloud & DevOps", domains: ["Cloud & DevOps", "Cybersecurity"] },
-    { name: "Git", category: "Cloud & DevOps", domains: ["Cloud & DevOps", "Web Development", "Mobile Development"] },
-    { name: "Figma", category: "UI/UX Design", domains: ["UI/UX Design"] },
-    { name: "Adobe XD", category: "UI/UX Design", domains: ["UI/UX Design"] },
-    { name: "Unity", category: "Game Development", domains: ["Game Development"] },
-    { name: "Unreal Engine", category: "Game Development", domains: ["Game Development"] },
-    { name: "C#", category: "Programming Languages", domains: ["Game Development"] },
-    { name: "C++", category: "Programming Languages", domains: ["Game Development"] },
-    { name: "SQL", category: "Programming Languages", domains: ["Databases"] },
-    { name: "PostgreSQL", category: "Databases", domains: ["Databases", "Web Development"] },
-    { name: "MongoDB", category: "Databases", domains: ["Databases"] },
-    { name: "Redis", category: "Databases", domains: ["Databases", "Cloud & DevOps"] },
-  ];
-
-  let skillDomainLinks = 0;
-  for (const s of skillsData) {
-    const categoryId = categoryIds.get(s.category);
-    if (!categoryId) {
-      throw new Error(`Category "${s.category}" not found for skill "${s.name}"`);
-    }
-
-    const skill = await prisma.skills.upsert({
-      where: { name: s.name },
-      update: { category_id: categoryId },
-      create: { name: s.name, category_id: categoryId },
-    });
-    permissions.set(permission.name, permission);
-  }
-
-  console.log(`Permissions seeded: ${permissions.size}`);
-  return permissions;
-}
-
-async function seedRoles(): Promise<Map<string, Role>> {
-  const roles = new Map<string, Role>();
-
-  for (const name of ROLE_NAMES) {
-    const isSelectable = SELECTABLE_ROLE_NAMES.includes(name);
-    const role = await prisma.roles.upsert({
-      where: { name },
-      update: { is_selectable: isSelectable },
-      create: { name, is_selectable: isSelectable },
-    });
-    roles.set(role.name, role);
-  }
-
-  console.log(`Roles seeded: ${roles.size}`);
-  return roles;
-}
-
-async function seedRolePermissions(
-  roles: Map<string, Role>,
-  permissions: Map<string, Permission>,
-): Promise<void> {
-  const adminRole = must(roles.get("Admin"), "role Admin");
-  let assigned = 0;
-
-  for (const permission of permissions.values()) {
-    await prisma.role_permissions.upsert({
-      where: {
-        role_id_permission_id: { role_id: adminRole.id, permission_id: permission.id },
-      },
-      update: {},
-      create: { role_id: adminRole.id, permission_id: permission.id },
-    });
-    assigned += 1;
-  }
-  console.log(`Admin permissions assigned: ${assigned}`);
-
-  for (const [roleName, permissionNames] of Object.entries(BASELINE_ROLE_PERMISSIONS)) {
-    const role = must(roles.get(roleName), `role ${roleName}`);
-
-    for (const permissionName of permissionNames) {
-      const permission = must(
-        permissions.get(permissionName),
-        `permission ${permissionName} for role ${roleName}`,
-      );
-      await prisma.role_permissions.upsert({
-        where: {
-          role_id_permission_id: { role_id: role.id, permission_id: permission.id },
-        },
-        update: {},
-        create: { role_id: role.id, permission_id: permission.id },
-      });
-    }
-    console.log(`Baseline permissions assigned to ${roleName}`);
-  }
+  return value;
 }
 
 async function seedLanguages(): Promise<void> {
@@ -546,48 +437,51 @@ async function seedSkillCategories(): Promise<Map<string, number>> {
   return categoryIds;
 }
 
-  // Create default reviewer user
-  const reviewerEmail = "reviewer@jadara.com";
-  let reviewer = await prisma.users.findUnique({
-    where: { email: reviewerEmail },
-  });
+async function seedSkills(
+  domainIds: Map<string, number>,
+  categoryIds: Map<string, number>,
+): Promise<void> {
+  const defaultCategoryId = must(
+    categoryIds.get(DEFAULT_SKILL_CATEGORY),
+    `skill category ${DEFAULT_SKILL_CATEGORY}`,
+  );
 
-  if (!reviewer) {
-    const passwordHash = await argon2.hash("Reviewer@12345");
+  let links = 0;
 
-    reviewer = await prisma.users.create({
-      data: {
-        email: user.email,
-        password: passwordHash,
-        status: "active",
-        role_id: role.id,
-        profiles: {
-          create: { first_name: user.firstName, last_name: user.lastName },
-        },
-      },
+  for (const data of SKILLS_DATA) {
+    const categoryId = data.category
+      ? must(categoryIds.get(data.category), `skill category ${data.category}`)
+      : defaultCategoryId;
+
+    const skill = await prisma.skills.upsert({
+      where: { name: data.name },
+      update: { category_id: categoryId },
+      create: { name: data.name, category_id: categoryId },
     });
 
-    console.log(`Created reviewer user: ${reviewerEmail}`);
-  } else {
-    console.log("Reviewer user already exists, skipping creation");
+    for (const domainName of data.domains) {
+      const domainId = domainIds.get(domainName);
+
+      if (domainId === undefined) {
+        throw new Error(
+          `Seed failed: skill "${data.name}" references unknown domain "${domainName}"`,
+        );
+      }
+
+      await prisma.skill_domains.upsert({
+        where: { skill_id_domain_id: { skill_id: skill.id, domain_id: domainId } },
+        update: {},
+        create: { skill_id: skill.id, domain_id: domainId },
+      });
+      links += 1;
+    }
   }
 
-  // Ensure reviewer is linked to strictly ONE domain
-  const webDevDomainId = domainIds.get("Web Development");
-  if (webDevDomainId && reviewer) {
-    await prisma.reviewer_domains.upsert({
-      where: { user_id: reviewer.id },
-      update: { domain_id: webDevDomainId },
-      create: { user_id: reviewer.id, domain_id: webDevDomainId },
-    });
-    console.log(`Assigned reviewer ${reviewerEmail} to single domain: Web Development (ID: ${webDevDomainId})`);
-  }
+  console.log(`Skills seeded: ${SKILLS_DATA.length} (${links} domain links)`);
 }
 
 async function main(): Promise<void> {
   console.log("Seeding Jadara database...");
-
-  const [permissions, roles] = await Promise.all([seedPermissions(), seedRoles()]);
 
   await seedLanguages();
   await seedSocialPlatforms();
@@ -598,8 +492,7 @@ async function main(): Promise<void> {
   const categoryIds = await seedSkillCategories();
   await seedSkills(domainIds, categoryIds);
 
-  await seedRolePermissions(roles, permissions);
-  await seedUsers(roles);
+  await seedRolesAndUsers(prisma);
 
   console.log("Seed completed!");
 }
