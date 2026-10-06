@@ -216,6 +216,41 @@ const SKILL_CATEGORIES_DATA = [
 
 const DEFAULT_SKILL_CATEGORY = "Technical Skills";
 
+const ACTIVITY_CATEGORIES_DATA = [
+  {
+    name: "Environment",
+    description: "Conservation, cleanup, climate and wildlife",
+  },
+  {
+    name: "Education",
+    description: "Tutoring, literacy and mentoring",
+  },
+  {
+    name: "Health",
+    description: "Public health, first aid and wellbeing",
+  },
+  {
+    name: "Social Services",
+    description: "Community support and care",
+  },
+  {
+    name: "Humanitarian Relief",
+    description: "Emergency and disaster response",
+  },
+  {
+    name: "Community Development",
+    description: "Local infrastructure and empowerment",
+  },
+  {
+    name: "Culture & Arts",
+    description: "Heritage, events and creative workshops",
+  },
+  {
+    name: "Sports & Recreation",
+    description: "Coaching, events and youth sport",
+  },
+];
+
 const SKILLS_DATA: Array<{
   name: string;
   domains: string[];
@@ -437,6 +472,18 @@ async function seedSkillCategories(): Promise<Map<string, number>> {
   return categoryIds;
 }
 
+async function seedActivityCategories(): Promise<void> {
+  for (const data of ACTIVITY_CATEGORIES_DATA) {
+    await prisma.activity_categories.upsert({
+      where: { name: data.name },
+      update: { description: data.description },
+      create: data,
+    });
+  }
+
+  console.log(`Activity categories seeded: ${ACTIVITY_CATEGORIES_DATA.length}`);
+}
+
 async function seedSkills(
   domainIds: Map<string, number>,
   categoryIds: Map<string, number>,
@@ -491,6 +538,8 @@ async function main(): Promise<void> {
 
   const categoryIds = await seedSkillCategories();
   await seedSkills(domainIds, categoryIds);
+
+  await seedActivityCategories();
 
   await seedRolesAndUsers(prisma);
 

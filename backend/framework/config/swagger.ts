@@ -27,6 +27,11 @@ const options: swaggerJsdoc.Options = {
       { name: "Skill Categories", description: "Skill categories management" },
       { name: "Auth", description: "Authentication, registration, tokens, and sessions" },
       { name: "Domains", description: "Business domains and skill associations" },
+      { name: "Roles", description: "Role catalog and role-permission assignments" },
+      {
+        name: "Activities",
+        description: "Volunteering activities: Organization creation, Admin review, required skills",
+      },
       { name: "Users", description: "User profiles and account management" },
       { name: "Roles", description: "Role-based access control and permissions" },
     ],

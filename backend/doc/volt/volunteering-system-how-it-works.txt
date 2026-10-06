@@ -1,0 +1,390 @@
+================================================================
+  JADARA — VOLUNTEERING SYSTEM: HOW IT WORKS
+  Written for the frontend team (backend/volunteering side)
+  Base URL: http://localhost:3000     | all paths prefixed /v1
+  File: doc/volt/volunteering-system-how-it-works.txt
+================================================================
+
+This document explains the CURRENT state of the volunteering
+feature, end to end: who can do what, the activity lifecycle, every
+endpoint with real request/response shapes, and what is planned but
+NOT built yet. Everything below was verified against the running API.
+
+
+================================================================
+ 1. BIG PICTURE
+================================================================
+
+Two actors drive the volunteering feature today:
+
+  ORGANIZATION  creates activities  ->  ADMIN reviews them.
+
+  Organization                        Admin
+  -----------------------------------------------------------------
+  1. Picks a category & skills        (categories/skills are pre-seeded)
+  2. POST /v1/activities              -> activity = pending_review
+  3.                                    GET /v1/activities/all  (queue)
+  4.                                    POST /activities/:id/approve
+                                         or /activities/:id/reject + note
+  5. GET /v1/activities               -> sees status + review_note
+       (org only sees its OWN activities; cross-org = 404)
+
+The third actor — the VOLUNTEER (Beneficiary) who should discover
+and apply to published activities — is NOT built yet. There is no
+"browse published activities" endpoint and no apply endpoint. The
+DB tables `volunteer_applications` and `user_completed_volunteering`
+exist but have no routes (see section 9).
+
+
+================================================================
+ 2. AUTH — every /v1 call except register/login needs a token
+================================================================
+
+Login sets two httpOnly cookies: `accessToken` (short) and
+`refreshToken`. Send cookies automatically with `-b cookies.txt`,
+or send `Authorization: Bearer <accessToken>`.
+
+  POST /v1/auth/login
+    -H "Content-Type: application/json"
+    { "email": "...", "password": "..." }
+    -> 200 sets cookies, data = { user: {...}, accessToken?, refreshToken? }
+
+  POST /v1/auth/refresh-token      refresh both cookies
+  POST /v1/auth/change-password    oldPassword + newPassword (clears sessions)
+  POST /v1/auth/logout             clears cookies
+
+Test logins:
+  organization@jadara.com / Organization@12345
+  admin@jadara.com / Admin@12345
+  beneficiary@jadara.com / Beneficiary@12345
+
+RESPONSE ENVELOPE
+  success: {
+    success: true, message: "…", data: <object>
+  }
+  list: data is an array + meta:
+    meta: { total, page, limit, totalPages, nextCursor|null }
+  error: {
+    success: false, message: "…",
+    errors?       (zod field map, e.g. {"end_date":["end_date must be on or after start_date"]}),
+    missing_skills?  (array of unknown skill ids)
+  }
+
+
+================================================================
+ 3. ROLES — how an Organization account is created
+================================================================
+
+`GET /v1/roles` returns the roles a registration screen may offer:
+  Beneficiary  is_selectable=true   -> direct register
+  Reviewer     is_selectable=false  -> via demand workflow
+  Company      is_selectable=false  -> via demand workflow
+  Organization is_selectable=false  -> via demand workflow
+  (Admin is never in this list.)
+
+- Beneficiary signs up with POST /v1/auth/register.
+- Reviewer / Company / Organization are approved admins: they submit a
+  demand (POST /v1/registration-demands with proof documents) and an
+  Admin approves it on /v1/demands. See
+  doc/volt/demand-registration-api.txt for the full flow.
+
+Once the Organization is approved, the org's profile lives in
+`organizations` (one row per org, linked to the owner user via
+user_id). The volunteering endpoints resolve the caller's
+organization FROM THE TOKEN — the frontend must never send an
+organization_id; it is ignored/forbidden by design.
+
+  GET    /v1/organizations/me    view_organization  own profile
+  PATCH  /v1/organizations/me    update_organization
+  DELETE /v1/organizations/me    delete_organization
+
+
+================================================================
+ 4. PERMISSIONS FOR THE VOLUNTEERING DOMAIN
+================================================================
+
+Verified from the database (role_permissions):
+
+  PERMISSION                     GRANTED TO
+  -----------------------------  ---------------------------------------
+  view_activities                Admin, Organization
+  create_activity                Admin, Organization
+  update_activity                Admin, Organization
+  delete_activity                Admin, Organization
+  approve_activity               Admin ONLY   <- review gate
+  manage_activity_categories     Admin ONLY   <- category CRUD gate
+
+  Related: view_skills (Admin, Beneficiary, Reviewer, Company,
+  Organization) -> the skill picker for activities.
+
+This split is deliberate: an Organization can create and edit its own
+activities but can NEVER change status or publish them (it lacks
+approve_activity, which is why a request body `status` is also
+rejected with 422).
+
+Admin is special: it auto-receives every permission, and for
+activities it plays the reviewer. Admin has NO organization row, so
+Admin uses /v1/activities/all (the queue) instead of /v1/activities.
+
+
+================================================================
+ 5. DATA MODEL (what the frontend will see)
+================================================================
+
+  activity_categories
+    id, name (unique), description?, created_at, updated_at
+
+  volunteering_activities
+    id, organization_id, category_id?, approved_by?,
+    review_note? (Admin's approve/reject reason, up to 1000 chars),
+    title, description?, location?,
+    start_date, end_date, required_volunteers  (= capacity),
+    requirements?, registration_deadline?,
+    status (enum below), created_at, updated_at
+
+  required skills: activity_required_skills(id, activity_id, skill_id)
+  authorization file: documents row with activity_id (the PDF/office
+    file the org uploads; stored in MinIO bucket `documents`)
+
+  STATUS enum (lowercase, reserved full lifecycle):
+    pending_review . published . rejected . ongoing . completed . cancelled
+  Today only: pending_review -> published | rejected (Admin decision).
+  Organizations/applications later will drive ongoing/completed.
+
+  PLANED but NOT exposed yet (tables exist, no routes):
+    volunteer_applications(id, user_id, activity_id, status
+      pending|accepted|rejected|completed, application_date,
+      @@unique(user_id, activity_id))
+    user_completed_volunteering(id, user_id, activity_id,
+      organization_id, completed_at, @@unique(user_id, activity_id))
+
+
+================================================================
+ 6. ACTIVITY CATEGORIES
+================================================================
+
+Seeded catalog (8 rows); the Org reads it for the create-activity
+select dropdown.
+
+GET /v1/activity-categories          view_activities
+  ?page, ?limit(max 100), ?q (case-insensitive name search)
+  200 => data: [ { id, name, description, created_at, updated_at } ]
+
+Admin-only CRUD (manage_activity_categories):
+  POST   { "name": "…", "description": "…"? }  -> 201
+           409 "Activity category name already exists" | 422
+  PATCH  /v1/activity-categories/:id  name and/or description
+           200 | 404 | 409 (rename to existing name) | 422 empty body
+  DELETE /v1/activity-categories/:id
+           200 | 404
+           400 "Cannot delete category: linked to N activity(activities).
+                Reassign them first."
+           (The FK is ON DELETE SET NULL, so the delete route BLOCKS
+            while activities still use the category - never silently
+            clears the Org's selection.)
+
+Red = 403 for non-admin (manage_activity_categories is Admin-only).
+
+
+================================================================
+ 7. ACTIVITIES — END TO END
+================================================================
+
+7.1 CREATE — POST /v1/activities   (Organization only)
+--------------------------------------------------
+multipart/form-data (NOT application/json). Fields:
+
+  title                REQUIRED   max 255
+  start_date           REQUIRED   YYYY-MM-DD (or any parseable date)
+  end_date             REQUIRED   must be >= start_date (422 otherwise)
+  capacity             REQUIRED   positive integer
+  authorization_file   REQUIRED   PDF/Office/image/zip/txt (used as the
+                                  org's authorization; uploads to MinIO)
+  description          optional   max 5000
+  location             optional   max 255
+  requirements         optional   max 5000
+  registration_deadline optional  date
+  category_id          optional   must exist in the seeded catalog
+  required_skill_ids   optional   SEND AS REPEATED FIELD:
+                                  -F "required_skill_ids[]=1"
+                                  -F "required_skill_ids[]=2"
+  status               FORBIDDEN  -> 422 if supplied
+
+curl:
+  curl -X POST http://localhost:3000/v1/activities -b cookies.txt \
+    -F "title=Beach cleanup campaign" \
+    -F "description=Weekly cleanup along the coastline." \
+    -F "location=Amman beach" \
+    -F "start_date=2026-11-01" -F "end_date=2026-11-03" \
+    -F "capacity=25" -F "category_id=1" \
+    -F "required_skill_ids[]=1" -F "required_skill_ids[]=2" \
+    -F "authorization_file=@./authorization.pdf"
+
+  WARNING for curl users: do NOT add -H "Content-Type: application/json"
+  together with -F; it kills the multipart boundary and the server
+  fails to parse the body. On the web (browser) just use FormData and
+  leave the browser to set the boundary.
+
+201 response data (this is the FULL activity shape, stable across
+all endpoints):
+
+  {
+    "id": 5,
+    "organization_id": 4,
+    "organization": { "id": 4, "name": "Jadara Volunteers" },
+    "category_id": 1,
+    "category": { "id": 1, "name": "Environment" },
+    "title": "Beach cleanup campaign",
+    "description": "Weekly cleanup along the coastline.",
+    "location": "Amman beach",
+    "start_date": "2026-11-01T00:00:00.000Z",
+    "end_date": "2026-11-03T00:00:00.000Z",
+    "capacity": 25,            // same as required_volunteers
+    "required_volunteers": 25,
+    "requirements": null,
+    "registration_deadline": null,
+    "status": "pending_review",
+    "created_at": "2026-10-06T20:15:49.993Z",
+    "updated_at": "2026-10-06T20:15:49.993Z",
+    "approved_by": null,
+    "approver": null,          // { id, email } after review
+    "review_note": null,       // Admin's reason after approve/reject
+    "required_skills": [ { "id": 1, "name": "JavaScript", "description": null } ],
+    "authorization_file": {
+      "id": 13, "name": "authorization.pdf",
+      "file_url": "activities/6/f92d52cb-....pdf",
+      "file_size": 1437, "mime_type": "application/pdf",
+      "created_at": "2026-10-06T20:15:50.003Z"
+    }
+  }
+
+Errors seen on create:
+  400 "Authorization file is required"
+  400 {"missing_skills":[999]}   (any one unknown skill fails the whole
+                                 request; nothing is written)
+  400 "Activity category does not exist"
+  403 for non-Organization (no organizations row)
+  422 field validation incl. status
+
+7.2 ORG LIST OWN — GET /v1/activities   (Organization only)
+--------------------------------------------------
+Scoped to the caller's org. NEVER crosses orgs.
+  ?page, ?limit(max 100), ?status=pending_review, ?q (title search)
+200 => data: [ activity... ], meta {...}
+
+This is the screen that shows the Org:
+   - drafts still in review        status=pending_review
+   - published                      status=published
+   - rejected + WHY                 status=rejected, review_note="..."
+Admin note -> shown on the card:
+  curl .../v1/activities | jq '.data[] | {id, title, status, review_note}'
+
+7.3 GET ONE — GET /v1/activities/:id
+--------------------------------------------------
+Org: own activities only -> cross-org returns 404 (no enumeration).
+Admin: any activity (bypass). 400 bad id | 401 | 404.
+
+7.4 ADMIN QUEUE — GET /v1/activities/all   (approve_activity)
+--------------------------------------------------
+Admin-only, list of ALL orgs' activities + ?status & ?q filters.
+THIS is the Admin's moderation screen.
+200 => data: [ activity... ], meta {...}   (review_note null while pending)
+
+7.5 APPROVE — POST /v1/activities/:id/approve   (Admin)
+--------------------------------------------------
+Body optional: { "note": "Permit verified" } (max 1000, stored as review_note)
+200 => data = activity with status "published", review_note, approved_by, approver
+If a note is given it becomes visible to the Org.
+Second review of same activity: 400 "Activity has already been reviewed".
+Org calling it: 403.
+
+7.6 REJECT — POST /v1/activities/:id/reject   (Admin)
+--------------------------------------------------
+Body optional: { "note": "Dates conflict with an existing event" }
+200 => data = activity with status "rejected", review_note set.
+THIS is what lets the Org see the rejection reason.
+Same guards as approve (400 already reviewed, 403 non-admin).
+
+7.7 UPDATE — PATCH /v1/activities/:id   (update_activity)
+--------------------------------------------------
+Org: own activity only. Admin: any.
+JSON body, all fields optional:
+  title, description, location, start_date, end_date, capacity,
+  requirements, registration_deadline, category_id (null allowed)
+  body, note:
+    - sending `status` -> 422 "Activity status can only be changed
+      through Admin review" (org cannot publish its own work)
+    - end_date before the STORED start_date -> 422
+200 => data = updated activity.
+
+7.8 DELETE — DELETE /v1/activities/:id   (delete_activity)
+--------------------------------------------------
+Org: own. Admin: any. Removes the row AND the MinIO authorization file.
+200 "Activity deleted successfully". 404 unknown / cross-org.
+
+7.9 REQUIRED SKILLS (update_activity)
+--------------------------------------------------
+  POST   /v1/activities/:id/skills
+         { "required_skill_ids": [3,4] }  (min 1, max 100)
+         all ids must exist else 400 + missing_skills (nothing written)
+  DELETE /v1/activities/:id/skills/:skillId
+         200 | 400 "…can only be removed after a volunteer has joined…"
+         (once the activity has any application - future feature)
+
+
+================================================================
+ 8. UI WIRING NOTES FOR THE FRONTEND
+================================================================
+
+ORG side:
+  - "My activities" list     GET  /v1/activities?status=&q=
+  - "Create activity" form   GET  /v1/activity-categories  (select)
+                             GET  /v1/skills              (multi-select)
+                             POST /v1/activities (FormData + auth file)
+  - Activity detail          GET  /v1/activities/:id
+  - Show review outcome: read `status`; if rejected/published also
+    show `review_note` (Admin's reason) and `approver.email`.
+  - Category picker populates from /v1/activity-categories - the Org
+    CAN list categories (view_activities) but CANNOT create/edit them.
+
+ADMIN side:
+  - Moderation queue         GET  /v1/activities/all?status=pending_review
+  - Decision                 POST /:id/approve  |  POST /:id/reject
+                             with an optional note -> shown to the Org.
+  - Category manager         POST/PATCH/DELETE /v1/activity-categories
+
+Dates arrive as ISO strings (Z). `capacity` and `required_volunteers`
+are the same value. `required_skills[]` shows the actual skill objects;
+seeded skills ids 1..n come from /v1/skills.
+
+NOT yet built (do not code against):
+  - Volunteer/Beneficiary browsing of published activities (no
+    public feed endpoint; GET /v1/activities is org-scoped and
+    view_activities-gated, so a Beneficiary gets 403).
+  - Apply / accept / reject applications  (volunteer_applications)
+  - Completion confirmation  (user_completed_volunteering)
+  - ongoing / completed / cancelled transitions
+
+
+================================================================
+ 9. STATUS CODE SUMMARY
+================================================================
+ POST   /v1/activities                 201 400 401 403 404 422
+ GET    /v1/activities(;/all;:id)      200 400 401 403 404 422
+ POST   /:id/approve | /:id/reject     200 400 401 403 404
+ PATCH  /v1/activities/:id             200 400 401 403 404 422
+ DELETE /v1/activities/:id             200 400 401 403 404
+ POST   /v1/activities/:id/skills      200 400 401 403 404 422
+ DELETE /:id/skills/:skillId           200 400 401 403 404
+ GET    /v1/activity-categories        200 401 403 422
+ POST   /v1/activity-categories        201 401 403 409 422
+ PATCH  /v1/activity-categories/:id    200 401 403 404 409 422
+ DELETE /v1/activity-categories/:id    200 400 401 403 404
+
+ 400 = bad data/id or missing file     401 = not authenticated
+ 403 = permission/no-org denied        404 = not found (or cross-org)
+ 409 = conflict (duplicate name)       422 = validation errors
+
+Frontend rule of thumb: treat 404 on an activity as "not yours / gone",
+treat 403 as "this screen is for a different role", treat 422 fields
+as inline form errors (`errors` map keyed by field name).

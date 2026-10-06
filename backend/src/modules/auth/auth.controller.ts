@@ -45,21 +45,13 @@ function clearRefreshCookie(res: Response): void {
 
 export const authController = {
   register: asyncHandler(async (req: Request, res: Response) => {
-    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     const data = req.body as RegisterInput;
-    const result = await authService.register(data, files);
+    const result = await authService.register(data);
 
-    if (!result.pending) {
-      setAccessTokenCookie(res, result.accessToken);
-      setRefreshCookie(res, result.refreshToken);
-    }
+    setAccessTokenCookie(res, result.accessToken);
+    setRefreshCookie(res, result.refreshToken);
 
-    response.success(
-      res,
-      { user: result.user, demand: result.pending ? { id: result.demandId } : null },
-      result.pending ? "Registration submitted for review" : "Registration successful",
-      201,
-    );
+    response.success(res, { user: result.user }, "Registration successful", 201);
   }),
 
   login: asyncHandler(async (req: Request, res: Response) => {

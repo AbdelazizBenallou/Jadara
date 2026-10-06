@@ -9,8 +9,6 @@ import {
 import { verifyRefreshToken } from "../../../framework/middleware/verifyRefreshToken.js";
 import { verifyAccessToken } from "../../../framework/middleware/verifyAccessToken.js";
 import { zodValidate } from "../../../framework/middleware/zodValidate.js";
-import { upload } from "../../../framework/middleware/upload.js";
-import { uploadErrorHandler } from "../../../framework/middleware/uploadErrorHandler.js";
 import {
   registerRateLimit,
   loginRateLimit,
@@ -25,14 +23,17 @@ const router = Router();
  * @openapi
  * /v1/auth/register:
  *   post:
- *     summary: Register a new user
- *     description: Register a new user account with profile details and optional certification/identity files.
+ *     summary: Register a new Beneficiary account
+ *     description: >
+ *       Public registration is restricted to the Beneficiary role. Reviewer,
+ *       Company and Organization accounts must be requested through
+ *       POST /v1/registration-demands and are activated by an Admin decision.
  *     tags:
  *       - Auth
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -65,21 +66,11 @@ const router = Router();
  *                 example: Male
  *               role_id:
  *                 type: integer
- *                 example: 2
- *               domain_ids:
- *                 type: array
- *                 items:
- *                   type: integer
- *                 example: [1, 2]
- *               files:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *                 description: Up to 5 supporting documents or certificates
+ *                 description: Must resolve to the Beneficiary role
+ *                 example: 1
  *     responses:
  *       201:
- *         description: Registration successful or submitted for review
+ *         description: Registration successful
  *         content:
  *           application/json:
  *             schema:
@@ -103,22 +94,9 @@ const router = Router();
  *                         email:
  *                           type: string
  *                           example: user@jadara.dev
- *                         first_name:
+ *                         role:
  *                           type: string
- *                           example: Alex
- *                         last_name:
- *                           type: string
- *                           example: Doe
- *                         role_id:
- *                           type: integer
- *                           example: 2
- *                     demand:
- *                       type: object
- *                       nullable: true
- *                       properties:
- *                         id:
- *                           type: integer
- *                           example: 12
+ *                           example: Beneficiary
  *       400:
  *         $ref: '#/components/responses/BadRequest'
  *       409:
@@ -133,14 +111,7 @@ const router = Router();
  *       422:
  *         $ref: '#/components/responses/ValidationError'
  */
-router.post(
-  "/register",
-  registerRateLimit,
-  upload.array("files", 5),
-  uploadErrorHandler,
-  zodValidate(registerSchema),
-  authController.register,
-);
+router.post("/register", registerRateLimit, zodValidate(registerSchema), authController.register);
 
 /**
  * @openapi
