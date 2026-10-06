@@ -1,0 +1,444 @@
+================================================================
+  REGISTRATION DEMAND API — COMPLETE REFERENCE
+  Base URL: http://localhost:3000
+  File: doc/volt/demand-registration-api.txt
+  All statuses below were verified by manual request
+================================================================
+
+Three roles — Reviewer, Company, Organization — share ONE demand
+workflow. Normal registration stays open only to Beneficiary.
+
+  Applicant                          Admin
+  ----------                         -----
+  POST /v1/registration-demands   -> review
+  GET  /v1/registration-demands/mine
+                                   GET    /v1/demands
+                                   GET    /v1/demands/:id
+                                   POST   /v1/demands/:id/approve
+                                   POST   /v1/demands/:id/reject
+                                   POST   /v1/demands/:id/resend-notification
+
+
+AUTH MATRIX
+  /v1/registration-demands  POST  public (rate limited)
+  /v1/registration-demands/mine      any ACTIVE user
+  /v1/demands  (all)                 manage_users  (Admin only)
+
+  ADMIN_COOKIE   -b cookies.txt   (this folder)
+  USER_COOKIE    -b ben.jar       (any active applicant)
+
+
+================================================================
+ 1. SUBMIT A DEMAND — POST /v1/registration-demands
+    public, multipart/form-data, files[1..5], rate limited
+================================================================
+
+Fields:
+  role          REQUIRED  Reviewer | Company | Organization
+  email         REQUIRED  must be unused
+  password      REQUIRED  min 8, needs UPPER + lower + digit
+  first_name    REQUIRED
+  last_name     REQUIRED
+  phone         optional
+  gender        optional  Male | Female
+  domain_ids    Reviewer only   (comma separated or repeated)
+  organization  Organization only  (JSON string)
+  files         REQUIRED  at least one document, field name = files
+
+
+--------------------------------------------------
+1.1 SUBMIT COMPANY  -> 201
+--------------------------------------------------
+curl -X POST http://localhost:3000/v1/registration-demands \
+  -F "role=Company" \
+  -F "email=applicant@x.io" \
+  -F "password=Password1!" \
+  -F "first_name=Black" \
+  -F "last_name=Company" \
+  -F "phone=+213558340669" \
+  -F "gender=Male" \
+  -F "files=@./test-registration.pdf"
+
+Expected: 201
+{
+  "success": true,
+  "message": "Registration demand submitted for review",
+  "data": {
+    "user": { "id": 16, "email": "applicant@x.io", "status": "pending" },
+    "demand": { "id": 7, "role": "Company", "status": "pending" },
+    "documents": [
+      { "id": 5, "name": "test-registration.pdf",
+        "mime_type": "application/pdf", "file_size": 1437 }
+    ]
+  }
+}
+
+Side effects:
+  users.status        = 'pending'   (cannot log in)
+  demands.status      = 'pending'
+  demands.user_id     = new user id (SET NULL on account delete)
+  documents           +1 row, object in MinIO bucket "documents"
+
+
+--------------------------------------------------
+1.2 SUBMIT REVIEWER  -> 201
+--------------------------------------------------
+curl -X POST http://localhost:3000/v1/registration-demands \
+  -F "role=Reviewer" -F "email=rev@x.io" -F "password=Password1!" \
+  -F "first_name=Rev" -F "last_name=Iew" \
+  -F "domain_ids=1,2" \
+  -F "files=@./test-registration.pdf"
+
+demand_domains +2 rows (domain_id 1 and 2).
+Listed in GET /v1/domains/reviewers only AFTER approval.
+
+
+--------------------------------------------------
+1.3 SUBMIT ORGANIZATION  -> 201
+--------------------------------------------------
+curl -X POST http://localhost:3000/v1/registration-demands \
+  -F "role=Organization" -F "email=org@x.io" -F "password=Password1!" \
+  -F "first_name=Black" -F "last_name=Company" \
+  -F "phone=+213558340669" -F "gender=Male" \
+  -F 'organization={"name":"Black Company","website":"https://example.com","location":"Rabat"}' \
+  -F "files=@./test-registration.pdf"
+
+demand.details = the JSON object. On approval this becomes the
+organizations row owned by the user.
+
+
+--------------------------------------------------
+1.4 ERROR STATUSES (verified)
+--------------------------------------------------
+400  Reviewer with no domain_ids
+     {"success":false,"message":"Reviewer must select at least one domain"}
+
+400  Organization with no organization=...
+     {"success":false,"message":"Organization details are required"}
+
+400  Organization JSON without "name"
+     {"success":false,"message":"Organization details are required"}
+
+400  no files
+     {"success":false,"message":"At least one supporting document is required"}
+
+400  unknown domain id
+     {"success":false,"message":"Some domains do not exist"}
+
+409  email already used (registered user OR leftover account)
+     {"success":false,"message":"Email already registered"}
+
+422  schema violation (bad role, weak password, bad email, bad gender)
+     {"success":false,"message":"Validation failed",
+      "errors":{"role":["Invalid option: expected one of \"Reviewer\"|\"Company\"|\"Organization\""]}}
+     fieldErrors keys: role, email, password, first_name, last_name,
+                       phone, gender, domain_ids, organization
+
+
+================================================================
+ 2. REGISTER ROUTE GATING — POST /v1/auth/register
+    public, application/json (NOT multipart)
+================================================================
+
+Beneficiary only. Demand roles are refused on purpose.
+
+2.1 Beneficiary -> 201
+curl -X POST http://localhost:3000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ben@x.io","password":"Password1!",
+       "first_name":"A","last_name":"B","role_id":1}'
+
+2.2 Demand role -> 400   (Reviewer=2, Company=3, Organization=16)
+     {"success":false,"message":"The Organization role cannot be
+      registered directly. Submit a registration demand instead."}
+
+2.3 Unknown role -> 400
+     {"success":false,"message":"This role is not available for registration"}
+
+2.4 Duplicate email -> 409 "Email already registered"
+
+2.5 Bad payload -> 422 {"success":false,"message":"Validation failed", ...}
+
+2.6 multipart (-F) -> 422 with EMPTY errors
+     {"success":false,"message":"Validation failed","errors":{}}
+     Reason: no multer on this route, so req.body stays undefined and
+     zodValidate drops formErrors. Send JSON, or use
+     /v1/registration-demands for files.
+
+
+================================================================
+ 3. PENDING ACCOUNT LOG IN — POST /v1/auth/login
+================================================================
+
+A submitted demand leaves users.status = 'pending'.
+
+curl -X POST http://localhost:3000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"applicant@x.io","password":"Password1!"}'
+
+Expected: 403
+{"success":false,"message":"Account is not active"}
+
+Same 403 for every protected route (verifyAccessToken).
+After approval -> 200.
+After rejection the account is deleted -> 404 invalid credentials.
+
+
+================================================================
+ 4. OWN DEMAND — GET /v1/registration-demands/mine
+    any ACTIVE user, no permission needed
+================================================================
+
+200  demand found (same object shape as section 6)
+404  {"success":false,"message":"No registration demand found"}
+401  {"success":false,"message":"Unauthorized"}   (no access token)
+
+Note: applicants are 'pending' while waiting, so they are blocked here
+with 401/403. This endpoint is for approved users checking their own
+record. Status while waiting is delivered by email instead.
+
+
+================================================================
+ 5. LIST — GET /v1/demands
+    Admin only (manage_users), rate limit 30/min
+================================================================
+
+Query params:
+  status  optional  pending | approved | rejected
+  role    optional  Reviewer | Company | Organization
+  page    optional  default 1
+  limit   optional  default 10, max 100
+
+5.1 200
+curl -s -b cookies.txt "http://localhost:3000/v1/demands?status=pending"
+
+{
+  "success": true,
+  "message": "Demands fetched successfully",
+  "data": [
+    { "id": 7, "status": "pending",
+      "role": { "id": 3, "name": "Company" },
+      "applicant": { "id": 16, "email": "applicant@x.io",
+                     "status": "pending",
+                     "profiles": { "first_name": "Black", "last_name": "Company",
+                                   "phone": null, "avatar": null } },
+      "domains": [],
+      "documents": [ { "id": 5, "name": "test-registration.pdf",
+                       "type": "demand",
+                       "file_url": "demands/16/uuid.pdf",
+                       "file_size": 1437,
+                       "mime_type": "application/pdf",
+                       "created_at": "...",
+                       "download_url": "http://localhost:9000/documents/...?X-Amz-..." } ],
+      "details": null,
+      "review_note": null, "reviewed_at": null, "reviewed_by": null,
+      "notification_sent_at": null, "account_deleted_at": null,
+      "created_at": "...", "updated_at": "..." }
+  ],
+  "meta": { "total": 1, "page": 1, "limit": 10,
+            "totalPages": 1, "nextCursor": null }
+}
+
+data = array, meta = sibling of data (NOT inside it).
+
+5.2 Statuses (verified)
+  200  ok
+  401  no access token        {"success":false,"message":"Unauthorized"}
+  403  valid non-admin token  {"success":false,"message":"Forbidden"}
+  422  bad query              {"success":false,"message":"Query validation failed",
+                                "errors":{"status":["Invalid option: expected one of
+                                  \"pending\"|\"approved\"|\"rejected\""]}}
+
+
+================================================================
+ 6. GET ONE — GET /v1/demands/:id
+    Admin only (manage_users)
+================================================================
+
+  200  object like section 5.1
+  400  {"success":false,"message":"Invalid demand ID"}          (:id not a number)
+  401  Unauthorized
+  403  Forbidden          (no manage_users)
+  404  {"success":false,"message":"Demand not found"}
+
+
+================================================================
+ 7. APPROVE — POST /v1/demands/:id/approve
+    Admin only, rate limit 20/min, body { "note"?: string <=1000 }
+================================================================
+
+curl -X POST http://localhost:3000/v1/demands/7/approve \
+  -b cookies.txt -H "Content-Type: application/json" \
+  -d '{"note":"Documents verified"}'
+
+200
+{
+  "success": true,
+  "message": "Demand approved",
+  "data": {
+    "id": 7, "status": "approved",
+    "role": { "id": 3, "name": "Company" },
+    "applicant": { "id": 16, "email": "applicant@x.io",
+                   "status": "active", "profiles": { ... } },
+    "domains": [], "documents": [ ... ],
+    "review_note": "Documents verified",
+    "reviewed_at": "...", "reviewed_by": 1,
+    "notification_sent_at": "2026-10-05T20:23:46.642Z",
+    "account_deleted_at": null,
+    "created_at": "...", "updated_at": "..."
+  }
+}
+
+Inside ONE transaction:
+  users.status = 'active', role = requested role
+  Reviewer:   reviewer_domains upserted for domains[0]
+  Organization: organizations row created (owned by user) when details.name exists
+  demands.status='approved', reviewed_by, review_note, reviewed_at
+
+AFTER the transaction:
+  permission cache invalidated   permissions:user:<id>
+  approval email sent            -> sets decision_notification_sent_at
+  if email fails: demand still approved, notification_sent_at stays null
+
+7.3 Re-approve the same demand -> 409
+    {"success":false,"message":"Demand is already reviewed"}
+
+7.4 Statuses (verified)
+  200 ok
+  400 Invalid demand ID
+  401 Unauthorized
+  403 Forbidden                       (no manage_users)
+  403 {"success":false,"message":"You cannot review your own demand"}
+  404 Demand not found
+  409 Demand is already reviewed
+
+
+================================================================
+ 8. REJECT — POST /v1/demands/:id/reject
+    Admin only, rate limit 20/min, body { "note"?: string <=1000 }
+================================================================
+
+curl -X POST http://localhost:3000/v1/demands/8/reject \
+  -b cookies.txt -H "Content-Type: application/json" \
+  -d '{"note":"Incomplete file"}'
+
+200
+{
+  "success": true,
+  "message": "Demand rejected",
+  "data": {
+    "id": 8, "status": "rejected",
+    "applicant": { "id": null, "email": "applicant@x.io",
+                   "status": "deleted",
+                   "profiles": { "first_name": "Black",
+                                 "last_name": "Company",
+                                 "phone": null, "avatar": null } },
+    "review_note": "Incomplete file",
+    "notification_sent_at": "...",
+    "account_deleted_at": "...",
+    ...
+  }
+}
+
+Inside ONE transaction:
+  users.status = 'inactive'
+  demands.status='rejected', reviewed_by, review_note, reviewed_at
+
+AFTER the transaction:
+  rejection email sent
+    SUCCESS -> notification_sent_at set
+              -> documents deleted from MinIO + DB
+              -> temporary user DELETED
+              -> account_deleted_at set
+              -> demands.user_id set to NULL (SET NULL), row kept
+    FAILURE -> notification_sent_at stays null
+              -> account_deleted_at stays null
+              -> account KEPT as 'inactive' (cannot log in)
+              -> retry with /resend-notification
+
+After successful deletion:
+  applicant.id = null, applicant.status = "deleted"
+  identity kept in snapshot columns:
+    applicant_email, applicant_first_name, applicant_last_name
+  re-register with the same email -> 409 (email still reserved by the demand)
+
+8.1 Statuses (verified) — same as approve (400/401/403/404/409/403-self)
+8.2 Verified on a real rejection:
+      users row   -> DELETED
+      demands row -> retained, user_id null, account_deleted_at set
+      documents   -> rows removed
+      login       -> credentials no longer valid
+
+
+================================================================
+ 9. RE-SEND DECISION EMAIL — POST /v1/demands/:id/resend-notification
+    Admin only, no body
+================================================================
+
+curl -X POST http://localhost:3000/v1/demands/7/resend-notification \
+  -b cookies.txt
+
+200 {"success":true,"message":"Decision notification sent","data":{...}}
+
+On a rejection whose first send failed, this also finishes the
+cleanup: account + documents removed, account_deleted_at set.
+
+Statuses (verified)
+  200 ok
+  400 Invalid demand ID
+  401 Unauthorized
+  403 Forbidden  /  403 own demand
+  404 Demand not found
+  409 {"success":false,"message":"Demand has not been reviewed yet"}
+  502 {"success":false,"message":"Failed to send notification email"}
+
+
+================================================================
+ 10. STATUS CODE SUMMARY
+================================================================
+
+ SUBMIT /v1/registration-demands
+   201 accepted
+   400 business validation (domains / organization / files / domains missing)
+   409 email already registered
+   422 zod schema failure
+
+ POST /v1/auth/register
+   201 Beneficiary created
+   400 demand role, or role not available
+   409 email already registered
+   422 zod schema failure (multipart -> 422 with errors: {})
+
+ POST /v1/auth/login
+   200 ok
+   403 Account is not active   (pending or inactive)
+   401 / 404 invalid credentials when the account was deleted
+
+ GET /v1/registration-demands/mine
+   200 / 401 / 404
+
+ GET /v1/demands  and  GET /v1/demands/:id
+   200 / 401 / 403 / 404  (+400 bad id, +422 bad query on list)
+
+ POST /v1/demands/:id/{approve,reject,resend-notification}
+   200 success
+   400 invalid demand id
+   401 no access token
+   403 not admin  |  403 self-review
+   404 demand not found
+   409 already reviewed / not reviewed yet
+   502 email provider failure (resend only)
+
+================================================================
+ NOTES
+================================================================
+- Rate limits: submit = registerRateLimit, list = 30/min,
+  detail = 20/min, approve/reject/resend = 20/min.
+- Every decision email is sent OUTSIDE the transaction, so a mail
+  failure never rolls back an approved or rejected decision.
+- demands.user_id is ON DELETE SET NULL, which is why a rejected
+  demand survives its account with the snapshot fields intact.
+- demand status values are lowercase Prisma enums:
+  pending | approved | rejected.
+- Observed while testing: server port 3000, SMTP relay on 25,
+  MinIO on 9000.
