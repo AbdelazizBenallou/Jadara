@@ -46,6 +46,16 @@ const PERMISSION_NAMES = [
   "update_activity",
   "delete_activity",
 
+  // Admin-only: review an Organization's activity (PENDING -> PUBLISHED/REJECTED).
+  // Deliberately absent from BASELINE_ROLE_PERMISSIONS so an Organization can
+  // never approve or publish its own activity.
+  "approve_activity",
+
+  // Admin-only: CRUD the activity category catalog. Organizations only read
+  // the list (view_activities) so they can pick a category when creating an
+  // activity, so this stays out of BASELINE_ROLE_PERMISSIONS too.
+  "manage_activity_categories",
+
   // Volunteer Applications
   "view_applications",
   "accept_application",
@@ -104,14 +114,15 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-const SELECTABLE_ROLE_NAMES = [
-  "Beneficiary",
-  "Reviewer",
-  "Company",
-  "Organization",
-];
+// Only Beneficiary can be picked through the public registration endpoint.
+// Reviewer, Company and Organization must go through a registration demand.
+const DIRECT_REGISTRATION_ROLE_NAMES = ["Beneficiary"];
 
-const ROLE_NAMES = [...SELECTABLE_ROLE_NAMES, "Admin"];
+// Roles that must be requested through a registration demand and granted by
+// an Admin decision.
+const DEMAND_ROLE_NAMES = ["Reviewer", "Company", "Organization"];
+
+const ROLE_NAMES = [...DEMAND_ROLE_NAMES, ...DIRECT_REGISTRATION_ROLE_NAMES, "Admin"];
 
 const DEFAULT_USERS = [
   {
@@ -184,8 +195,8 @@ async function seedRoles(
 ): Promise<Map<string, Role>> {
   const roles = new Map<string, Role>();
 
-  for (const name of ROLE_NAMES) {
-    const isSelectable = SELECTABLE_ROLE_NAMES.includes(name);
+for (const name of ROLE_NAMES) {
+    const isSelectable = DIRECT_REGISTRATION_ROLE_NAMES.includes(name);
 
     const role = await prisma.roles.upsert({
       where: { name },

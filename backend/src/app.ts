@@ -18,7 +18,10 @@ import languageRoutes from "./modules/languages/languages.routes.js";
 import documentRoutes from "./modules/documents/documents.routes.js";
 import projectRoutes from "./modules/projects/projects.routes.js";
 import reviewRoutes from "./modules/reviews/reviews.routes.js";
-import demandRoutes from "./modules/demands/demands.routes.js";
+import demandRoutes, { registrationDemandRoutes } from "./modules/demands/demands.routes.js";
+import organizationRoutes from "./modules/organizations/organizations.routes.js";
+import activityRoutes from "./modules/volunteering-activities/activities.routes.js";
+import activityCategoryRoutes from "./modules/activity-categories/categories.routes.js";
 import prisma from "../framework/config/prisma.js";
 import { storage } from "../framework/utils/storage.js";
 
@@ -77,7 +80,11 @@ app.use("/v1/languages", languageRoutes);
 app.use("/v1/documents", documentRoutes);
 app.use("/v1/projects", projectRoutes);
 app.use("/v1/reviews", reviewRoutes);
+app.use("/v1/registration-demands", registrationDemandRoutes);
 app.use("/v1/demands", demandRoutes);
+app.use("/v1/organizations", organizationRoutes);
+app.use("/v1/activities", activityRoutes);
+app.use("/v1/activity-categories", activityCategoryRoutes);
 
 // Health check (actually checks DB connectivity)
 app.get("/health", async (_req, res) => {

@@ -17,19 +17,33 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Prefers the live profile, then the snapshot taken at submission time so a
+// decision email can still be sent after the account is gone.
 function applicantName(demand: MailableDemand): string {
-  const first = demand.applicant.profiles?.first_name;
+  const first = demand.applicant?.profiles?.first_name ?? demand.applicant_first_name;
   return first ? first.trim() : "there";
+}
+
+function applicantEmail(demand: MailableDemand): string | null {
+  return demand.applicant?.email ?? demand.applicant_email ?? null;
 }
 
 function domainNames(demand: MailableDemand): string[] {
   return demand.demand_domains.map((dd) => dd.domains.name);
 }
 
+function organizationName(demand: MailableDemand): string | null {
+  const details = demand.details;
+  if (details === null || typeof details !== "object") return null;
+  const name = (details as Record<string, unknown>).name;
+  return typeof name === "string" && name.trim() !== "" ? name.trim() : null;
+}
+
 function layout(options: {
   heading: string;
   intro: string;
   domains?: string[];
+  organization?: string | null;
   note?: string | null;
   cta?: { label: string; url: string };
   closing: string;
@@ -45,6 +59,15 @@ function layout(options: {
           </td>
         </tr>`
       : "";
+
+  const organizationBlock = options.organization
+    ? `<tr>
+        <td style="padding:0 32px 24px 32px;">
+          <p style="margin:0 0 8px 0;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">Organization</p>
+          <p style="margin:0;font-size:15px;line-height:24px;color:#374151;">${escapeHtml(options.organization)}</p>
+        </td>
+      </tr>`
+    : "";
 
   const noteBlock = options.note
     ? `<tr>
@@ -99,6 +122,7 @@ function layout(options: {
               </td>
             </tr>
             ${domainsBlock}
+            ${organizationBlock}
             ${noteBlock}
             ${ctaBlock}
             <tr>
@@ -125,17 +149,22 @@ function plainText(lines: string[]): string {
 
 export const demandNotification = {
   async sendApproved(demand: MailableDemand, note?: string): Promise<boolean> {
+    const to = applicantEmail(demand);
+    if (!to) return false;
+
     const name = applicantName(demand);
     const role = demand.roles.name;
     const domains = domainNames(demand);
+    const organization = organizationName(demand);
     const loginUrl = env.FRONTEND_URL ? `${env.FRONTEND_URL}/login` : null;
 
     return emailUtils.sendSafe({
-      to: demand.applicant.email,
+      to,
       subject: `Your ${BRAND} ${role} account has been approved`,
       text: plainText([
         `Hello ${name},`,
         `Your ${BRAND} ${role} application has been approved. You can now sign in with the email address and password you registered with.`,
+        ...(organization ? [`Organization: ${organization}`] : []),
         ...(loginUrl ? [`Sign in: ${loginUrl}`] : []),
         ...(note ? [`Review note: ${note}`] : []),
       ]),
@@ -143,6 +172,7 @@ export const demandNotification = {
         heading: `Welcome to ${BRAND}, ${name}`,
         intro: `Your application to join ${BRAND} as a <strong>${escapeHtml(role)}</strong> has been reviewed and approved. Your account is now active and you can sign in with the email address and password you registered with.`,
         domains,
+        organization,
         note,
         cta: loginUrl ? { label: "Sign in", url: loginUrl } : undefined,
         closing: "If you did not expect this message or need help getting started, simply reply to this email.",
@@ -151,11 +181,14 @@ export const demandNotification = {
   },
 
   async sendRejected(demand: MailableDemand, note?: string): Promise<boolean> {
+    const to = applicantEmail(demand);
+    if (!to) return false;
+
     const name = applicantName(demand);
     const role = demand.roles.name;
 
     return emailUtils.sendSafe({
-      to: demand.applicant.email,
+      to,
       subject: `Your ${BRAND} ${role} application was not approved`,
       text: plainText([
         `Hello ${name},`,
@@ -167,6 +200,7 @@ export const demandNotification = {
         heading: `Update on your ${BRAND} application`,
         intro: `Thank you for applying to join ${BRAND} as a <strong>${escapeHtml(role)}</strong>. After reviewing your application and documents, we are unable to approve it at this time.`,
         domains: domainNames(demand),
+        organization: organizationName(demand),
         note,
         closing: "You are welcome to submit a new application in the future. If you believe this was a mistake, reply to this email and we will take another look.",
       }),
