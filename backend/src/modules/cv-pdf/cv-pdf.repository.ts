@@ -101,8 +101,8 @@ export const cvPdfRepository = {
       skills,
       languages,
       certifications,
-      socials,
       projects,
+      volunteering,
     ] = await Promise.all([
       prisma.users.findUnique({
         where: { id: userId },
@@ -149,7 +149,12 @@ export const cvPdfRepository = {
         where: { user_id: userId },
         select: {
           level: true,
-          skills: { select: { name: true } },
+          skills: {
+            select: {
+              name: true,
+              category: { select: { name: true } },
+            },
+          },
         },
       }),
       prisma.user_languages.findMany({
@@ -170,26 +175,31 @@ export const cvPdfRepository = {
         },
         orderBy: { issue_date: "desc" },
       }),
-      prisma.user_socials.findMany({
-        where: { user_id: userId },
-        select: {
-          url: true,
-          social_platforms: { select: { name: true } },
-        },
-      }),
       prisma.projects.findMany({
-        where: { user_id: userId },
+        where: { user_id: userId, status: "verified" },
         select: {
           title: true,
           description: true,
           github_url: true,
           live_url: true,
           figma_url: true,
-          status: true,
+          start_date: true,
+          end_date: true,
           created_at: true,
-          domains: { select: { id: true, name: true } },
+          sub_domain: { select: { id: true, name: true } },
         },
-        orderBy: { created_at: "desc" },
+        orderBy: [{ start_date: { sort: "desc", nulls: "last" } }, { created_at: "desc" }],
+      }),
+      prisma.user_completed_volunteering.findMany({
+        where: { user_id: userId },
+        select: {
+          completed_at: true,
+          activity: {
+            select: { title: true, location: true, start_date: true, end_date: true },
+          },
+          organization: { select: { name: true } },
+        },
+        orderBy: { completed_at: "desc" },
       }),
     ]);
 
@@ -201,11 +211,8 @@ export const cvPdfRepository = {
       skills,
       languages,
       certifications,
-      socials: socials.map((s) => ({
-        platform: s.social_platforms.name,
-        url: s.url,
-      })),
       projects,
+      volunteering,
     };
   },
 };

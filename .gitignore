@@ -62,3 +62,6 @@ cookies.txt
 
 # Info disclosure / setup docs with credentials
 docker_commands/
+
+# CV reference template (user-provided)
+backend/doc/cv_template/

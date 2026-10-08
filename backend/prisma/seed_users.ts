@@ -60,9 +60,15 @@ const PERMISSION_NAMES = [
   "view_applications",
   "accept_application",
   "reject_application",
+  "apply_to_activity",
+  "view_own_applications",
 
   // Volunteering Completion
   "confirm_completion",
+
+  // Public published-activities feed: granted to EVERY baseline role so any
+  // authenticated user can browse active published activities.
+  "view_published_activities",
 ];
 
 const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -74,6 +80,11 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
     "create_document",
     "delete_document",
     "view_own_documents",
+    "view_published_activities",
+
+    // Volunteer applications
+    "apply_to_activity",
+    "view_own_applications",
   ],
 
   Reviewer: [
@@ -81,12 +92,14 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
     "view_domains",
     "view_skills",
     "review_projects",
+    "view_published_activities",
   ],
 
   Company: [
     "update_profile",
     "view_domains",
     "view_skills",
+    "view_published_activities",
   ],
 
   Organization: [
@@ -103,6 +116,7 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
     "create_activity",
     "update_activity",
     "delete_activity",
+    "view_published_activities",
 
     // Volunteer applications
     "view_applications",

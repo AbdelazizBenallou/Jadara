@@ -1,24 +1,15 @@
 import type { CVLanguage } from "@prisma/client";
+import { execFileSync } from "child_process";
 import crypto from "crypto";
-import { readFileSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import Mustache from "mustache";
+import { tmpdir } from "os";
+import { join } from "path";
+import { fileURLToPath } from "url";
 import { AppError } from "../../../framework/utils/AppError.js";
 import { storage } from "../../../framework/utils/storage.js";
 import { BUCKETS } from "../../../framework/config/minio.js";
 import { cvPdfRepository } from "./cv-pdf.repository.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-Mustache.tags = ["<<", ">>"];
-Mustache.escape = (text: string) => text || "";
-
-function escapeLatex(text: string | null | undefined): string {
-  if (!text) return "";
-  return text.replace(/\\/g, "\\textbackslash{}").replace(/[&%$#_{}~^]/g, (ch) => "\\" + ch);
-}
 
 function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "Present";
@@ -29,6 +20,185 @@ function formatDate(date: Date | string | null | undefined): string {
 
 function computeHash(data: Record<string, unknown>): string {
   return crypto.createHash("sha256").update(JSON.stringify(data)).digest("hex");
+}
+
+const TEMPLATE_VERSION = "8";
+
+function escapeLatex(value: string): string {
+  return value
+    .replace(/\\/g, "\\textbackslash{}")
+    .replace(/([#%&${}_])/g, "\\$1")
+    .replace(/~/g, "\\textasciitilde{}")
+    .replace(/\^/g, "\\textasciicircum{}");
+}
+
+interface CvPdfData {
+  fullName: string;
+  email: string;
+  phone: string;
+  location: string;
+  summary: string;
+  skillGroups: Array<{ group: string; skills: Array<{ name: string; level: string }> }>;
+  languages: Array<{ name: string; proficiency: string }>;
+  experience: Array<{
+    company: string;
+    job_title: string;
+    startDate: string;
+    endDate: string;
+    bullets: string[];
+  }>;
+  education: Array<{ school: string; degree: string; fieldOfStudy: string; startDate: string; endDate: string }>;
+  projects: Array<{
+    title: string;
+    domain: string;
+    url: string;
+    startDate: string;
+    endDate: string;
+    bullets: string[];
+  }>;
+  certifications: Array<{ name: string; issuer: string; issueDate: string }>;
+  volunteering: Array<{ title: string; organization: string; location: string; startDate: string; endDate: string }>;
+}
+
+function buildLatexCvContext(data: CvPdfData): Record<string, unknown> {
+  const esc = escapeLatex;
+
+  const skillGroups = data.skillGroups.map((g) => {
+    const lines: string[] = [];
+    let currentLevel = "";
+    let currentNames: Array<string> = [];
+
+    for (const s of g.skills) {
+      const name = esc(s.name);
+      if (s.level !== currentLevel) {
+        if (currentNames.length) lines.push(`${currentNames.join(", ")} — ${esc(currentLevel)}`);
+        currentNames = [name];
+        currentLevel = s.level;
+      } else {
+        currentNames.push(name);
+      }
+    }
+    if (currentNames.length) lines.push(`${currentNames.join(", ")} — ${esc(currentLevel)}`);
+
+    return {
+      group: esc(g.group),
+      lines,
+    };
+  });
+
+  const experience = data.experience.map((e) => {
+    const bullets = e.bullets.map(esc);
+    return {
+      job_title: esc(e.job_title),
+      startDate: esc(e.startDate),
+      endDate: esc(e.endDate),
+      company: esc(e.company),
+      hasBullets: bullets.length > 0,
+      bullets,
+    };
+  });
+
+  const projects = data.projects.map((pr) => {
+    const bullets = pr.bullets.map(esc);
+    return {
+      title: esc(pr.title),
+      domain: esc(pr.domain),
+      startDate: esc(pr.startDate),
+      endDate: esc(pr.endDate),
+      url: esc(pr.url),
+      hasBullets: bullets.length > 0,
+      bullets,
+    };
+  });
+
+  const education = data.education.map((e) => ({
+    school: esc(e.school),
+    degree: esc(e.degree),
+    fieldOfStudy: esc(e.fieldOfStudy),
+    startDate: esc(e.startDate),
+    endDate: esc(e.endDate),
+  }));
+
+  const certifications = data.certifications.map((c) => ({
+    name: esc(c.name),
+    issuer: esc(c.issuer),
+    issueDate: esc(c.issueDate),
+  }));
+
+  const languagesLine = data.languages
+    .map((l) => `${esc(l.name)} (${esc(l.proficiency)})`)
+    .join(" \\hspace{2em} ");
+
+  const volunteering = data.volunteering.map((v) => ({
+    title: esc(v.title),
+    organization: esc(v.organization),
+    location: esc(v.location),
+    startDate: esc(v.startDate),
+    endDate: esc(v.endDate),
+  }));
+
+  return {
+    pdfTitle: esc(`CV - ${data.fullName}`),
+    fullName: esc(data.fullName),
+    email: esc(data.email),
+    phone: esc(data.phone),
+    location: esc(data.location),
+    summary: esc(data.summary),
+    hasSkills: skillGroups.length > 0,
+    skillGroups,
+    hasExperience: experience.length > 0,
+    experience,
+    hasProjects: projects.length > 0,
+    projects,
+    hasEducation: education.length > 0,
+    education,
+    hasCertifications: certifications.length > 0,
+    certifications,
+    hasLanguages: languagesLine.length > 0,
+    languagesLine,
+    hasVolunteering: volunteering.length > 0,
+    volunteering,
+  };
+}
+
+function renderLatexCv(data: CvPdfData): Buffer {
+  const templatesDir = fileURLToPath(new URL("../../../templates/", import.meta.url));
+  const workDir = mkdtempSync(join(tmpdir(), "jadara-cv-"));
+  const outDir = join(workDir, "out");
+  mkdirSync(outDir, { recursive: true });
+
+  try {
+    const context = buildLatexCvContext(data);
+    const template = readFileSync(join(templatesDir, "ats-cv.tex"), "utf8");
+    const tex = Mustache.render(template, context);
+
+    copyFileSync(join(templatesDir, "resume.cls"), join(workDir, "resume.cls"));
+    writeFileSync(join(workDir, "cv.tex"), tex);
+
+    execFileSync(
+      "pdflatex",
+      [
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "-output-directory",
+        outDir,
+        join(workDir, "cv.tex"),
+      ],
+      { stdio: "pipe", cwd: workDir },
+    );
+
+    return readFileSync(join(outDir, "cv.pdf"));
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+function splitLines(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/\r?\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export const cvPdfService = {
@@ -54,7 +224,7 @@ export const cvPdfService = {
     }
 
     // ─── Change detection ──────────────────────────────────
-    const dataHash = computeHash(cvData);
+    const dataHash = computeHash({ data: cvData, template: TEMPLATE_VERSION });
     const latestCompleted = await cvPdfRepository.getLatestCompleted(userId, language);
 
     if (latestCompleted && latestCompleted.file_url && latestCompleted.data_hash === dataHash) {
@@ -73,144 +243,76 @@ export const cvPdfService = {
     try {
       // ─── Build template data ───────────────────────────
       const p = cvData.profile;
-      const socials = cvData.socials;
-      const findSocialUrl = (platform: string) =>
-        escapeLatex(socials.find((s) => s.social_platforms.name === platform)?.url || "");
-      const linkedin = findSocialUrl("linkedin");
-      const github = findSocialUrl("github");
-      const portfolio = findSocialUrl("portfolio");
+      const fullName = `${p?.first_name || ""} ${p?.last_name || ""}`.trim();
 
-      const templateData = {
-        fullName: `${p?.first_name || ""} ${p?.last_name || ""}`.trim(),
-        email: cvData.user?.email ? escapeLatex(cvData.user.email) : "",
+      const templateData: CvPdfData = {
+        fullName,
+        email: cvData.user?.email || "",
         phone: p?.phone || "",
-        location: p?.location ? escapeLatex(p?.location) : "",
-        bio: p?.bio ? escapeLatex(p?.bio) : "",
-        pdfTitle: `CV - ${p?.first_name || ""} ${p?.last_name || ""}`.trim(),
+        location: p?.location || "",
+        summary: p?.bio || "",
 
-        hasLinkedin: !!linkedin,
-        linkedin,
-        hasGithub: !!github,
-        github,
-        hasPortfolio: !!portfolio,
-        portfolio,
+        experience: cvData.workExperience.map((e) => ({
+          company: e.company,
+          job_title: e.job_title,
+          startDate: formatDate(e.start_date),
+          endDate: e.is_current ? "Present" : formatDate(e.end_date),
+          bullets: splitLines(e.description),
+        })),
 
-        hasBio: !!p?.bio,
-
-        hasExperience: cvData.workExperience.length > 0,
-        experience: cvData.workExperience.map((e) => {
-          const bullets = e.description
-            ? e.description
-                .split("\n")
-                .filter((l) => l.trim())
-                .map((l) => escapeLatex(l.trim()))
-            : [];
-          return {
-            company: escapeLatex(e.company),
-            job_title: escapeLatex(e.job_title),
-            location: "",
-            startDate: formatDate(e.start_date),
-            endDate: e.is_current ? "Present" : formatDate(e.end_date),
-            hasBullets: bullets.length > 0,
-            bullets,
-          };
-        }),
-
-        hasEducation: cvData.education.length > 0,
         education: cvData.education.map((e) => ({
-          school: escapeLatex(e.school),
-          degree: escapeLatex(e.degree),
-          fieldOfStudy: escapeLatex(e.field_of_study || ""),
-          location: "",
+          school: e.school,
+          degree: e.degree,
+          fieldOfStudy: e.field_of_study || "",
           startDate: formatDate(e.start_date),
           endDate: e.is_current ? "Present" : formatDate(e.end_date),
         })),
 
-        hasSkills: cvData.skills.length > 0,
-        skillGroups: groupSkills(cvData.skills),
+        skillGroups: groupByCategory(cvData.skills),
 
-        hasLanguages: cvData.languages.length > 0,
         languages: cvData.languages.map((l) => ({
-          name: escapeLatex(l.languages.name),
-          proficiency: l.proficiency,
+          name: l.languages.name,
+          proficiency: LEVEL_LABEL[l.proficiency] || l.proficiency,
         })),
 
-        hasCertifications: cvData.certifications.length > 0,
         certifications: cvData.certifications.map((c) => ({
-          name: escapeLatex(c.name),
-          issuer: escapeLatex(c.issuer || ""),
+          name: c.name,
+          issuer: c.issuer || "",
           issueDate: c.issue_date ? formatDate(c.issue_date) : "",
-          credentialUrl: c.credential_url || "",
         })),
 
-        hasProjects: cvData.projects.length > 0,
-        projects: cvData.projects.map((p) => {
-          const bullets = p.description
-            ? p.description
-                .split("\n")
-                .filter((l) => l.trim())
-                .map((l) => escapeLatex(l.trim()))
-            : [];
-          const projectUrl = p.github_url || p.live_url || p.figma_url || "";
+        projects: cvData.projects.map((proj) => {
+          const url = proj.github_url || proj.live_url || proj.figma_url || "";
           return {
-            title: escapeLatex(p.title),
-            domain: p.domains ? escapeLatex(p.domains.name) : "",
-            url: escapeLatex(projectUrl),
-            status: p.status ? escapeLatex(p.status.replace("_", " ")) : "",
-            startDate: formatDate(p.created_at),
-            hasBullets: bullets.length > 0,
-            bullets,
+            title: proj.title,
+            domain: proj.sub_domain ? proj.sub_domain.name : "",
+            url,
+            startDate: proj.start_date ? formatDate(proj.start_date) : formatDate(proj.created_at),
+            endDate: proj.end_date ? formatDate(proj.end_date) : "",
+            bullets: splitLines(proj.description),
+          };
+        }),
+
+        volunteering: cvData.volunteering.map((v) => {
+          const start = formatDate(v.activity.start_date);
+          const end = formatDate(v.activity.end_date);
+          const samePeriod =
+            v.activity.start_date && v.activity.end_date
+              ? v.activity.start_date.getFullYear() === v.activity.end_date.getFullYear() &&
+                v.activity.start_date.getMonth() === v.activity.end_date.getMonth()
+              : false;
+          return {
+            title: v.activity.title,
+            organization: v.organization.name,
+            location: v.activity.location || "",
+            startDate: start,
+            endDate: samePeriod ? "" : end,
           };
         }),
       };
 
-      // ─── Render LaTeX ──────────────────────────────────
-      const templatePath = path.resolve(__dirname, "../../../templates/ats-cv.tex");
-      const template = readFileSync(templatePath, "utf-8");
-      const latex = Mustache.render(template, templateData);
-
-      // ─── Compile PDF ───────────────────────────────────
-      const { execFile } = await import("child_process");
-      const {
-        mkdirSync,
-        writeFileSync,
-        readFileSync: readFileSyncSync,
-        rmSync,
-      } = await import("fs");
-      const { promisify } = await import("util");
-      const execFileAsync = promisify(execFile);
-
-      const tmpDir = path.resolve("/tmp", `cv-pdf-${userId}-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
-
-      const texFile = path.join(tmpDir, "cv.tex");
-      writeFileSync(texFile, latex);
-
-      try {
-        await execFileAsync(
-          "pdflatex",
-          ["-interaction=nonstopmode", "-halt-on-error", "-output-directory", tmpDir, texFile],
-          { timeout: 30000 },
-        );
-      } catch (execError: unknown) {
-        const err = execError as { stderr?: string; message?: string };
-        const logFile = path.join(tmpDir, "cv.log");
-        let logTail = err.stderr || err.message || "Unknown error";
-        try {
-          const logContent = readFileSyncSync(logFile, "utf-8");
-          const lines = logContent.split("\n");
-          const errorLines = lines.filter(
-            (l: string) => l.startsWith("!") || l.includes("Error") || l.includes("Fatal"),
-          );
-          if (errorLines.length) logTail = errorLines.join("\n");
-        } catch (ignored) {
-          // ignore
-        }
-        throw new AppError(`LaTeX compilation failed: ${logTail.substring(0, 500)}`, 500);
-      }
-
-      const pdfFile = path.join(tmpDir, "cv.pdf");
-      const pdfBuffer = readFileSyncSync(pdfFile);
+      // ─── Render CV PDF via LaTeX ───────────────────────
+      const pdfBuffer = renderLatexCv(templateData);
 
       // ─── Upload to MinIO ───────────────────────────────
       const fileName = `cv-${p?.first_name || "user"}-${p?.last_name || ""}.pdf`
@@ -232,9 +334,6 @@ export const cvPdfService = {
         file_size: fileSize,
         data_hash: dataHash,
       });
-
-      // ─── Cleanup temp files ─────────────────────────────
-      rmSync(tmpDir, { recursive: true, force: true });
 
       return {
         status: "completed" as const,
@@ -305,27 +404,62 @@ export const cvPdfService = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────
-function groupSkills(skills: Array<{ level: string; skills: { name: string } }>) {
-  const levelOrder: Record<string, number> = {
-    native: 0,
-    fluent: 1,
-    advanced: 2,
-    intermediate: 3,
-    beginner: 4,
-  };
-  const sorted = [...skills].sort(
-    (a, b) => (levelOrder[a.level] ?? 5) - (levelOrder[b.level] ?? 5),
-  );
+const LEVEL_LABEL: Record<string, string> = {
+  native: "Natif",
+  fluent: "Courant",
+  advanced: "Avancé",
+  intermediate: "Intermédiaire",
+  beginner: "Débutant",
+  expert: "Expert",
+};
 
-  const byLevel: Record<string, string[]> = {};
-  for (const s of sorted) {
-    const level = s.level.charAt(0).toUpperCase() + s.level.slice(1);
-    if (!byLevel[level]) byLevel[level] = [];
-    byLevel[level].push(s.skills.name);
+const SKILL_LEVEL_ORDER: Record<string, number> = {
+  expert: 0,
+  advanced: 1,
+  intermediate: 2,
+  beginner: 3,
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  "Technical Skills": "Compétences techniques",
+  "Soft Skills": "Compétences comportementales",
+};
+
+const CATEGORY_ORDER: Record<string, number> = {
+  "Technical Skills": 0,
+  "Soft Skills": 1,
+};
+
+function groupByCategory(
+  skills: Array<{ level: string; skills: { name: string; category: { name: string } | null } }>,
+) {
+  const byCategory: Array<{ group: string; skills: Array<{ name: string; level: string }> }> = [];
+  const index = new Map<string, number>();
+
+  for (const s of skills) {
+    const category = s.skills.category?.name || "Technical Skills";
+    let idx = index.get(category);
+    if (idx === undefined) {
+      idx = byCategory.length;
+      index.set(category, idx);
+      byCategory.push({ group: CATEGORY_LABEL[category] || category, skills: [] });
+    }
+    byCategory[idx].skills.push({
+      name: s.skills.name,
+      level: s.level,
+    });
   }
 
-  return Object.entries(byLevel).map(([group, skillList]) => ({
-    group,
-    skills: skillList.join(", "),
-  }));
+  return byCategory
+    .sort((a, b) => (CATEGORY_ORDER[a.group] ?? 9) - (CATEGORY_ORDER[b.group] ?? 9))
+    .map((g) => ({
+      group: g.group,
+      skills: g.skills
+        .sort(
+          (a, b) =>
+            (SKILL_LEVEL_ORDER[a.level] ?? 9) - (SKILL_LEVEL_ORDER[b.level] ?? 9) ||
+            a.name.localeCompare(b.name),
+        )
+        .map((s) => ({ name: s.name, level: LEVEL_LABEL[s.level] || s.level })),
+    }));
 }

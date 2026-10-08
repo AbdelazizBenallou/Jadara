@@ -17,6 +17,12 @@ and only an Admin can accept or reject it. The Org sees the status
                                         POST  /v1/activities/:id/reject
   GET  /v1/activities    (own, status)
   GET  /v1/activities/:id
+  POST /v1/activities/:id/block       (visible until a decision is made)
+  POST /v1/activities/:id/unblock
+
+  Any authenticated user (Beneficiary/Reviewer/Company/Org/Admin)
+  GET /v1/activities/published     <- published feed
+  GET /v1/activities/:id           <- public detail (if visible)
 
 
 COOKIES (this folder)
@@ -136,8 +142,57 @@ curl -X GET http://localhost:3000/v1/activities \
 ================================================================
 curl -X GET http://localhost:3000/v1/activities/5 -b cookies.txt
 
-  Org: own activity only -> otherwise 404 (no ID enumeration).
-  Admin: any activity.
+  Full view  - the owning Organization and Admin (any activity).
+  Public view- any other authenticated role, but ONLY if the activity is
+               publicly visible (published + active + not finished +
+               deadline not in the past), otherwise 404 (no ID enumeration).
+  Public rows drop the internal fields: organization_id, approved_by /
+  approver, review_note, authorization_file. organization stays {id,name}.
+
+  EVERY response also carries the join-flow numbers:
+    accepted_count    # of ACCEPTED applications (not all)
+    available_places  max(0, capacity - accepted_count)
+    my_application    {id,status} of the caller's own application, or null
+                      (pending -> accepted/rejected)
+
+
+---------------------------------------------------------------
+  3A. PUBLIC PUBLISHED FEED - GET /v1/activities/published
+      Any authenticated user (view_published_activities on ALL roles)
+---------------------------------------------------------------
+curl -X GET http://localhost:3000/v1/activities/published -b cookies.txt
+curl -X GET "http://localhost:3000/v1/activities/published?q=beach&category_id=1&page=1&limit=10" -b cookies.txt
+
+  Only activities that pass ALL of these end up in the feed:
+    status = published
+    is_active = true            (not blocked by the org / admin)
+    end_date   >= now           (not finished)
+    registration_deadline is null OR >= now    (not expired)
+
+  Filters (all optional):
+    page (>=1), limit (1..100),
+    q or search (<=255, case-insensitive title)
+    category_id (positive int from /v1/activity-categories)
+    location (<=255, case-insensitive)
+    organization_id (positive int)
+    required_skill_id (positive int; "activity requires this skill")
+    start_date + end_date (date-time WINDOW: activity.end_date >= start_date
+      AND activity.start_date <= end_date)
+  `status` cannot be requested; a client-sent status is silently dropped
+  (the server always returns published).
+
+
+---------------------------------------------------------------
+  3B. BLOCK / UNBLOCK - POST /v1/activities/:id/block | /unblock
+      Organization owner or Admin (update_activity)
+---------------------------------------------------------------
+curl -X POST http://localhost:3000/v1/activities/5/block -b cookies.txt
+curl -X POST http://localhost:3000/v1/activities/5/unblock -b cookies.txt
+
+  Sets is_active=false / true. Only works while status=published,
+  otherwise 400 "Only published activities can be blocked/unblocked".
+  While blocked: the activity leaves /published and non-owner detail
+  returns 404; the owner Org and Admin still see the full row.
 
 
 ================================================================
@@ -224,13 +279,20 @@ curl -X DELETE http://localhost:3000/v1/activities/5/skills/3 -b cookies.txt
    401 | 403 not an org | 404 unknown category | 422 fields/status
 
  GET /v1/activities, GET /v1/activities/:id
-   200 | 400 bad id | 401 | 403 | 404 (id or cross-org)
+   200 | 400 bad id | 401 | 403 | 404 (id, or own-org only unless
+   publicly visible -> public view)
+
+ GET /v1/activities/published
+   200 | 400/422 bad query (page/limit/category) | 401
 
  GET /v1/activities/all
    200 | 400/422 bad query | 401 | 403 not admin
 
  POST /v1/activities/:id/{approve,reject}
    200 | 400 already reviewed / bad id | 401 | 403 not admin | 404
+
+ POST /v1/activities/:id/{block,unblock}
+   200 | 400 not published | 401 | 403 | 404 (cross-org or unknown)
 
  PATCH /v1/activities/:id
    200 | 400 bad id | 401 | 403 | 404 own-org only | 422 (incl. status)
@@ -244,17 +306,124 @@ curl -X DELETE http://localhost:3000/v1/activities/5/skills/3 -b cookies.txt
 
 
 ================================================================
+  8. VOLUNTEER JOIN / APPLICATIONS
+================================================================
+  Table: volunteer_applications(id, user_id, activity_id,
+  application_date, status pending|accepted|rejected|completed,
+  UNIQUE(user_id, activity_id)). Created as pending; decided by the
+  Organization; the volunteer never changes status; nothing auto-accepts.
+  user_id always comes from the token, never from the body.
+
+  Permission           Granted to           Used for
+  -------------------  -------------------  -----------------------------
+  apply_to_activity    Beneficiary          POST /activities/:id/applications
+  view_own_applications Beneficiary         GET /volunteer-applications/me
+                                             GET /volunteer-applications/completed
+  view_applications    Organization(+Admin) GET /activities/:id/applications
+  accept_application   Organization(+Admin) POST /volunteer-applications/:id/accept
+  reject_application   Organization(+Admin) POST /volunteer-applications/:id/reject
+  confirm_completion   Organization(+Admin) POST /volunteer-applications/:id/complete
+
+  APPLY (Beneficiary)
+  curl -X POST http://localhost:3000/v1/activities/5/applications \
+    -b cookies.txt -H "Content-Type: application/json" -d '{}'
+  201 -> { id, activity_id, status:"pending", application_date }
+  404 "Activity not found"
+  400 "Activity is not open for applications" (not published / blocked)
+  400 "Registration deadline has passed"
+  400 "Activity is full"  (accepted >= capacity)
+  409 "You have already applied to this activity"
+  403 "Only Beneficiaries can apply to activities" (Admin passes the gate,
+      then the service rejects; Company/Beneficiary-less roles 403 earlier)
+
+  TRACK (Beneficiary)
+  curl -s -b cookies.txt "http://localhost:3000/v1/volunteer-applications/me?status=pending"
+  ?status=pending|accepted|rejected|completed &page &limit
+  -> [{ id, activity_id, status, application_date, activity:{...} }]
+
+  ORG QUEUE
+  curl -s -b cookies.txt \
+    "http://localhost:3000/v1/activities/5/applications?sort=skill_match&min_skill_match=50&status=pending"
+  Org owner (or Admin); cross-org = 404. Each item:
+    skill_match { matched_skills[], missing_skills[], percentage }
+      percentage = round(matched/total*100), null when no required skills
+    applicant { id, email, profile{first,last,avatar,bio,location},
+                skills[{id,name,level}], education[], work_experience[] }
+  No passwords/tokens/documents/phone. Filtering + sort happen BEFORE
+  pagination. Only sort value today is skill_match.
+
+  DECIDE
+  curl -X POST http://localhost:3000/v1/volunteer-applications/2/accept -b cookies.txt
+  curl -X POST http://localhost:3000/v1/volunteer-applications/2/reject -b cookies.txt
+  404 "Application not found" | cross-org 404
+  400 "Only pending applications can be accepted/rejected"
+  accept additionally enforces capacity -> 400 "Activity is full"
+  reject has no capacity check. Returns the updated full org-view app.
+
+  PARTICIPANTS (accepted only, public info only)
+  curl -s -b cookies.txt http://localhost:3000/v1/activities/5/participants
+  Visible to org owner / Admin / anyone when the activity is publicly
+  visible (else 404). -> [ { id, name, avatar, bio, location,
+                             skills: [activity-required skill names] } ]
+  NO email, phone or documents.
+
+  COMPLETE (Organization / Admin) — ACCEPTED != COMPLETED
+  curl -X POST http://localhost:3000/v1/volunteer-applications/6/complete \
+    -b cookies.txt
+  200 -> "Volunteer completion confirmed" + full org-view app,
+         status:"completed"
+  404 "Application not found" | cross-org 404 "Activity not found"
+  400 "Only accepted applications can be completed"
+     (pending / rejected / completed all blocked)
+  400 "Activity has not finished yet"   (end_date >= now still)
+  No request body; user_id/activity_id/organization_id NEVER from body.
+  Transaction (completeAndCreateExperience), all-or-nothing:
+    1. application.status accepted -> completed
+    2. user_completed_volunteering(id, user_id, activity_id,
+       organization_id, completed_at, created_at) — created iff absent
+       (UNIQUE(user_id, activity_id) + checked inside the tx)
+  Duplicate completion is impossible: a 2nd call hits the status guard
+  (400) and the unique constraint prevents any second record.
+  The org dashboard shows the SAME queue (statuses pending|accepted|
+  rejected|completed); completing is a per-volunteer action, one at a
+  time, never bulk.
+
+  COMPLETED EXPERIENCES (the caller's own; CV source of truth)
+  curl -s -b cookies.txt http://localhost:3000/v1/volunteer-applications/completed
+  Header gate: view_own_applications. Scoped to req.user.userId.
+  ?page &limit. -> [ { id, activity:{id,title,location,start_date,end_date},
+                       organization:{id,name}, completed_at } ]
+  Only status=completed is eligible; pending/rejected/accepted are NOT
+  here. No email/phone/profile data.
+  CV integration policy: cv-pdf consumes user_completed_volunteering via
+  this endpoint (or the relation) rather than copying activity rows into
+  the CV tables.
+
+
+================================================================
  NOTES
 ================================================================
 - Permission matrix (verified from role_permissions):
     create/update/delete/view_activities        -> Admin, Organization
+    view_published_activities                   -> all five roles
+        (Beneficiary, Reviewer, Company, Organization, + Admin)
     approve_activity                            -> Admin only
     manage_activity_categories                  -> Admin only
+    apply_to_activity, view_own_applications    -> Beneficiary (+ Admin)
+    view/accept/reject_application              -> Organization (+ Admin)
+    confirm_completion                          -> Organization (+ Admin)
 - Admin GET /v1/activities returns 403 "No organization found" -> the
   Admin queue is /v1/activities/all.
 - review_note is nullable; pending/approved rows show null until a
   review note is written. Pre-fix rows stay null.
 - Category FK is ON DELETE SET NULL; the delete route blocks while
   activities reference the category so nothing is silently cleared.
+- is_active defaults true for every row (migration 20261006120000);
+  only block/unblock on published rows flips it; even a blocked activity
+  keeps status=published so the Org list and Admin queue are unchanged.
+- Route order matters: /published, /all and the /:id/applications and
+  /:id/participants sub-routes are registered BEFORE /:id (defensively;
+  /:id never swallows extra segments), otherwise static single-segment
+  paths would be parsed as an activity id.
 - Observed while testing: server port 3000, SMTP relay on 25,
-  MinIO on 9000.
+  MinIO on 9000 (docker container jadara-minio).
