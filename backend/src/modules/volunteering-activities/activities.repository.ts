@@ -23,6 +23,22 @@ export type ActivityListParams = {
   limit: number;
   status?: ActivityStatus;
   q?: string;
+  category_id?: number;
+};
+
+/** Params for the public published feed (only visible activities). */
+export type PublishedActivityListParams = {
+  page: number;
+  limit: number;
+  now: Date;
+  q?: string;
+  search?: string;
+  category_id?: number;
+  location?: string;
+  organization_id?: number;
+  required_skill_id?: number;
+  start_date?: Date;
+  end_date?: Date;
 };
 
 const buildWhere = (params: ActivityListParams, organizationId?: number): Prisma.volunteering_activitiesWhereInput => {
@@ -30,6 +46,7 @@ const buildWhere = (params: ActivityListParams, organizationId?: number): Prisma
   if (organizationId !== undefined) where.organization_id = organizationId;
   if (params.status) where.status = params.status;
   if (params.q) where.title = { contains: params.q, mode: "insensitive" };
+  if (params.category_id) where.category_id = params.category_id;
   return where;
 };
 
@@ -64,6 +81,53 @@ export const activitiesRepository = {
   /** Admin moderation queue: every activity across every organization. */
   async listAll(params: ActivityListParams) {
     const where = buildWhere(params);
+    const [items, total] = await Promise.all([
+      prisma.volunteering_activities.findMany({
+        where,
+        include: activityInclude,
+        orderBy: { created_at: "desc" },
+        skip: (params.page - 1) * params.limit,
+        take: params.limit,
+      }),
+      prisma.volunteering_activities.count({ where }),
+    ]);
+    return { items, total };
+  },
+
+  /**
+   * Public published feed. Only published activities that are still active
+   * (org hasn't blocked them), not finished by date, and not past their
+   * registration deadline.
+   */
+  async listPublished(params: PublishedActivityListParams) {
+    const where: Prisma.volunteering_activitiesWhereInput = {
+      status: "published",
+      is_active: true,
+      end_date: { gte: params.now },
+      OR: [
+        { registration_deadline: null },
+        { registration_deadline: { gte: params.now } },
+      ],
+    };
+    const term = params.q ?? params.search;
+    if (term) where.title = { contains: term, mode: "insensitive" };
+    if (params.category_id) where.category_id = params.category_id;
+    if (params.location) where.location = { contains: params.location, mode: "insensitive" };
+    if (params.organization_id) where.organization_id = params.organization_id;
+    if (params.required_skill_id) {
+      where.required_skills = { some: { skill_id: params.required_skill_id } };
+    }
+    // end_date is already filtered to "not finished" (gte now). A requested
+    // start narrows it further. A requested end filters by activity start.
+    if (params.start_date) {
+      where.end_date = {
+        gte: params.start_date > params.now ? params.start_date : params.now,
+      };
+    }
+    if (params.end_date) {
+      where.start_date = { lte: params.end_date };
+    }
+
     const [items, total] = await Promise.all([
       prisma.volunteering_activities.findMany({
         where,
@@ -155,6 +219,19 @@ export const activitiesRepository = {
 
   async countApplications(activityId: number) {
     return prisma.volunteer_applications.count({ where: { activity_id: activityId } });
+  },
+
+  async countAcceptedApplications(activityId: number) {
+    return prisma.volunteer_applications.count({
+      where: { activity_id: activityId, status: "accepted" },
+    });
+  },
+
+  findApplicationByUser(activityId: number, userId: number) {
+    return prisma.volunteer_applications.findUnique({
+      where: { user_id_activity_id: { user_id: userId, activity_id: activityId } },
+      select: { id: true, status: true },
+    });
   },
 
   findActivitySkill(activityId: number, skillId: number) {

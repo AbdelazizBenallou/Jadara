@@ -29,11 +29,22 @@ Two actors drive the volunteering feature today:
   5. GET /v1/activities               -> sees status + review_note
        (org only sees its OWN activities; cross-org = 404)
 
-The third actor — the VOLUNTEER (Beneficiary) who should discover
-and apply to published activities — is NOT built yet. There is no
-"browse published activities" endpoint and no apply endpoint. The
-DB tables `volunteer_applications` and `user_completed_volunteering`
-exist but have no routes (see section 9).
+The third actor — the VOLUNTEER (Beneficiary) — can browse the
+published feed and open a public activity detail:
+
+   6. GET    /v1/activities/published   (any authenticated user)
+        -> only published + active + not finished + deadline not past
+   7. GET    /v1/activities/:id        -> public detail (no internal data)
+   8. Publish stops temporarily: Org/Admin  POST /activities/:id/block
+        -> is_active=false, leaves the feed, public detail 404;
+           POST /activities/:id/unblock  reverses it.
+
+The full volunteering lifecycle is implemented across the activities,
+join and completion modules: Org creates -> Admin publishes ->
+Beneficiary applies (pending) -> Org accepts/rejects ->
+Org confirms completion (accepted -> completed) -> a
+user_completed_volunteering record is written and only completed
+experiences are CV-eligible (see sections 7.3d + 7.3e).
 
 
 ================================================================
@@ -85,7 +96,11 @@ RESPONSE ENVELOPE
 - Beneficiary signs up with POST /v1/auth/register.
 - Reviewer / Company / Organization are approved admins: they submit a
   demand (POST /v1/registration-demands with proof documents) and an
-  Admin approves it on /v1/demands. See
+  Admin approves it on /v1/dema
+  ORGANIZATION  creates activities  ->  ADMIN reviews them.
+
+  Organization                        Admin
+  ------------------------nds. See
   doc/volt/demand-registration-api.txt for the full flow.
 
 Once the Organization is approved, the org's profile lives in
@@ -109,10 +124,16 @@ Verified from the database (role_permissions):
   -----------------------------  ---------------------------------------
   view_activities                Admin, Organization
   create_activity                Admin, Organization
-  update_activity                Admin, Organization
+  update_activity                Admin, Organization  (+ block/unblock)
   delete_activity                Admin, Organization
   approve_activity               Admin ONLY   <- review gate
   manage_activity_categories     Admin ONLY   <- category CRUD gate
+  view_published_activities      ALL five roles  <- public feed/detail gate
+  apply_to_activity              Beneficiary   <- volunteer applies
+  view_own_applications          Beneficiary   <- volunteer /me tracker
+  view_applications              Organization  <- org review queue
+  accept_application             Organization  <- org accept
+  reject_application             Organization  <- org reject
 
   Related: view_skills (Admin, Beneficiary, Reviewer, Company,
   Organization) -> the skill picker for activities.
@@ -120,7 +141,21 @@ Verified from the database (role_permissions):
 This split is deliberate: an Organization can create and edit its own
 activities but can NEVER change status or publish them (it lacks
 approve_activity, which is why a request body `status` is also
-rejected with 422).
+rejected with 422). It CAN, however, block/unblock its own published
+activities to pull them out of (or back into) the public feed.
+
+Any authenticated user (even Beneficiary/Reviewer/Company) holds
+view_published_activities, so the header check for the feed and for
+non-owner detail is checkAnyPermission(view_activities,
+view_published_activities), while visibility itself is decided in the
+service by the public-visibility rule (published + active + not
+finished + deadline ok).
+
+Apply/decision split: ONLY a Beneficiary may submit an application
+(apply_to_activity + a service role check; Admin passes the gate and
+is then stopped with "Only Beneficiaries can apply"). ONLY the owning
+Organization decides (view/accept/reject_application), never
+automatically.
 
 Admin is special: it auto-receives every permission, and for
 activities it plays the reviewer. Admin has NO organization row, so
@@ -137,6 +172,7 @@ Admin uses /v1/activities/all (the queue) instead of /v1/activities.
   volunteering_activities
     id, organization_id, category_id?, approved_by?,
     review_note? (Admin's approve/reject reason, up to 1000 chars),
+    is_active (default true; false = blocked from the public feed),
     title, description?, location?,
     start_date, end_date, required_volunteers  (= capacity),
     requirements?, registration_deadline?,
@@ -146,17 +182,29 @@ Admin uses /v1/activities/all (the queue) instead of /v1/activities.
   authorization file: documents row with activity_id (the PDF/office
     file the org uploads; stored in MinIO bucket `documents`)
 
+  volunteer_applications   (IMPLEMENTED - the Volunteer Join module)
+    id, user_id, activity_id, application_date,
+    status enum pending|accepted|rejected|completed,
+    @@unique(user_id, activity_id)  <- one application per activity
+    Created as pending by the Beneficiary; only the owning Organization
+    accepts/rejects. accepted_count on an activity = rows with status
+    accepted; available = capacity - accepted_count.
+
   STATUS enum (lowercase, reserved full lifecycle):
     pending_review . published . rejected . ongoing . completed . cancelled
   Today only: pending_review -> published | rejected (Admin decision).
-  Organizations/applications later will drive ongoing/completed.
+  The volunteer lifecycle runs inside volunteer_applications.status
+  (pending -> accepted -> completed | rejected).
 
-  PLANED but NOT exposed yet (tables exist, no routes):
-    volunteer_applications(id, user_id, activity_id, status
-      pending|accepted|rejected|completed, application_date,
-      @@unique(user_id, activity_id))
-    user_completed_volunteering(id, user_id, activity_id,
-      organization_id, completed_at, @@unique(user_id, activity_id))
+  user_completed_volunteering  (IMPLEMENTED - the Completion module)
+    id, user_id, activity_id, organization_id,
+    completed_at, created_at, @@unique(user_id, activity_id).
+    Written ONLY by POST /volunteer-applications/:id/complete, in the same
+    transaction that flips the application accepted -> completed. It is a
+    record/reference of a finished experience - no title/description/
+    location copies (that data lives on the activity). The CV system
+    consumes this relation (GET /v1/volunteer-applications/completed)
+    instead of duplicating activity rows. Only status=completed appears.
 
 
 ================================================================
@@ -281,8 +329,111 @@ Admin note -> shown on the card:
 
 7.3 GET ONE — GET /v1/activities/:id
 --------------------------------------------------
-Org: own activities only -> cross-org returns 404 (no enumeration).
-Admin: any activity (bypass). 400 bad id | 401 | 404.
+Three cases (authorization = checkAnyPermission(view_activities,
+view_published_activities)):
+  - owning Organization        -> FULL activity (incl. authorization file,
+                                  review_note, approver)
+  - Admin (any activity)       -> FULL activity
+  - any other authenticated    -> PUBLIC view, only when "publicly
+    user (Beneficiary/...)       visible": published + is_active + not
+                                  finished (end_date >= now) + deadline not
+                                  past. Otherwise 404 (no enumeration).
+Public view drops: organization_id, approved_by/approver, review_note,
+authorization_file. organization stays {id,name}. 400 bad id | 401 | 404.
+
+7.3b PUBLIC FEED — GET /v1/activities/published
+--------------------------------------------------
+Any authenticated user (view_published_activities = all five roles).
+200 => data: [ public activity... ], meta {...}
+Hard WHERE (all must hold): status=published AND is_active=true AND
+end_date >= now AND (registration_deadline IS NULL OR >= now).
+Optional query: ?page(>=1) ?limit(1..100) ?q or ?search(<=255 title
+search) ?category_id ?location ?organization_id ?required_skill_id
+?start_date&?end_date (window overlap: activity.end_date >= start_date
+AND activity.start_date <= end_date). A client-sent `status` is ignored
+on purpose.
+This is the volunteer browsing screen.
+
+7.3c-bis GET ONE — GET /v1/activities/:id   (join numbers)
+--------------------------------------------------
+Every detail response also carries: accepted_count (ACCEPTED rows only),
+available_places (max(0, capacity - accepted_count)), my_application
+({id,status} or null) for the caller on that activity. This is what the
+join screen uses to disable Apply when full/already applied.
+
+7.3c BLOCK / UNBLOCK — POST /v1/activities/:id/block | :id/unblock
+--------------------------------------------------
+update_activity (Org owner or Admin any). Sets is_active=false/true.
+400 unless the activity is currently published ("Only published
+activities can be blocked/unblocked"). While blocked: leaves the feed,
+non-owner detail becomes 404; owner Org and Admin still see the full
+row. 404 unknown / cross-org (non-admin).
+
+7.3d VOLUNTEER JOIN — apply / track / decide / participants
+--------------------------------------------------
+APPLY — POST /v1/activities/:id/applications (apply_to_activity,
+Beneficiary). JSON body '{}'; user_id from token. Order: 404 not found,
+400 not open (not published/blocked), 400 "Registration deadline has
+passed", 400 "Activity is full" (accepted >= capacity), 409 "You have
+already applied to this activity", 403 "Only Beneficiaries can apply".
+201 => { id, activity_id, status:"pending", application_date }.
+
+TRACK — GET /v1/volunteer-applications/me (view_own_applications).
+?status=pending|accepted|rejected|completed &page &limit. Each item:
+the application + its activity (title, dates, capacity, organization,
+required_skills). This is the volunteer's "my applications" screen and
+how the Beneficiary learns the Org decision.
+
+ORG QUEUE — GET /v1/activities/:id/applications (view_applications,
+Org owner or Admin; cross-org = 404). ?status ?sort=skill_match
+?min_skill_match=0..100. Items: application + applicant { id, email,
+profile(first,last,avatar-presigned,bio,location), skills[{id,name,level}],
+education[], work_experience[] } + skill_match {matched_skills[],
+missing_skills[], percentage} where percentage = round(matched /
+required * 100) or null if the activity has no required skills.
+Filter + sort happen before pagination. No email-less participant data,
+no docs, no credentials, no phone. This is the Org management screen
+(capacity/accepted/available come from GET /v1/activities/:id).
+
+DECIDE — POST /v1/volunteer-applications/:id/accept | :id/reject
+(accept_application / reject_application). 404 "Application not found"
+(+ cross-org 404), 400 "Only pending applications can be accepted/
+rejected". accept also enforces capacity -> 400 "Activity is full";
+reject does not. Returns the updated full org-view application.
+
+PARTICIPANTS — GET /v1/activities/:id/participants. checkAnyPermission(
+view_published_activities, view_applications). Visible when the caller
+may see the activity (owner/Admin/anyone while publicly visible, else
+404). ACCEPTED applications only, public info only (name, avatar, bio,
+location, activity-required skills). No email/phone/docs. This is the
+public "who joined" list for the activity page.
+
+7.3e COMPLETE — confirm actual participation (confirm_completion)
+--------------------------------------------------
+This is where ACCEPTED becomes COMPLETED. Acceptance is the Org's
+selection; only completion records that the volunteer actually showed up
+and did the work. A volunteer can be accepted and never complete.
+
+COMPLETE — POST /v1/volunteer-applications/:id/complete (Org owner or
+Admin; cross-org 404; Beneficiary 403 - no confirm_completion).
+No request body. Validation order: 404 "Application not found",
+400 "Only accepted applications can be completed" (pending/rejected/
+completed all blocked), 400 "Activity has not finished yet" (checked as
+end_date >= now). Then ONE transaction does both writes:
+  1. application.status accepted -> completed
+  2. user_completed_volunteering (user_id/activity_id/organization_id
+     from the existing rows, NEVER from the body)
+Rolls back entirely if either fails. Duplicate records impossible:
+status guard + @@unique(user_id, activity_id) + pre-check inside tx.
+The Org dashboard IS the existing review queue (7.3d): it already shows
+every applicant with status + skill_match + profile; completing is done
+per volunteer, one at a time.
+
+COMPLETED — GET /v1/volunteer-applications/completed (view_own_
+applications; the caller's OWN experiences only, from
+user_completed_volunteering). ?page &limit. Items: { id,
+activity:{id,title,location,start_date,end_date},
+organization:{id,name}, completed_at }. CV-eligible source of truth.
 
 7.4 ADMIN QUEUE — GET /v1/activities/all   (approve_activity)
 --------------------------------------------------
@@ -352,26 +503,80 @@ ADMIN side:
   - Decision                 POST /:id/approve  |  POST /:id/reject
                              with an optional note -> shown to the Org.
   - Category manager         POST/PATCH/DELETE /v1/activity-categories
+  - Block/unblock any published activity
+                             POST /:id/block | /:id/unblock
+
+VOLUNTEER side (Beneficiary/Reviewer/Company):
+  - Browse feed              GET  /v1/activities/published?q=&category_id=
+                             (+ location, organization_id, required_skill_id,
+                             start_date/end_date window)
+                             (only published + active + not finished +
+                             deadline not past)
+  - Detail                   GET  /v1/activities/:id  (public view; 404
+                             if not publicly visible; carries
+                             accepted_count, available_places,
+                             my_application)
+  - Apply (Beneficiary only) POST /v1/activities/:id/applications  '{}'
+- My applications          GET  /v1/volunteer-applications/me?status=
+   - Completed experiences    GET  /v1/volunteer-applications/completed
+                              (for the CV: only status=completed appears)
+   - Participants            GET  /v1/activities/:id/participants
+   - To pull an activity out of the feed the ORG does block/unblock.
+
+ORG side (applications management, 7.3d + 7.3e):
+  - Review queue             GET  /v1/activities/:id/applications
+                             (?status, ?sort=skill_match, ?min_skill_match)
+  - Decide                   POST /v1/volunteer-applications/:id/accept
+                             POST /v1/volunteer-applications/:id/reject
+  - Confirm participation    POST /v1/volunteer-applications/:id/complete
+                             (accepted only + activity finished; one user
+                             at a time; after it the row shows Completed and
+                             the action is gone)
+  - Capacity numbers         GET  /v1/activities/:id (accepted_count /
+                             available_places)
 
 Dates arrive as ISO strings (Z). `capacity` and `required_volunteers`
 are the same value. `required_skills[]` shows the actual skill objects;
 seeded skills ids 1..n come from /v1/skills.
 
+
 NOT yet built (do not code against):
-  - Volunteer/Beneficiary browsing of published activities (no
-    public feed endpoint; GET /v1/activities is org-scoped and
-    view_activities-gated, so a Beneficiary gets 403).
-  - Apply / accept / reject applications  (volunteer_applications)
-  - Completion confirmation  (user_completed_volunteering)
-  - ongoing / completed / cancelled transitions
+  - ongoing / completed / cancelled activity transitions (the activity
+    lifecycle enum is broader than what completion currently drives)
+  - Application withdrawal (enum has no withdrawn value)
+
+CV PDF (IMPLEMENTED - real LaTeX rendering, mounted at /v1/cv-pdf):
+  - POST /v1/cv-pdf/pdf-generate  (body { language?: AR|EN|FR })
+      - CV header shows ONLY full name, phone and email - no social
+        media, no bio/location/DOB on the CV.
+      - Sections: Skills, Experience, Projects, Education,
+        Certifications, Languages, Volunteering (French section
+        headings via templates/ats-cv.tex + templates/resume.cls,
+        Giannetti "Elegant Resume" style).
+      - Volunteering is fed by user_completed_volunteering (activity
+        title/location/dates + organization name); it is OPTIONAL (a CV
+        with no completion still generates) and only completed records
+        appear.
+      - Required to reach "completed": education, languages, skills,
+        work_experience (else status "incomplete" + missing_fields).
+      - Same data = cached 200 "No changes detected - returning existing
+        PDF"; new/changed data = 201 + pre-signed download_url.
+      - Rendering: cv-pdf.service.ts renders templates/ats-cv.tex with
+        Mustache (LaTeX-escaped context), copies templates/resume.cls,
+        compiles with pdflatex, uploads the PDF to MinIO.
+  - GET  /v1/cv-pdf/pdf-status   (latest request for the caller)
+  - GET  /v1/cv-pdf/pdf-history  (paginated generation requests)
 
 
 ================================================================
  9. STATUS CODE SUMMARY
 ================================================================
  POST   /v1/activities                 201 400 401 403 404 422
- GET    /v1/activities(;/all;:id)      200 400 401 403 404 422
+ GET    /v1/activities(;/all;:id;
+        /published)                    200 400 401 403 404 422
+                                        (/published: 200 400 401 422)
  POST   /:id/approve | /:id/reject     200 400 401 403 404
+ POST   /:id/block | /:id/unblock      200 400 401 403 404
  PATCH  /v1/activities/:id             200 400 401 403 404 422
  DELETE /v1/activities/:id             200 400 401 403 404
  POST   /v1/activities/:id/skills      200 400 401 403 404 422
@@ -380,6 +585,16 @@ NOT yet built (do not code against):
  POST   /v1/activity-categories        201 401 403 409 422
  PATCH  /v1/activity-categories/:id    200 401 403 404 409 422
  DELETE /v1/activity-categories/:id    200 400 401 403 404
+ POST   /v1/activities/:id/applications       201 400 401 403 404 409
+ GET    /v1/activities/:id/applications       200 400 401 403 404 422
+ GET    /v1/activities/:id/participants       200 400 401 404
+ GET    /v1/volunteer-applications/me         200 401 403 422
+ GET    /v1/volunteer-applications/completed 200 401 403 422
+ POST   /v1/volunteer-applications/:id/
+       accept | /reject | /complete            200 400 401 403 404
+ POST   /v1/cv-pdf/pdf-generate               200 201 400 401 429 500
+ GET    /v1/cv-pdf/pdf-status                 200 401 429
+ GET    /v1/cv-pdf/pdf-history                200 401 422 429
 
  400 = bad data/id or missing file     401 = not authenticated
  403 = permission/no-org denied        404 = not found (or cross-org)

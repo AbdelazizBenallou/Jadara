@@ -1,0 +1,24 @@
+@startuml
+title Volunteering Activity Approval Workflow
+
+start
+
+:Organization creates activity;
+:Upload authorization document;
+
+:Submit activity;
+
+:Admin reviews activity\nand authorization document;
+
+if (Approved?) then (Yes)
+    :Publish activity;
+    :Activity becomes available\nfor volunteers;
+    :Volunteer applies to activity;
+else (No)
+    :Reject activity;
+    :Notify organization;
+endif
+
+stop
+
+@enduml

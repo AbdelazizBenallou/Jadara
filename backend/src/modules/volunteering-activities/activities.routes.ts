@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { activitiesController } from "./activities.controller.js";
+import { applicationsController } from "../volunteer-applications/applications.controller.js";
 import { verifyAccessToken } from "../../../framework/middleware/verifyAccessToken.js";
-import { checkPermission } from "../../../framework/middleware/checkPermission.js";
+import { checkAnyPermission, checkPermission } from "../../../framework/middleware/checkPermission.js";
 import { zodValidate } from "../../../framework/middleware/zodValidate.js";
 import { zodValidateQuery } from "../../../framework/middleware/zodValidateQuery.js";
 import { upload } from "../../../framework/middleware/upload.js";
@@ -15,8 +16,10 @@ import {
   addSkillsSchema,
   createActivitySchema,
   listActivitiesSchema,
+  listPublishedActivitiesSchema,
   updateActivitySchema,
 } from "./activities.validation.js";
+import { listApplicationsQuerySchema } from "../volunteer-applications/applications.validation.js";
 
 const router = Router();
 
@@ -194,12 +197,211 @@ router.get(
 
 /**
  * @openapi
+ * /v1/activities/published:
+ *   get:
+ *     summary: Browse published activities (any authenticated user)
+ *     description: >
+ *       Any role holding view_published_activities (all baseline roles)
+ *       lists published activities that are still active: status published,
+ *       is_active true, end_date in the future, and registration_deadline
+ *       not in the past. `status` cannot be supplied; it is always published.
+ *       Must be registered before /v1/activities/{id}.
+ *     tags:
+ *       - Activities
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1, minimum: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10, minimum: 1, maximum: 100 }
+ *       - in: query
+ *         name: category_id
+ *         schema: { type: integer, minimum: 1 }
+ *       - in: query
+ *         name: location
+ *         description: Case-insensitive location search
+ *         schema: { type: string, maxLength: 255 }
+ *       - in: query
+ *         name: organization_id
+ *         schema: { type: integer, minimum: 1 }
+ *       - in: query
+ *         name: required_skill_id
+ *         description: Only activities that require this skill
+ *         schema: { type: integer, minimum: 1 }
+ *       - in: query
+ *         name: start_date
+ *         description: Activity must end on/after this date (window overlap)
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: end_date
+ *         description: Activity must start on/before this date (window overlap)
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: q
+ *         description: Case-insensitive title search
+ *         schema: { type: string, maxLength: 255 }
+ *       - in: query
+ *         name: search
+ *         description: Alias for q (case-insensitive title search)
+ *         schema: { type: string, maxLength: 255 }
+ *     responses:
+ *       200:
+ *         description: Published activities fetched
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       422:
+ *         $ref: '#/components/responses/ValidationError'
+ */
+router.get(
+  "/published",
+  checkPermission("view_published_activities"),
+  projectReadRateLimit,
+  zodValidateQuery(listPublishedActivitiesSchema),
+  activitiesController.listPublished,
+);
+
+/**
+ * @openapi
+ * /v1/activities/{id}/applications:
+ *   post:
+ *     summary: Apply to a published activity
+ *     description: >
+ *       Beneficiary-only (apply_to_activity). Validates in this order: the
+ *       activity exists and is published/active, the registration deadline
+ *       has not passed, there is capacity, and the user has not already
+ *       applied. user_id always comes from the token, never from the body.
+ *       The application is created as pending.
+ *     tags:
+ *       - Volunteer Applications
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       201:
+ *         description: Application submitted (pending)
+ *       400:
+ *         description: Not open, deadline passed, or activity full
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: You have already applied to this activity
+ */
+router.post(
+  "/:id/applications",
+  checkPermission("apply_to_activity"),
+  projectWriteRateLimit,
+  applicationsController.apply,
+);
+
+/**
+ * @openapi
+ * /v1/activities/{id}/applications:
+ *   get:
+ *     summary: List volunteer applications for one activity
+ *     description: >
+ *       Organization owner or Admin (view_applications). Lists each applicant
+ *       with public profile, skills, education, work experience, application
+ *       date, status and a computed skill match. Can be filtered by status,
+ *       sorted by skill_match, and limited by min_skill_match. Applicants are
+ *       never auto-accepted.
+ *     tags:
+ *       - Volunteer Applications
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1, minimum: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10, minimum: 1, maximum: 100 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, accepted, rejected] }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [skill_match] }
+ *       - in: query
+ *         name: min_skill_match
+ *         description: 0-100, only applications with this match or better
+ *         schema: { type: integer, minimum: 0, maximum: 100 }
+ *     responses:
+ *       200:
+ *         description: Applications fetched
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       422:
+ *         $ref: '#/components/responses/ValidationError'
+ */
+router.get(
+  "/:id/applications",
+  checkPermission("view_applications"),
+  projectReadRateLimit,
+  zodValidateQuery(listApplicationsQuerySchema),
+  applicationsController.listForActivity,
+);
+
+/**
+ * @openapi
+ * /v1/activities/{id}/participants:
+ *   get:
+ *     summary: List the accepted volunteers of an activity
+ *     description: >
+ *       Any authenticated user who can see the activity (organization owner,
+ *       Admin, or anyone when publicly visible). Returns public information
+ *       only: name, photo, public profile info and the applicant's skills
+ *       that match the activity. No email, phone or private documents.
+ *     tags:
+ *       - Volunteer Applications
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Participants fetched
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.get(
+  "/:id/participants",
+  checkAnyPermission(["view_published_activities", "view_applications"]),
+  projectReadRateLimit,
+  applicationsController.participants,
+);
+
+/**
+ * @openapi
  * /v1/activities/{id}:
  *   get:
  *     summary: Get an activity
  *     description: >
- *       Returns the caller's own activity, or any activity for Admin. Another
- *       organization's activity returns 404 so IDs cannot be enumerated.
+ *       The owning Organization and Admin get the full activity. Any other
+ *       authorized user gets the public view only when the activity is
+ *       publicly visible (published, active, not finished); otherwise 404 so
+ *       unreviewed, blocked or finished activities cannot be enumerated.
  *     tags:
  *       - Activities
  *     security:
@@ -217,7 +419,7 @@ router.get(
  */
 router.get(
   "/:id",
-  checkPermission("view_activities"),
+  checkAnyPermission(["view_activities", "view_published_activities"]),
   projectReadRateLimit,
   activitiesController.getById,
 );
@@ -476,6 +678,78 @@ router.post(
   checkPermission("approve_activity"),
   reviewDecisionRateLimit,
   activitiesController.reject,
+);
+
+/**
+ * @openapi
+ * /v1/activities/{id}/block:
+ *   post:
+ *     summary: Block an published activity from the public feed
+ *     description: >
+ *       Organization owner or Admin. Sets is_active=false so the activity
+ *       stops appearing in /v1/activities/published and non-owner details
+ *       return 404. Only works on activities that are currently published.
+ *     tags:
+ *       - Activities
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Activity blocked
+ *       400:
+ *         description: Only published activities can be blocked
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.post(
+  "/:id/block",
+  checkPermission("update_activity"),
+  projectWriteRateLimit,
+  activitiesController.block,
+);
+
+/**
+ * @openapi
+ * /v1/activities/{id}/unblock:
+ *   post:
+ *     summary: Unblock an activity back into the public feed
+ *     description: >
+ *       Organization owner or Admin. Sets is_active=true again.
+ *     tags:
+ *       - Activities
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Activity unblocked
+ *       400:
+ *         description: Only published activities can be unblocked
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.post(
+  "/:id/unblock",
+  checkPermission("update_activity"),
+  projectWriteRateLimit,
+  activitiesController.unblock,
 );
 
 export default router;

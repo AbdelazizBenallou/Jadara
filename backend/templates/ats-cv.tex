@@ -1,6 +1,6 @@
 %----------------------------------------------------------------------------------------
 %   JADARA CV TEMPLATE
-%   Based on the new resume template
+%   Matches the Giannetti "Elegant Resume" template (doc/cv_template/benallou_aziz)
 %   Dynamic version for Mustache
 %----------------------------------------------------------------------------------------
 
@@ -28,8 +28,8 @@
 %----------------------------------------------------------------------------------------
 
 \hypersetup{
-    pdftitle={{{{pdfTitle}}}},
-    pdfauthor={{{{fullName}}}},
+    pdftitle={ {{{pdfTitle}}} },
+    pdfauthor={ {{{fullName}}} },
     hidelinks
 }
 
@@ -38,266 +38,208 @@
 %----------------------------------------------------------------------------------------
 
 \newcommand{\italicitem}[1]{\item{\textit{#1}}}
-
 \newcommand{\bolditem}[1]{\item{\textbf{#1}}}
-
 \newcommand{\plainitem}[1]{\item{#1}}
-
 \newcommand{\link}[2]{\href{#1}{#2}}
-
 \newcommand{\entry}[2]{#1 & #2 \tabularnewline}
 
-%----------------------------------------------------------------------------------------
-%   Table Environment
-%----------------------------------------------------------------------------------------
-
 \newcommand{\tableEnv}[2]{%
-    \begin{rSection}{#1}
-        \begin{adjustwidth}{0.0in}{0.1in}
-            \begin{tabularx}{\linewidth}{@{} >{\bfseries}l @{\hspace{6ex}} X @{}}
-                #2
-            \end{tabularx}
-        \end{adjustwidth}
-    \end{rSection}
+  \begin{rSection}{#1}
+    \begin{adjustwidth}{0.0in}{0.1in}
+      \begin{tabularx}{\linewidth}{@{} >{\bfseries}l @{\hspace{6ex}} X @{}}
+        #2
+      \end{tabularx}
+    \end{adjustwidth}
+  \end{rSection}
 }
 
 %----------------------------------------------------------------------------------------
 %   Document
 %----------------------------------------------------------------------------------------
 
-\name{{{fullName}}}
+\name{ {{{fullName}}} }
 
 \begin{document}
 
-%----------------------------------------------------------------------------------------
-%   Personal Information
-%----------------------------------------------------------------------------------------
-
 \printPersonalInfo{
-    <<#location>>
-    \personalInfo{\tag{Résidence}\info{{{location}}}}
-    <</location>>
+    {{#location}}
+    \personalInfo{\tag{Résidence}\info{ {{{location}}} }}
+    {{/location}}
 
-    <<#email>>
-    \personalInfo{\tag{E-mail}\info{{{email}}}}
-    <</email>>
+    {{#email}}
+    \personalInfo{\tag{E-mail}\info{ {{{email}}} }{{#phone}} \infoSeparator\tag{Téléphone}\info{ {{{phone}}} }{{/phone}}}
+    {{/email}}
 
-    <<#phone>>
-    \personalInfo{\tag{Téléphone}\info{{{phone}}}}
-    <</phone>>
-
-    <<#dateOfBirth>>
-    \personalInfo{\tag{Date de naissance}\info{{{dateOfBirth}}}}
-    <</dateOfBirth>>
-
-    <<#hasLinkedin>>
-    \personalInfo{\tag{LinkedIn}\info{\href{{{linkedin}}}{{{linkedin}}}}}
-    <</hasLinkedin>>
-
-    <<#hasGithub>>
-    \personalInfo{\tag{GitHub}\info{\href{{{github}}}{{{github}}}}}
-    <</hasGithub>>
-
-    <<#hasPortfolio>>
-    \personalInfo{\tag{Portfolio}\info{\href{{{portfolio}}}{{{portfolio}}}}}
-    <</hasPortfolio>>
+    {{^email}}
+    {{#phone}}
+    \personalInfo{\tag{Téléphone}\info{ {{{phone}}} }}
+    {{/phone}}
+    {{/email}}
 }
 
 %----------------------------------------------------------------------------------------
 %   Profil Professionnel
 %----------------------------------------------------------------------------------------
 
-<<#hasBio>>
+{{#summary}}
 \begin{rSection}{Profil Professionnel}
 
-{{bio}}
+{{{summary}}}
 
 \end{rSection}
-<</hasBio>>
+{{/summary}}
 
 %----------------------------------------------------------------------------------------
 %   Compétences
 %----------------------------------------------------------------------------------------
 
-<<#hasSkills>>
+{{#hasSkills}}
 \begin{rSection}{Compétences}
 
-<<#skillGroups>>
+{{#skillGroups}}
 
 \begin{rSubsectionNoBullet}{\bf {{{group}}}}{}{}{}
 
-    \plainitem{{{skills}}}
+{{#lines}}
+    \plainitem{ {{{.}}} }
+{{/lines}}
 
 \end{rSubsectionNoBullet}
 
-<</skillGroups>>
+{{/skillGroups}}
 
 \end{rSection}
-<</hasSkills>>
+{{/hasSkills}}
 
 %----------------------------------------------------------------------------------------
 %   Expérience Professionnelle
 %----------------------------------------------------------------------------------------
 
-<<#hasExperience>>
+{{#hasExperience}}
 \begin{rSection}{Expérience Professionnelle}
 
-<<#experience>>
+{{#experience}}
 
-\begin{rSubsection}
-    { {{{job_title}}} }
-    { {{{startDate}}} -- {{{endDate}}} }
-    { {{{company}}} }
-    { {{{location}}} }
-
-<<#hasBullets>>
-    <<#bullets>>
+\begin{rSubsection}{ {{{job_title}}} }{ {{{startDate}}} -- {{{endDate}}} }{ {{{company}}} }{}
+{{#hasBullets}}
+    {{#bullets}}
     \item {{{.}}}
-    <</bullets>>
-<</hasBullets>>
-
+    {{/bullets}}
+{{/hasBullets}}
 \end{rSubsection}
 
-<</experience>>
+{{/experience}}
 
 \end{rSection}
-<</hasExperience>>
+{{/hasExperience}}
 
 %----------------------------------------------------------------------------------------
 %   Projets
 %----------------------------------------------------------------------------------------
 
-<<#hasProjects>>
+{{#hasProjects}}
 \begin{rSection}{Projets}
 
-<<#projects>>
+{{#projects}}
 
-\begin{rSubsectionNoBullet}
-    {\bf {{{title}}}}
-    {}
-    {}
-    {}
+\begin{rSubsectionNoBullet}{\bf {{{title}}}}{ {{{startDate}}}{{#endDate}} -- {{{endDate}}}{{/endDate}} }{}{}
 
-    <<#domain>>
+    {{#domain}}
     \plainitem{\textbf{Domaine :} {{{domain}}}}
-    <</domain>>
+    {{/domain}}
 
-    <<#status>>
-    \plainitem{\textbf{Statut :} {{{status}}}}
-    <</status>>
-
-    <<#startDate>>
-    \plainitem{\textbf{Date :} {{{startDate}}}}
-    <</startDate>>
-
-    <<#url>>
+    {{#url}}
     \plainitem{\textbf{Lien :} \href{{{url}}}{{{url}}}}
-    <</url>>
+    {{/url}}
 
-    <<#hasBullets>>
-        <<#bullets>>
-        \plainitem{{{.}}}
-        <</bullets>>
-    <</hasBullets>>
+    {{#hasBullets}}
+        {{#bullets}}
+        \plainitem{ {{{.}}} }
+        {{/bullets}}
+    {{/hasBullets}}
 
 \end{rSubsectionNoBullet}
 
-<</projects>>
+{{/projects}}
 
 \end{rSection}
-<</hasProjects>>
+{{/hasProjects}}
 
 %----------------------------------------------------------------------------------------
 %   Formation
 %----------------------------------------------------------------------------------------
 
-<<#hasEducation>>
+{{#hasEducation}}
 \begin{rSection}{Formation}
 
-<<#education>>
+{{#education}}
 
-\begin{rSubsectionNoBullet}
-    {\bf {{{school}}}}
-    { {{{location}}} }
-    { {{{degree}}}<<#fieldOfStudy>>, {{{fieldOfStudy}}}<</fieldOfStudy>> }
-    { {{{startDate}}} -- {{{endDate}}} }
+\begin{rSubsectionNoBullet}{\bf {{{degree}}}}{ {{{startDate}}} -- {{{endDate}}} }{ {{{school}}} }{}
+
+    {{#fieldOfStudy}}
+    \plainitem{\textbf{Spécialité :} {{{fieldOfStudy}}}}
+    {{/fieldOfStudy}}
 
 \end{rSubsectionNoBullet}
 
-<</education>>
+{{/education}}
 
 \end{rSection}
-<</hasEducation>>
+{{/hasEducation}}
 
 %----------------------------------------------------------------------------------------
 %   Certifications
 %----------------------------------------------------------------------------------------
 
-<<#hasCertifications>>
+{{#hasCertifications}}
 \begin{rSection}{Certifications}
 
-<<#certifications>>
+{{#certifications}}
 
-\begin{rSubsectionNoBullet}
-    {\bf {{{name}}}}
-    {}
-    {}
-    {}
+\begin{rSubsectionNoBullet}{\bf {{{name}}}}{ {{{issueDate}}} }{}{}
 
-    <<#issuer>>
+    {{#issuer}}
     \plainitem{\textbf{Organisme :} {{{issuer}}}}
-    <</issuer>>
-
-    <<#issueDate>>
-    \plainitem{\textbf{Date :} {{{issueDate}}}}
-    <</issueDate>>
+    {{/issuer}}
 
 \end{rSubsectionNoBullet}
 
-<</certifications>>
+{{/certifications}}
 
 \end{rSection}
-<</hasCertifications>>
+{{/hasCertifications}}
 
 %----------------------------------------------------------------------------------------
-%   Langues
+%   Expérience de bénévolat
 %----------------------------------------------------------------------------------------
 
-<<#hasLanguages>>
-\tableEnv{Langues}{
-    <<#languages>>
-    \entry{{{name}}}{{{proficiency}}}
-    <</languages>>
-}
-<</hasLanguages>>
-
-%----------------------------------------------------------------------------------------
-%   Volunteering Experience
-%----------------------------------------------------------------------------------------
-
-<<#hasVolunteering>>
+{{#hasVolunteering}}
 \begin{rSection}{Expérience de bénévolat}
 
-<<#volunteering>>
+{{#volunteering}}
 
-\begin{rSubsectionNoBullet}
-    {\bf {{{title}}}}
-    {}
-    { {{{organization}}} }
-    { {{{date}}} }
+\begin{rSubsectionNoBullet}{ {{{title}}} }{ {{{startDate}}}{{#endDate}} -- {{{endDate}}}{{/endDate}} }{ {{{organization}}} }{}
 
-    <<#location>>
+    {{#location}}
     \plainitem{\textbf{Lieu :} {{{location}}}}
-    <</location>>
+    {{/location}}
 
-    <<#description>>
-    \plainitem{{{description}}}
-    <</description>>
+\end{rSubsectionNoBullet}
 
-<</volunteering>>
+{{/volunteering}}
 
 \end{rSection}
-<</hasVolunteering>>
+{{/hasVolunteering}}
+
+%----------------------------------------------------------------------------------------
+%   Langues (une seule ligne)
+%----------------------------------------------------------------------------------------
+
+{{#hasLanguages}}
+\tableEnv{Langues}{
+    \entry{Langues}{ {{{languagesLine}}} }
+}
+{{/hasLanguages}}
 
 %----------------------------------------------------------------------------------------
 %   End Document

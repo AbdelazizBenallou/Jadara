@@ -96,6 +96,23 @@ export const listActivitiesSchema = z.object({
   q: z.string().max(255).optional(),
 });
 
+// Public publish feed. No `status` on purpose: the server always returns
+// published activities that are active, not finished, and not past their
+// registration deadline. A client-sent `status` is simply ignored.
+export const listPublishedActivitiesSchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  q: z.string().max(255).optional(),
+  search: z.string().max(255).optional(),
+  category_id: z.coerce.number().int().positive().optional(),
+  location: z.string().max(255).optional(),
+  organization_id: z.coerce.number().int().positive().optional(),
+  required_skill_id: z.coerce.number().int().positive().optional(),
+  // Window filters: the activity must overlap the requested range.
+  start_date: dateField("start_date").optional(),
+  end_date: dateField("end_date").optional(),
+});
+
 export const reviewActivitySchema = z.object({
   note: z.string().max(1000).optional(),
 });
@@ -103,4 +120,5 @@ export const reviewActivitySchema = z.object({
 export type CreateActivityInput = z.infer<typeof createActivitySchema>;
 export type UpdateActivityInput = z.infer<typeof updateActivitySchema>;
 export type ListActivitiesInput = z.infer<typeof listActivitiesSchema>;
+export type ListPublishedActivitiesInput = z.infer<typeof listPublishedActivitiesSchema>;
 export type ReviewActivityInput = z.infer<typeof reviewActivitySchema>;

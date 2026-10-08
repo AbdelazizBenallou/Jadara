@@ -5,6 +5,7 @@ import { activitiesService } from "./activities.service.js";
 import type {
   CreateActivityInput,
   ListActivitiesInput,
+  ListPublishedActivitiesInput,
   ReviewActivityInput,
   UpdateActivityInput,
 } from "./activities.validation.js";
@@ -53,6 +54,13 @@ export const activitiesController = {
       req.query as ListActivitiesInput & Record<string, string | undefined>,
     );
     response.paginated(res, result.activities, result.meta, "Activities fetched successfully");
+  }),
+
+  listPublished: asyncHandler(async (req: Request, res: Response) => {
+    const result = await activitiesService.listPublished(
+      req.query as ListPublishedActivitiesInput & Record<string, string | undefined>,
+    );
+    response.paginated(res, result.activities, result.meta, "Published activities fetched successfully");
   }),
 
   getById: asyncHandler(async (req: Request, res: Response) => {
@@ -140,5 +148,31 @@ export const activitiesController = {
       data.note,
     );
     response.success(res, activity, "Activity rejected");
+  }),
+
+  block: asyncHandler(async (req: Request, res: Response) => {
+    const id = readId(req, res);
+    if (id === null) return;
+
+    const activity = await activitiesService.setActive(
+      id,
+      req.user!.userId,
+      req.user!.role,
+      false,
+    );
+    response.success(res, activity, "Activity blocked from the public feed");
+  }),
+
+  unblock: asyncHandler(async (req: Request, res: Response) => {
+    const id = readId(req, res);
+    if (id === null) return;
+
+    const activity = await activitiesService.setActive(
+      id,
+      req.user!.userId,
+      req.user!.role,
+      true,
+    );
+    response.success(res, activity, "Activity unblocked and visible again");
   }),
 };

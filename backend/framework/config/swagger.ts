@@ -34,6 +34,7 @@ const options: swaggerJsdoc.Options = {
       },
       { name: "Users", description: "User profiles and account management" },
       { name: "Roles", description: "Role-based access control and permissions" },
+      { name: "CV", description: "Curriculum Vitae PDF generation, status and history" },
     ],
     components: {
       securitySchemes: {
