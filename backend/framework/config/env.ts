@@ -39,6 +39,30 @@ const envSchema = z.object({
       if (v !== undefined) return v === "true" || v === "1";
       return false;
     }),
+  MINIO_PRESIGNED_EXPIRY: z.coerce.number().int().positive().default(3600),
+
+  // CV generation worker (in-process, DB-backed queue)
+  CV_WORKER_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? true : v === "true" || v === "1")),
+  CV_WORKER_INTERVAL_MS: z.coerce.number().int().positive().default(3000),
+  CV_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  CV_JOB_STALE_MS: z.coerce.number().int().positive().default(5 * 60 * 1000),
+  CV_JOB_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+
+  // CV translation (self-hosted LibreTranslate)
+  CV_TRANSLATION_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? false : v === "true" || v === "1")),
+  CV_TRANSLATION_REQUIRED: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? false : v === "true" || v === "1")),
+  LIBRETRANSLATE_URL: z.string().default("http://localhost:5000"),
+  LIBRETRANSLATE_API_KEY: z.string().optional(),
+  CV_TRANSLATION_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
 
   FRONTEND_URL: z
     .string()

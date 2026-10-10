@@ -2,6 +2,7 @@ import { AppError } from "../../../framework/utils/AppError.js";
 import { storage } from "../../../framework/utils/storage.js";
 import { BUCKETS } from "../../../framework/config/minio.js";
 import { cvRepository } from "./users-cv.repository.js";
+import { cvAudit } from "../cv-pdf/cv-pdf.audit.js";
 import { languageRepository } from "../languages/languages.repository.js";
 import type {
   CreateWorkExperienceInput,
@@ -21,18 +22,39 @@ export const cvService = {
   },
 
   async createWorkExperience(userId: number, data: CreateWorkExperienceInput) {
-    return cvRepository.createWorkExperience(userId, data);
+    const created = await cvRepository.createWorkExperience(userId, data);
+    await cvAudit.record({
+      userId,
+      section: "work_experience",
+      action: "CREATE",
+      entityId: created.id,
+      newValues: created,
+    });
+    return created;
   },
 
   async updateWorkExperience(userId: number, id: number, data: UpdateWorkExperienceInput) {
     const updated = await cvRepository.updateWorkExperience(userId, id, data);
     if (!updated) throw new AppError("Work experience not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "work_experience",
+      action: "UPDATE",
+      entityId: id,
+      newValues: updated,
+    });
     return updated;
   },
 
   async deleteWorkExperience(userId: number, id: number) {
     const deleted = await cvRepository.deleteWorkExperience(userId, id);
     if (deleted === 0) throw new AppError("Work experience not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "work_experience",
+      action: "DELETE",
+      entityId: id,
+    });
   },
 
   // ─── Education ──────────────────────────────────────────────
@@ -41,18 +63,39 @@ export const cvService = {
   },
 
   async createEducation(userId: number, data: CreateEducationInput) {
-    return cvRepository.createEducation(userId, data);
+    const created = await cvRepository.createEducation(userId, data);
+    await cvAudit.record({
+      userId,
+      section: "education",
+      action: "CREATE",
+      entityId: created.id,
+      newValues: created,
+    });
+    return created;
   },
 
   async updateEducation(userId: number, id: number, data: UpdateEducationInput) {
     const updated = await cvRepository.updateEducation(userId, id, data);
     if (!updated) throw new AppError("Education not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "education",
+      action: "UPDATE",
+      entityId: id,
+      newValues: updated,
+    });
     return updated;
   },
 
   async deleteEducation(userId: number, id: number) {
     const deleted = await cvRepository.deleteEducation(userId, id);
     if (deleted === 0) throw new AppError("Education not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "education",
+      action: "DELETE",
+      entityId: id,
+    });
   },
 
   // ─── Certifications ─────────────────────────────────────────
@@ -77,10 +120,18 @@ export const cvService = {
       fileUrl = objectName;
     }
 
-    return cvRepository.createCertification(userId, {
+    const created = await cvRepository.createCertification(userId, {
       ...data,
       file_url: fileUrl,
     });
+    await cvAudit.record({
+      userId,
+      section: "certifications",
+      action: "CREATE",
+      entityId: created.id,
+      newValues: created,
+    });
+    return created;
   },
 
   async updateCertification(
@@ -113,6 +164,14 @@ export const cvService = {
       ...(fileUrl !== undefined && { file_url: fileUrl }),
     });
     if (!updated) throw new AppError("Certification not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "certifications",
+      action: "UPDATE",
+      entityId: id,
+      oldValues: cert,
+      newValues: updated,
+    });
     return updated;
   },
 
@@ -126,6 +185,13 @@ export const cvService = {
 
     const deleted = await cvRepository.deleteCertification(userId, id);
     if (deleted === 0) throw new AppError("Certification not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "certifications",
+      action: "DELETE",
+      entityId: id,
+      oldValues: cert,
+    });
   },
 
   // ─── Languages ──────────────────────────────────────────────
@@ -141,17 +207,38 @@ export const cvService = {
     const duplicate = existing.find((l) => l.language_id === data.language_id);
     if (duplicate) throw new AppError("Language already added", 409);
 
-    return cvRepository.createLanguage(userId, data.language_id, data.proficiency);
+    const created = await cvRepository.createLanguage(userId, data.language_id, data.proficiency);
+    await cvAudit.record({
+      userId,
+      section: "languages",
+      action: "CREATE",
+      entityId: created.id,
+      newValues: created,
+    });
+    return created;
   },
 
   async updateLanguage(userId: number, id: number, data: UpdateLanguageInput) {
     const updated = await cvRepository.updateLanguage(userId, id, data.proficiency);
     if (!updated) throw new AppError("Language not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "languages",
+      action: "UPDATE",
+      entityId: id,
+      newValues: updated,
+    });
     return updated;
   },
 
   async deleteLanguage(userId: number, id: number) {
     const deleted = await cvRepository.deleteLanguage(userId, id);
     if (deleted === 0) throw new AppError("Language not found", 404);
+    await cvAudit.record({
+      userId,
+      section: "languages",
+      action: "DELETE",
+      entityId: id,
+    });
   },
 };

@@ -3,6 +3,7 @@ import prisma from "../../../framework/config/prisma.js";
 import { storage } from "../../../framework/utils/storage.js";
 import { BUCKETS } from "../../../framework/config/minio.js";
 import { projectRepository } from "./projects.repository.js";
+import { cvAudit } from "../cv-pdf/cv-pdf.audit.js";
 import type { CreateProjectInput, UpdateProjectInput } from "./projects.validator.js";
 
 export const projectService = {
@@ -114,6 +115,14 @@ export const projectService = {
       sub_domain_id: data.sub_domain_id,
     });
 
+    await cvAudit.record({
+      userId,
+      section: "projects",
+      action: "CREATE",
+      entityId: project.id,
+      newValues: { id: project.id, title: data.title, description: data.description },
+    });
+
     return this.getById(userId, project.id);
   },
 
@@ -145,6 +154,14 @@ export const projectService = {
       sub_domain_id: data.sub_domain_id,
     });
 
+    await cvAudit.record({
+      userId,
+      section: "projects",
+      action: "UPDATE",
+      entityId: projectId,
+      newValues: { id: projectId, ...data },
+    });
+
     return this.getById(userId, projectId);
   },
 
@@ -167,6 +184,12 @@ export const projectService = {
     }
 
     await projectRepository.delete(projectId);
+    await cvAudit.record({
+      userId,
+      section: "projects",
+      action: "DELETE",
+      entityId: projectId,
+    });
   },
 
   async deleteAdmin(projectId: number) {

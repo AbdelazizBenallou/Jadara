@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { cvPdfController } from "./cv-pdf.controller.js";
 import { verifyAccessToken } from "../../../framework/middleware/verifyAccessToken.js";
+import { zodValidate } from "../../../framework/middleware/zodValidate.js";
 import { zodValidateQuery } from "../../../framework/middleware/zodValidateQuery.js";
-import { listPdfRequestsSchema } from "./cv-pdf.validator.js";
+import { generateCvSchema, listPdfRequestsSchema } from "./cv-pdf.validator.js";
 import {
   pdfGenerateRateLimit,
   cvReadRateLimit,
@@ -15,12 +16,15 @@ router.use(verifyAccessToken);
  * @openapi
  * /v1/cv-pdf/pdf-generate:
  *   post:
- *     summary: Generate the caller's CV PDF
+ *     summary: Queue the caller's CV PDF generation
  *     description: >
- *       Builds the CV from the profile model (full name, phone, email plus
- *       education, work experience, skills, languages, certifications,
- *       projects and completed volunteering). Social media is NOT included.
- *       Same data = cached PDF (200); new/changed data = new PDF (201).
+ *       Asynchronously builds the CV from the profile model (full name, phone,
+ *       email plus education, work experience, skills, languages,
+ *       certifications, projects and completed volunteering). Social media is
+ *       NOT included. Every section is optional. When the stored version is
+ *       already up to date it is returned immediately (cached=true);
+ *       otherwise one job per requested language is queued and can be polled
+ *       via GET /v1/cv-pdf/pdf-status. Currently only EN and FR are renderable.
  *     tags:
  *       - CV
  *     security:
@@ -31,21 +35,30 @@ router.use(verifyAccessToken);
  *           schema:
  *             type: object
  *             properties:
+ *               languages:
+ *                 type: array
+ *                 items: { type: string, enum: [AR, EN, FR] }
+ *                 description: Defaults to all renderable languages (EN, FR)
  *               language:
  *                 type: string
  *                 enum: [AR, EN, FR]
- *                 default: EN
+ *                 description: Backwards-compatible single-language shorthand
  *     responses:
- *       201:
- *         description: PDF generated
- *       200:
- *         description: No changes detected — existing PDF returned
+ *       202:
+ *         description: Generation queued (and/or cached versions returned)
  *       400:
- *         description: CV data incomplete (missing_fields)
+ *         description: Unsupported language requested
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
+ *       422:
+ *         $ref: '#/components/responses/ValidationError'
  */
-router.post("/pdf-generate", pdfGenerateRateLimit, cvPdfController.generate);
+router.post(
+  "/pdf-generate",
+  pdfGenerateRateLimit,
+  zodValidate(generateCvSchema),
+  cvPdfController.generate,
+);
 
 /**
  * @openapi
@@ -61,6 +74,10 @@ router.post("/pdf-generate", pdfGenerateRateLimit, cvPdfController.generate);
  *       - in: query
  *         name: language
  *         schema: { type: string, enum: [AR, EN, FR] }
+ *       - in: query
+ *         name: all
+ *         schema: { type: boolean }
+ *         description: When true, returns the latest status for every language.
  *     responses:
  *       200:
  *         description: Status retrieved

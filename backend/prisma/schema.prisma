@@ -164,17 +164,16 @@ model education {
 }
 
 model certifications {
-  id             Int       @id @default(autoincrement())
-  user_id        Int
-  name           String    @db.VarChar(255)
-  issuer         String?   @db.VarChar(255)
-  issue_date     DateTime? @db.Date
-  expiry_date    DateTime? @db.Date
-  credential_url String?   @db.VarChar(500)
-  file_url       String?   @db.VarChar(500)
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
-  updated_at     DateTime? @default(now()) @db.Timestamp(6)
-  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  name        String    @db.VarChar(255)
+  issuer      String?   @db.VarChar(255)
+  issue_date  DateTime? @db.Date
+  expiry_date DateTime? @db.Date
+  file_url    String?   @db.VarChar(500)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_certifications_user")
 }
@@ -195,22 +194,32 @@ model user_languages {
 }
 
 model cv_generation_requests {
-  id             Int        @id @default(autoincrement())
-  user_id        Int
-  language       CVLanguage @default(EN)
-  status         String     @db.VarChar(50)
-  missing_fields Json?
-  data_hash      String?    @db.VarChar(255)
-  file_url       String?    @db.VarChar(500)
-  file_size      Int?
-  error_message  String?
-  created_at     DateTime?  @default(now()) @db.Timestamp(6)
-  updated_at     DateTime?  @default(now()) @db.Timestamp(6)
+  id               Int        @id @default(autoincrement())
+  user_id          Int
+  language         CVLanguage @default(EN)
+  status           String     @db.VarChar(50)
+  missing_fields   Json?
+  data_hash        String?    @db.VarChar(64)
+  file_url         String?    @db.VarChar(500)
+  file_size        Int?
+  error_message    String?
+  request_group    String?    @db.Uuid
+  worker_id        String?    @db.VarChar(100)
+  started_at       DateTime?  @db.Timestamp(6)
+  finished_at      DateTime?  @db.Timestamp(6)
+  attempts         Int        @default(0)
+  section_hashes   Json?
+  template_version String?    @db.VarChar(20)
+  source_lang      String?    @db.VarChar(10)
+  cv_snapshot      Json?
+  created_at       DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?  @default(now()) @db.Timestamp(6)
 
   users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([user_id, language])
+  @@index([status])
 }
 
 model audit_logs {
@@ -231,21 +240,21 @@ model audit_logs {
 }
 
 model documents {
-  id         Int       @id @default(autoincrement())
-  user_id    Int
-  name       String    @db.VarChar(255)
-  type       String    @db.VarChar(50)
-  file_url   String    @db.VarChar(500)
-  file_size  Int
-  mime_type  String    @db.VarChar(100)
-  status     String    @default("uploaded") @db.VarChar(20)
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  updated_at DateTime? @default(now()) @db.Timestamp(6)
-  demand_id  Int?
-  activity_id Int?
-  demands    demands?  @relation(fields: [demand_id], references: [id], onUpdate: NoAction)
+  id                      Int                      @id @default(autoincrement())
+  user_id                 Int
+  name                    String                   @db.VarChar(255)
+  type                    String                   @db.VarChar(50)
+  file_url                String                   @db.VarChar(500)
+  file_size               Int
+  mime_type               String                   @db.VarChar(100)
+  status                  String                   @default("uploaded") @db.VarChar(20)
+  created_at              DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at              DateTime?                @default(now()) @db.Timestamp(6)
+  demand_id               Int?
+  activity_id             Int?
+  demands                 demands?                 @relation(fields: [demand_id], references: [id], onUpdate: NoAction)
   volunteering_activities volunteering_activities? @relation(fields: [activity_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                   users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_documents_user")
   @@index([demand_id], map: "idx_documents_demand")
@@ -446,26 +455,26 @@ model reviewer_domains {
 }
 
 model demands {
-  id             Int              @id @default(autoincrement())
-  user_id        Int?
-  role_id        Int
-  status         DemandStatus     @default(pending)
-  applicant_email      String?     @db.VarChar(255)
-  applicant_first_name String?     @db.VarChar(100)
-  applicant_last_name  String?     @db.VarChar(100)
-  details        Json?
-  reviewed_by    Int?
-  review_note    String?          @db.VarChar(1000)
-  reviewed_at    DateTime?        @db.Timestamp(6)
-  decision_notification_sent_at DateTime? @db.Timestamp(6)
-  account_deleted_at DateTime?     @db.Timestamp(6)
-  created_at     DateTime?        @default(now()) @db.Timestamp(6)
-  updated_at     DateTime?        @default(now()) @db.Timestamp(6)
-  demand_domains demand_domains[]
-  reviewer       users?           @relation("DemandReviewer", fields: [reviewed_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  roles          roles            @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  applicant      users?           @relation("DemandApplicant", fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  documents      documents[]
+  id                            Int              @id @default(autoincrement())
+  user_id                       Int?
+  role_id                       Int
+  status                        DemandStatus     @default(pending)
+  applicant_email               String?          @db.VarChar(255)
+  applicant_first_name          String?          @db.VarChar(100)
+  applicant_last_name           String?          @db.VarChar(100)
+  details                       Json?
+  reviewed_by                   Int?
+  review_note                   String?          @db.VarChar(1000)
+  reviewed_at                   DateTime?        @db.Timestamp(6)
+  decision_notification_sent_at DateTime?        @db.Timestamp(6)
+  account_deleted_at            DateTime?        @db.Timestamp(6)
+  created_at                    DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at                    DateTime?        @default(now()) @db.Timestamp(6)
+  demand_domains                demand_domains[]
+  reviewer                      users?           @relation("DemandReviewer", fields: [reviewed_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  roles                         roles            @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  applicant                     users?           @relation("DemandApplicant", fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  documents                     documents[]
 
   @@index([user_id], map: "idx_demands_user")
   @@index([role_id], map: "idx_demands_role")
@@ -487,20 +496,38 @@ model demand_domains {
 }
 
 model cv_versions {
-  id            Int        @id @default(autoincrement())
-  user_id       Int
-  language      CVLanguage
-  version       Int
-  last_audit_id Int
-  file_url      String     @db.VarChar(500)
-  file_size     Int?
-  created_at    DateTime?  @default(now()) @db.Timestamp(6)
+  id               Int        @id @default(autoincrement())
+  user_id          Int
+  language         CVLanguage
+  version          Int
+  last_audit_id    Int        @default(0)
+  file_url         String     @db.VarChar(500)
+  file_size        Int?
+  data_hash        String?    @db.VarChar(64)
+  section_hashes   Json?
+  template_version String?    @db.VarChar(20)
+  created_at       DateTime?  @default(now()) @db.Timestamp(6)
 
   users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, language, version])
   @@index([user_id])
   @@index([user_id, language])
+}
+
+model cv_translations {
+  id              Int       @id @default(autoincrement())
+  source_hash     String    @db.VarChar(64)
+  source_lang     String    @db.VarChar(10)
+  target_lang     String    @db.VarChar(10)
+  source_text     String?
+  translated_text String
+  provider        String    @default("libretranslate") @db.VarChar(50)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  updated_at      DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([source_hash, target_lang])
+  @@index([target_lang])
 }
 
 // The voltaring part 
@@ -543,7 +570,7 @@ model volunteering_activities {
   approved_by     Int?
 
   // Reviewer's approve/reject reason, shown to the Organization.
-  review_note     String? @db.VarChar(1000)
+  review_note String? @db.VarChar(1000)
 
   title       String  @db.VarChar(255)
   description String?

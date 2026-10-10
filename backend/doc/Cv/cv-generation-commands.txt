@@ -1,0 +1,560 @@
+================================================================================
+ CV GENERATION - END-TO-END COMMANDS (curl)
+================================================================================
+ Register a beneficiary -> fill CV data -> demand a CV (EN) -> update data ->
+ demand again -> demand the French version.
+ 
+ All requests and responses below are shown as they look over the wire.
+ NOTE: response bodies marked "EXAMPLE" are representative; ids/timestamps/
+       presigned URLs/uuids will differ on your machine.
+================================================================================
+
+0. PREREQUISITES
+--------------------------------------------------------------------------------
+ The API must be running AND MinIO must be reachable, because the server
+ calls storage.ensureBuckets() at startup and the CV worker uploads the PDF to
+ MinIO. Postgres must be up too.
+
+   # from the repo root
+   docker compose up -d jadara_db jadara_drive          # Postgres + MinIO
+   docker compose up -d libretranslate                  # only needed for FR translation
+
+   # backend
+   npm run dev            # http://localhost:3000
+
+ Base URL (dev):      http://localhost:3000/v1
+ Swagger:             http://localhost:3000/api-docs
+
+ Auth model:
+   * POST /auth/register and /auth/login set two httpOnly cookies:
+       - accessToken  (path "/",        15 min)
+       - refreshToken (path "/v1/auth", 7 days)
+   * Every protected route also accepts a Bearer token:
+       Authorization: Bearer <accessToken>
+   * The simplest way with curl is a cookie jar (-c to save, -b to send).
+
+ Variables used below (edit freely):
+--------------------------------------------------------------------------------
+BASE="http://localhost:3000/v1"
+EMAIL="beneficiary.$(date +%s)@example.com"
+PASSWORD="Passw0rd123"          # >=8 chars, at least 1 upper, 1 lower, 1 digit
+COOKIES="/tmp/opencode/beneficiary.cookies"
+
+Register rate limit: 30 / hour / IP. Other write limits: profile 20/min,
+ skills 20/min, CV writes 20/min, CV reads 60/min, PDF generate 5 / 5 min.
+
+
+================================================================================
+1. REGISTER A NEW BENEFICIARY        (role_id 1 = Beneficiary)
+================================================================================
+ POST /v1/auth/register
+--------------------------------------------------------------------------------
+curl -i -c "$COOKIES" -X POST "$BASE/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "email":    "'"$EMAIL"'",
+        "password": "'"$PASSWORD"'",
+        "first_name": "Amina",
+        "last_name":  "Kaci",
+        "phone":      "0550000000",
+        "gender":     "Female",
+        "role_id":    1
+      }'
+
+ Response 201 (EXAMPLE):
+ HTTP/1.1 201 Created
+ Set-Cookie: accessToken=eyJhbGciOi...; Path=/; HttpOnly; SameSite=Strict; Max-Age=900
+ Set-Cookie: refreshToken=eyJhbGciOi...; Path=/v1/auth; HttpOnly; SameSite=Strict; Max-Age=604800
+
+ {
+   "success": true,
+   "message": "Registration successful",
+   "data": {
+     "user": {
+       "id": 42,
+       "email": "beneficiary.1730000000@example.com",
+       "status": "active",
+       "profile": {
+         "id": 40,
+         "user_id": 42,
+         "first_name": "Amina",
+         "last_name": "Kaci",
+         "phone": "0550000000",
+         "date_of_birth": null,
+         "gender": "Female",
+         "avatar": null,
+         "bio": null,
+         "location": null,
+         "created_at": "2026-10-10T17:00:00.000Z",
+         "updated_at": "2026-10-10T17:00:00.000Z"
+       },
+       "role": "Beneficiary"
+     }
+   }
+ }
+
+ Registration already signs you in, so the cookie jar now holds a valid
+ access token. The next requests only need "-b $COOKIES".
+
+ (Optional) LOGIN instead of register:
+curl -i -c "$COOKIES" -X POST "$BASE/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'"$EMAIL"'","password":"'"$PASSWORD"'"}'
+   -> 200 { "success": true, "message": "Login successful", "data": { "user": {...} } }
+
+ (Optional) If you ever want the raw Bearer token:
+   TOKEN=$(awk '/accessToken/ {print $7}' "$COOKIES")
+   curl -H "Authorization: Bearer $TOKEN" "$BASE/users/me/profile"
+
+
+================================================================================
+2. UPDATE THE PROFILE  (bio + wilaya/location + phone)
+================================================================================
+ PATCH /v1/users/me/profile      (JSON; avatar is optional multipart "avatar")
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X PATCH "$BASE/users/me/profile" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "phone":    "0550111222",
+        "bio":      "Software engineer with 3 years building web apps.",
+        "location": "Alger",
+        "gender":   "Female"
+      }'
+
+ Response 200 (EXAMPLE) - PATCH returns only the fields that were changed:
+ {
+   "success": true,
+   "message": "Profile updated",
+   "data": {
+     "phone": "0550111222",
+     "bio": "Software engineer with 3 years building web apps.",
+     "location": "Alger",
+     "gender": "Female"
+   }
+ }
+
+ Read the full profile back:
+curl -s -b "$COOKIES" "$BASE/users/me/profile"
+   -> 200 { "success": true, "message": "Profile retrieved",
+            "data": { "id": 42, "email": "...", "status": "active", "role": "Beneficiary",
+                      "profiles": { "first_name": "Amina", "bio": "...", "location": "Alger", ... },
+                      "user_socials": [] } }
+
+
+================================================================================
+3. ADD SKILLS  (needed so the CV has a skills section)
+================================================================================
+ The skills catalog is public-to-authenticated users (Beneficiary has view_skills).
+ skill_id comes from the catalog below (1=JavaScript, 2=TypeScript, 4=React, ...).
+
+ List the catalog:
+curl -s -b "$COOKIES" "$BASE/skills?limit=5"
+   -> { "success": true, "message": "...", "data": [ { "id": 1, "name": "JavaScript", ... }, ... ], "meta": {...} }
+
+ POST /v1/users/me/skills
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/skills" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "skills": [
+          { "skill_id": 1, "level": "advanced" },
+          { "skill_id": 2, "level": "intermediate" },
+          { "skill_id": 4, "level": "advanced" }
+        ]
+      }'
+
+ level is one of: beginner | intermediate | advanced | expert
+
+ Response 200 (EXAMPLE):
+ {
+   "success": true,
+   "message": "Skills assigned successfully",
+   "data": {
+     "skills": [ { "skill_id": 1, "level": "advanced", "skills": { "name": "JavaScript" } }, ... ],
+     "already_linked": [],
+     "not_found": []
+   }
+ }
+
+
+================================================================================
+4. ADD WORK EXPERIENCE
+================================================================================
+ POST /v1/users/me/work-experience
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/work-experience" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "company":     "Acme DZ",
+        "job_title":   "Backend Developer",
+        "description": "Built REST APIs with Node.js and PostgreSQL.",
+        "start_date":  "2023-01-01",
+        "end_date":    null,
+        "is_current":  true
+      }'
+
+ Response 201 (EXAMPLE):
+ {
+   "success": true,
+   "message": "Work experience created",
+   "data": {
+     "id": 7, "company": "Acme DZ", "job_title": "Backend Developer",
+     "description": "Built REST APIs with Node.js and PostgreSQL.",
+     "start_date": "2023-01-01T00:00:00.000Z", "end_date": null,
+     "is_current": true, "created_at": "...", "updated_at": "..."
+   }
+ }
+
+
+================================================================================
+5. ADD EDUCATION
+================================================================================
+ POST /v1/users/me/education
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/education" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "school":         "USTHB",
+        "degree":         "Licence",
+        "field_of_study": "Computer Science",
+        "description":    "Graduated with honors.",
+        "start_date":     "2019-09-01",
+        "end_date":       "2022-06-30",
+        "is_current":     false
+      }'
+
+ Response 201 (EXAMPLE):
+ {
+   "success": true,
+   "message": "Education created",
+   "data": {
+     "id": 9, "school": "USTHB", "degree": "Licence",
+     "field_of_study": "Computer Science", "description": "Graduated with honors.",
+     "start_date": "2019-09-01T00:00:00.000Z", "end_date": "2022-06-30T00:00:00.000Z",
+     "is_current": false, "created_at": "...", "updated_at": "..."
+   }
+ }
+
+
+================================================================================
+6. ADD A LANGUAGE  (languages catalog: 1=Arabic 2=English 3=French ...)
+================================================================================
+ POST /v1/users/me/languages
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/languages" \
+  -H "Content-Type: application/json" \
+  -d '{ "language_id": 2, "proficiency": "fluent" }'
+
+ proficiency: beginner | intermediate | advanced | fluent | native
+
+ Response 201 (EXAMPLE):
+ {
+   "success": true,
+   "message": "Language added",
+   "data": {
+     "id": 3, "language_id": 2, "proficiency": "fluent",
+     "created_at": "...", "updated_at": "...",
+     "languages": { "id": 2, "name": "English", "code": "en" }
+   }
+ }
+
+
+================================================================================
+7. ADD A CERTIFICATION  (file upload optional)
+================================================================================
+ JSON (no file):   POST /v1/users/me/certifications
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/certifications" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "name": "AWS Cloud Practitioner",
+        "issuer": "Amazon",
+        "issue_date": "2024-03-01",
+        "expiry_date": null
+      }'
+
+ With a file (multipart; field name must be "file"):
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/certifications" \
+  -F 'name=AWS Cloud Practitioner' \
+  -F 'issuer=Amazon' \
+  -F 'issue_date=2024-03-01' \
+  -F 'file=@/path/to/certificate.pdf'
+
+ Response 201 (EXAMPLE):
+ {
+   "success": true,
+   "message": "Certification created",
+   "data": {
+     "id": 5, "name": "AWS Cloud Practitioner", "issuer": "Amazon",
+     "issue_date": "2024-03-01T00:00:00.000Z", "expiry_date": null,
+     "file_url": null, "created_at": "...", "updated_at": "..."
+   }
+ }
+
+
+================================================================================
+8. VERIFY THE CV SOURCES (optional, but handy before generating)
+================================================================================
+curl -s -b "$COOKIES" "$BASE/users/me/work-experience"
+curl -s -b "$COOKIES" "$BASE/users/me/education"
+curl -s -b "$COOKIES" "$BASE/users/me/certifications"
+curl -s -b "$COOKIES" "$BASE/users/me/languages"
+curl -s -b "$COOKIES" "$BASE/users/me/skills"
+
+
+================================================================================
+9. DEMAND A CV IN ENGLISH
+================================================================================
+ POST /v1/users/me/pdf-generate   (alias: POST /v1/cv-pdf/pdf-generate)
+ Body is optional; omit it to queue every renderable language (EN + FR).
+ Current renderable languages: EN, FR  (AR is accepted by validation but
+ rejected at enqueue with 400 "Language not supported yet: AR").
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/pdf-generate" \
+  -H "Content-Type: application/json" \
+  -d '{ "languages": ["EN"] }'
+
+ Response 202 (EXAMPLE - job queued):
+ {
+   "success": true,
+   "message": "CV generation queued",
+   "data": {
+     "request_group": "1f0c9a2e-6b7d-4e3a-9c2b-2f9a7d5e8b10",
+     "jobs": [
+       { "id": 12, "language": "EN", "status": "queued", "cached": false, "download_url": null }
+     ]
+   }
+ }
+
+ If an up-to-date version already exists it is served immediately (no queue):
+ {
+   "success": true,
+   "message": "CV generation queued",
+   "data": {
+     "request_group": "1f0c9a2e-...",
+     "jobs": [
+       { "id": 5, "language": "EN", "status": "completed", "cached": true,
+         "download_url": "http://localhost:9000/jadara/documents/cv-pdfs/42/EN-....pdf?X-Amz-..." }
+     ]
+   }
+ }
+
+ Status values: queued | processing | completed | failed | superseded
+
+
+================================================================================
+10. POLL THE STATUS UNTIL COMPLETED
+================================================================================
+ GET /v1/users/me/pdf-status?language=EN
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" "$BASE/users/me/pdf-status?language=EN"
+
+ While generating (EXAMPLE):
+ {
+   "success": true,
+   "message": "PDF status retrieved",
+   "data": {
+     "id": 12, "status": "processing", "language": "EN",
+     "request_group": "1f0c9a2e-...", "missing_fields": null,
+     "file_size": null, "error_message": null, "download_url": null,
+     "created_at": "...", "updated_at": "..."
+   }
+ }
+
+ When done (EXAMPLE):
+ {
+   "success": true,
+   "message": "PDF status retrieved",
+   "data": {
+     "id": 12, "status": "completed", "language": "EN",
+     "request_group": "1f0c9a2e-...", "missing_fields": null,
+     "file_size": 148213, "error_message": null,
+     "download_url": "http://localhost:9000/jadara/documents/cv-pdfs/42/EN-....pdf?X-Amz-...",
+     "created_at": "...", "updated_at": "..."
+   }
+ }
+
+ Convenience loop (poll every 2s, max 30 tries, stop on completed/failed):
+for i in $(seq 1 30); do
+  BODY=$(curl -s -b "$COOKIES" "$BASE/users/me/pdf-status?language=EN")
+  echo "$BODY"
+  case "$BODY" in *'"status":"completed"'*|*'"status":"failed"'*) break;; esac
+  sleep 2
+done
+
+ Download the produced PDF (presigned URL, expires - default 1h):
+curl -L -o cv-en.pdf "$(curl -s -b "$COOKIES" "$BASE/users/me/pdf-status?language=EN" \
+  | sed -n 's/.*"download_url":"\([^"]*\)".*/\1/p')"
+
+
+================================================================================
+11. CHANGE SOME DATA (this is what makes the next demand regenerate)
+================================================================================
+ Example A - update the education entry (id 9):
+curl -s -b "$COOKIES" -X PATCH "$BASE/users/me/education/9" \
+  -H "Content-Type: application/json" \
+  -d '{ "degree": "Master", "field_of_study": "Software Engineering" }'
+
+ Example B - update the profile bio:
+curl -s -b "$COOKIES" -X PATCH "$BASE/users/me/profile" \
+  -H "Content-Type: application/json" \
+  -d '{ "bio": "Full-stack engineer focused on Node.js and React." }'
+
+ Example C - update a skill level (skill_id 1):
+curl -s -b "$COOKIES" -X PATCH "$BASE/users/me/skills/1" \
+  -H "Content-Type: application/json" \
+  -d '{ "level": "expert" }'
+
+ Response (PATCH education, EXAMPLE):
+ {
+   "success": true,
+   "message": "Education updated",
+   "data": { "id": 9, "school": "USTHB", "degree": "Master",
+             "field_of_study": "Software Engineering", ... }
+ }
+
+
+================================================================================
+12. DEMAND THE ENGLISH CV AGAIN  (now it must regenerate)
+================================================================================
+ Because the profile/education changed after the last version, the stored
+ version is stale -> a new job is queued (cached=false). Any older queued job
+ for the same language is marked "superseded" first.
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/pdf-generate" \
+  -H "Content-Type: application/json" \
+  -d '{ "languages": ["EN"] }'
+
+ Response 202 (EXAMPLE):
+ {
+   "success": true,
+   "message": "CV generation queued",
+   "data": {
+     "request_group": "8a1d...",
+     "jobs": [ { "id": 13, "language": "EN", "status": "queued", "cached": false, "download_url": null } ]
+   }
+ }
+
+ Poll again -> completed with a NEW version id (13), new presigned URL:
+curl -s -b "$COOKIES" "$BASE/users/me/pdf-status?language=EN"
+
+
+================================================================================
+13. DEMAND THE FRENCH VERSION
+================================================================================
+ French content is produced by translating the translatable fields from the
+ detected source language into FR (self-hosted LibreTranslate). The cv_translations
+ table caches each translated string, so the second FR build is fast.
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/pdf-generate" \
+  -H "Content-Type: application/json" \
+  -d '{ "languages": ["FR"] }'
+
+ Response 202 (EXAMPLE):
+ {
+   "success": true,
+   "message": "CV generation queued",
+   "data": {
+     "request_group": "c4e2...",
+     "jobs": [ { "id": 14, "language": "FR", "status": "queued", "cached": false, "download_url": null } ]
+   }
+ }
+
+ Or queue both at once:
+curl -s -b "$COOKIES" -X POST "$BASE/users/me/pdf-generate" \
+  -H "Content-Type: application/json" \
+  -d '{ "languages": ["EN", "FR"] }'
+
+
+================================================================================
+14. STATUS OF ALL LANGUAGES AT ONCE
+================================================================================
+ GET /v1/users/me/pdf-status?all=true
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" "$BASE/users/me/pdf-status?all=true"
+
+ Response 200 (EXAMPLE):
+ {
+   "success": true,
+   "message": "CV status retrieved",
+   "data": {
+     "languages": [
+       { "id": 13, "status": "completed", "language": "EN",
+         "download_url": "http://localhost:9000/jadara/documents/cv-pdfs/42/EN-....pdf?....",
+         "file_size": 149980, "error_message": null, "created_at": "...", "updated_at": "..." },
+       { "id": 14, "status": "completed", "language": "FR",
+         "download_url": "http://localhost:9000/jadara/documents/cv-pdfs/42/FR-....pdf?....",
+         "file_size": 151020, "error_message": null, "created_at": "...", "updated_at": "..." }
+     ]
+   }
+ }
+
+
+================================================================================
+15. GENERATION HISTORY (paginated, newest first)
+================================================================================
+ GET /v1/users/me/pdf-history?page=1&limit=5
+--------------------------------------------------------------------------------
+curl -s -b "$COOKIES" "$BASE/users/me/pdf-history?page=1&limit=5"
+
+ Response 200 (EXAMPLE):
+ {
+   "success": true,
+   "message": "PDF history retrieved",
+   "data": [
+     { "id": 14, "status": "completed", "language": "FR", "request_group": "c4e2...",
+       "missing_fields": null, "file_size": 151020, "error_message": null,
+       "download_url": "http://localhost:9000/...", "created_at": "..." },
+      { "id": 13, "status": "completed", "language": "EN", "request_group": "8a1d...",
+        "missing_fields": null, "file_size": 149980, "error_message": null,
+        "download_url": "http://localhost:9000/...", "created_at": "..." },
+      { "id": 12, "status": "completed", "language": "EN", "request_group": "1f0c...",
+        "missing_fields": null, "file_size": 148213, "error_message": null,
+        "download_url": "http://localhost:9000/...", "created_at": "..." }
+    ],
+    "meta": { "total": 3, "page": 1, "limit": 5, "totalPages": 1, "nextCursor": null }
+ }
+
+
+================================================================================
+16. QUICK REFERENCE - CV ROUTES
+================================================================================
+ # CV PDF (mounted twice: /v1/cv-pdf/* and /v1/users/me/*)
+ POST   /v1/cv-pdf/pdf-generate        body: { "languages": ["EN","FR"] }  (optional) -> 202
+ GET    /v1/cv-pdf/pdf-status          ?language=EN | ?all=true
+ GET    /v1/cv-pdf/pdf-history         ?page=1&limit=5
+
+ # CV sources (under /v1/users/me/*)
+ GET/POST           /work-experience           PATCH/DELETE /work-experience/:id
+ GET/POST           /education                 PATCH/DELETE /education/:id
+ GET/POST           /certifications            PATCH/DELETE /certifications/:id   (multipart "file")
+ GET/POST           /languages                 PATCH       /languages/:id          (PATCH: proficiency only)
+ GET/POST           /skills                    PATCH/DELETE /skills/:skillId
+
+ # Profile
+ GET/PATCH          /v1/users/me/profile       (PATCH multipart "avatar" optional)
+
+
+================================================================================
+17. BEHAVIOUR NOTES
+================================================================================
+ * Async: pdf-generate returns 202 + job ids immediately. Poll pdf-status.
+ * Caching: every CV section is hashed. If nothing changed since the last stored
+   version (and the template version matches), that version is returned with
+   cached=true and NO job is created.
+ * Regeneration: changing any CV source (profile, work, education, skills,
+   languages, certifications, projects, volunteering) bumps the audit cursor,
+   so the next demand queues a fresh job.
+ * Supersede: a new demand supersedes any still-queued job for the same
+   language (status becomes "superseded"); a job superseded mid-generation
+   discards its PDF.
+ * All sections are optional - you can demand a CV with an almost-empty profile.
+ * presigned download_url -expires in MINIO_PRESIGNED_EXPIRY seconds (default 1h);
+   re-fetch pdf-status to get a fresh URL.
+ * Translation (FR): controlled by CV_TRANSLATION_ENABLED. If it is off, the FR
+   PDF is generated from the same (source) text. If LibreTranslate is down and
+   CV_TRANSLATION_REQUIRED=false, generation falls back to the source text; if
+   true, the job fails instead.
+ * Submit = 202, not 200. Do not expect a download_url on the very first response
+   unless cached=true.
+================================================================================
