@@ -150,6 +150,17 @@ catalog, skills linked to domains, and the common languages.
 | `UPLOAD_DIR`             | No       | `uploads`               | Local fallback upload directory         |
 | `UPLOAD_MAX_FILE_SIZE`   | No       | `10485760`              | Max file size (10MB)                    |
 | `UPLOAD_MAX_AVATAR_SIZE` | No       | `2097152`               | Max avatar size (2MB)                   |
+| `MINIO_PRESIGNED_EXPIRY` | No       | `3600`                  | Presigned `download_url` TTL (seconds)  |
+| `CV_WORKER_ENABLED`      | No       | `true`                  | Enable the in-process CV PDF worker     |
+| `CV_WORKER_INTERVAL_MS`  | No       | `3000`                  | CV queue poll interval (ms)             |
+| `CV_WORKER_CONCURRENCY`  | No       | `2`                     | CV jobs processed in parallel           |
+| `CV_JOB_STALE_MS`        | No       | `300000`                | Requeue `processing` jobs after (ms)    |
+| `CV_JOB_MAX_ATTEMPTS`    | No       | `3`                     | Attempts before a CV job is `failed`    |
+| `CV_TRANSLATION_ENABLED` | No       | `false`                 | Translate CVs with LibreTranslate       |
+| `CV_TRANSLATION_REQUIRED`| No       | `false`                 | Fail the job when translation fails     |
+| `LIBRETRANSLATE_URL`     | No       | `http://localhost:5000` | LibreTranslate base URL                 |
+| `LIBRETRANSLATE_API_KEY` | No       | —                       | Optional key if the instance needs auth |
+| `CV_TRANSLATION_TIMEOUT_MS` | No    | `8000`                  | LibreTranslate request timeout (ms)     |
 
 ---
 
@@ -246,6 +257,48 @@ Self-service routes work for any authenticated user on their own account. Admin 
 `skills`, `work_experience`). The generated CV includes experience, education,
 **projects** (title, domain, URL, status, bullets), skills, certifications, and
 languages.
+
+#### CV translation (LibreTranslate)
+
+CV PDFs can be auto-translated between the rendered languages (`EN`, `FR`) with a
+self-hosted **LibreTranslate** service. It is **disabled by default**; the
+`libretranslate` service is already declared in the root `docker-compose.yml`.
+
+```bash
+# from the repo root
+docker compose up -d libretranslate      # first run downloads the en/fr models
+curl http://localhost:5000/languages     # ready when this returns 200
+
+# local dev — enable it inline (reads .env, process env wins)
+CV_TRANSLATION_ENABLED=true npm run dev
+
+# under Docker, add CV_TRANSLATION_ENABLED=true and
+# LIBRETRANSLATE_URL=http://libretranslate:5000 to backend/.env, then:
+docker compose up -d api
+```
+
+**How it works** (all in `src/modules/cv-pdf/`):
+
+1. On demand, `cv-pdf.service.ts` detects the CV's source language from the
+   user-typed text (`buildSourceText()` + `detectLanguage()`) and stores it.
+2. The worker (`cv-pdf.worker.ts`) calls `translateSnapshot()`
+   (`cv-pdf.translate.ts`) before `renderLatexCv()`.
+3. Only free-text fields are translated (bio, job title, work/education
+   descriptions, project title/description, activity title). Names, companies,
+   schools, issuers, URLs and dates are kept as-is.
+4. Each translated string is cached in `cv_translations` (keyed by
+   `source_hash` + `target_lang`), so unchanged text is never re-sent.
+5. If LibreTranslate is unreachable, the worker falls back to the source text
+   unless `CV_TRANSLATION_REQUIRED=true`, in which case the job fails.
+
+Direct API check:
+
+```bash
+curl -s http://localhost:5000/translate \
+  -H "Content-Type: application/json" \
+  -d '{"q":"Backend Developer","source":"en","target":"fr","format":"text"}'
+# {"translatedText":"Développeur de moteur"}
+```
 
 ### User Skills
 
