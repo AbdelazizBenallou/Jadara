@@ -10,7 +10,7 @@
 %   Packages
 %----------------------------------------------------------------------------------------
 
-\usepackage[left=0.75in,top=0.6in,right=0.75in,bottom=0.6in]{geometry}
+\usepackage[left=0.6in,top=0.45in,right=0.6in,bottom=0.45in]{geometry}
 
 \usepackage{xcolor}
 \usepackage{hyperref}
@@ -36,6 +36,9 @@
 %----------------------------------------------------------------------------------------
 %   Custom Commands
 %----------------------------------------------------------------------------------------
+
+\def\sectionlineskip{\smallskip}
+\def\sectionskip{\smallskip}
 
 \newcommand{\italicitem}[1]{\item{\textit{#1}}}
 \newcommand{\bolditem}[1]{\item{\textbf{#1}}}
@@ -63,16 +66,16 @@
 
 \printPersonalInfo{
     {{#location}}
-    \personalInfo{\tag{Résidence}\info{ {{{location}}} }}
+    \personalInfo{\tag{ {{#en}}Location{{/en}}{{^en}}Résidence{{/en}} }\info{ {{{location}}} }}
     {{/location}}
 
     {{#email}}
-    \personalInfo{\tag{E-mail}\info{ {{{email}}} }{{#phone}} \infoSeparator\tag{Téléphone}\info{ {{{phone}}} }{{/phone}}}
+    \personalInfo{\tag{ {{#en}}Email{{/en}}{{^en}}E-mail{{/en}} }\info{ {{{email}}} }{{#phone}} \infoSeparator\tag{ {{#en}}Phone{{/en}}{{^en}}Téléphone{{/en}} }\info{ {{{phone}}} }{{/phone}}}
     {{/email}}
 
     {{^email}}
     {{#phone}}
-    \personalInfo{\tag{Téléphone}\info{ {{{phone}}} }}
+    \personalInfo{\tag{ {{#en}}Phone{{/en}}{{^en}}Téléphone{{/en}} }\info{ {{{phone}}} }}
     {{/phone}}
     {{/email}}
 }
@@ -82,7 +85,7 @@
 %----------------------------------------------------------------------------------------
 
 {{#summary}}
-\begin{rSection}{Profil Professionnel}
+\begin{rSection}{ {{#en}}Professional Summary{{/en}}{{^en}}Profil Professionnel{{/en}} }
 
 {{{summary}}}
 
@@ -94,7 +97,7 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasSkills}}
-\begin{rSection}{Compétences}
+\begin{rSection}{ {{#en}}Skills{{/en}}{{^en}}Compétences{{/en}} }
 
 {{#skillGroups}}
 
@@ -116,7 +119,7 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasExperience}}
-\begin{rSection}{Expérience Professionnelle}
+\begin{rSection}{ {{#en}}Professional Experience{{/en}}{{^en}}Expérience Professionnelle{{/en}} }
 
 {{#experience}}
 
@@ -138,18 +141,18 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasProjects}}
-\begin{rSection}{Projets}
+\begin{rSection}{ {{#en}}Projects{{/en}}{{^en}}Projets{{/en}} }
 
 {{#projects}}
 
 \begin{rSubsectionNoBullet}{\bf {{{title}}}}{ {{{startDate}}}{{#endDate}} -- {{{endDate}}}{{/endDate}} }{}{}
 
     {{#domain}}
-    \plainitem{\textbf{Domaine :} {{{domain}}}}
+    \plainitem{\textbf{ {{#en}}Domain:{{/en}}{{^en}}Domaine :{{/en}} } {{{domain}}}}
     {{/domain}}
 
     {{#url}}
-    \plainitem{\textbf{Lien :} \href{{{url}}}{{{url}}}}
+    \plainitem{\textbf{ {{#en}}Link:{{/en}}{{^en}}Lien :{{/en}} } \href{ {{{url}}} }{ {{{url}}} }}
     {{/url}}
 
     {{#hasBullets}}
@@ -170,14 +173,14 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasEducation}}
-\begin{rSection}{Formation}
+\begin{rSection}{ {{#en}}Education{{/en}}{{^en}}Formation{{/en}} }
 
 {{#education}}
 
 \begin{rSubsectionNoBullet}{\bf {{{degree}}}}{ {{{startDate}}} -- {{{endDate}}} }{ {{{school}}} }{}
 
     {{#fieldOfStudy}}
-    \plainitem{\textbf{Spécialité :} {{{fieldOfStudy}}}}
+    \plainitem{\textbf{ {{#en}}Field of Study:{{/en}}{{^en}}Spécialité :{{/en}} } {{{fieldOfStudy}}}}
     {{/fieldOfStudy}}
 
 \end{rSubsectionNoBullet}
@@ -192,14 +195,14 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasCertifications}}
-\begin{rSection}{Certifications}
+\begin{rSection}{ {{#en}}Certifications{{/en}}{{^en}}Certifications{{/en}} }
 
 {{#certifications}}
 
 \begin{rSubsectionNoBullet}{\bf {{{name}}}}{ {{{issueDate}}} }{}{}
 
     {{#issuer}}
-    \plainitem{\textbf{Organisme :} {{{issuer}}}}
+    \plainitem{\textbf{ {{#en}}Issuer:{{/en}}{{^en}}Organisme :{{/en}} } {{{issuer}}}}
     {{/issuer}}
 
 \end{rSubsectionNoBullet}
@@ -214,14 +217,14 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasVolunteering}}
-\begin{rSection}{Expérience de bénévolat}
+\begin{rSection}{ {{#en}}Volunteering Experience{{/en}}{{^en}}Expérience de bénévolat{{/en}} }
 
 {{#volunteering}}
 
 \begin{rSubsectionNoBullet}{ {{{title}}} }{ {{{startDate}}}{{#endDate}} -- {{{endDate}}}{{/endDate}} }{ {{{organization}}} }{}
 
     {{#location}}
-    \plainitem{\textbf{Lieu :} {{{location}}}}
+    \plainitem{\textbf{ {{#en}}Location:{{/en}}{{^en}}Lieu :{{/en}} } {{{location}}}}
     {{/location}}
 
 \end{rSubsectionNoBullet}
@@ -236,8 +239,8 @@
 %----------------------------------------------------------------------------------------
 
 {{#hasLanguages}}
-\tableEnv{Langues}{
-    \entry{Langues}{ {{{languagesLine}}} }
+\tableEnv{ {{#en}}Languages{{/en}}{{^en}}Langues{{/en}} }{
+    \entry{ {{#en}}Languages{{/en}}{{^en}}Langues{{/en}} }{ {{{languagesLine}}} }
 }
 {{/hasLanguages}}
 

@@ -45,9 +45,23 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - jadara_network
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: jadara_translator
+    ports:
+      - "5000:5000"
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local
+    environment:
+      # Only the languages the CV feature renders today.
+      - LT_LOAD_ONLY=en,fr
+    networks:
+      - jadara_network
 volumes:
   postgres_data:
   minio_data:
+  libretranslate_models:
 
 networks:
   jadara_network:

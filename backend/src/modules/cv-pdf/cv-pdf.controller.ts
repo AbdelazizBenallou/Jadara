@@ -3,58 +3,34 @@ import type { CVLanguage } from "@prisma/client";
 import { asyncHandler } from "../../../framework/middleware/asyncHandler.js";
 import { response } from "../../../framework/utils/response.js";
 import { cvPdfService } from "./cv-pdf.service.js";
+import { CV_LANGUAGES } from "./cv-pdf.constants.js";
 
-const VALID_LANGUAGES: readonly CVLanguage[] = ["AR", "EN", "FR"] as const;
+const VALID_LANGUAGES: readonly string[] = CV_LANGUAGES;
+
+function parseLanguage(raw: unknown): CVLanguage | undefined {
+  return typeof raw === "string" && VALID_LANGUAGES.includes(raw) ? (raw as CVLanguage) : undefined;
+}
 
 export const cvPdfController = {
   generate: asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
-    const body = req.body as { language?: string };
-    const language: CVLanguage =
-      body?.language && VALID_LANGUAGES.includes(body.language as CVLanguage)
-        ? (body.language as CVLanguage)
-        : "EN";
-    const result = await cvPdfService.generate(userId, language);
+    const body = req.body as { languages?: CVLanguage[]; language?: CVLanguage };
+    const languages = body.languages ?? (body.language ? [body.language] : undefined);
 
-    if (result.status === "incomplete") {
-      response.success(
-        res,
-        {
-          status: "incomplete",
-          missing_fields: result.missing,
-        },
-        "CV data incomplete — please fill missing fields",
-      );
-      return;
-    }
-
-    let downloadUrl: string | null = null;
-    if (result.download_url) {
-      const { storage } = await import("../../../framework/utils/storage.js");
-      const { BUCKETS } = await import("../../../framework/config/minio.js");
-      downloadUrl = await storage.getPresignedUrl(BUCKETS.documents, result.download_url);
-    }
-
-    response.success(
-      res,
-      {
-        status: "completed",
-        download_url: downloadUrl,
-      },
-      result.existing
-        ? "No changes detected — returning existing PDF"
-        : "PDF generated successfully",
-      result.existing ? 200 : 201,
-    );
+    const result = await cvPdfService.enqueue(userId, languages);
+    response.success(res, result, "CV generation queued", 202);
   }),
 
   getStatus: asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
-    const rawLang = req.query.language as string | undefined;
-    const language: CVLanguage | undefined =
-      rawLang && VALID_LANGUAGES.includes(rawLang as CVLanguage)
-        ? (rawLang as CVLanguage)
-        : undefined;
+
+    if (req.query.all === "true" || req.query.all === "1") {
+      const all = await cvPdfService.getStatusAll(userId);
+      response.success(res, { languages: all }, "CV status retrieved");
+      return;
+    }
+
+    const language = parseLanguage(req.query.language);
     const status = await cvPdfService.getStatus(userId, language);
 
     if (!status) {
@@ -74,4 +50,3 @@ export const cvPdfController = {
     response.paginated(res, result.requests, result.meta, "PDF history retrieved");
   }),
 };
-

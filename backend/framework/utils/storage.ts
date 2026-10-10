@@ -3,7 +3,7 @@ import { env } from "../config/env.js";
 import { v4 as uuid } from "uuid";
 import path from "path";
 
-const PRESIGNED_URL_EXPIRY = 3600; // 1 hour
+const PRESIGNED_URL_EXPIRY = env.MINIO_PRESIGNED_EXPIRY;
 
 export const storage = {
   async upload(bucket: BucketName, folder: string, file: Express.Multer.File, userId: number) {

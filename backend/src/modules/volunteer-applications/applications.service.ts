@@ -7,6 +7,7 @@ import {
   type ApplicationStatusFilter,
 } from "./applications.repository.js";
 import { activitiesRepository } from "../volunteering-activities/activities.repository.js";
+import { cvAudit } from "../cv-pdf/cv-pdf.audit.js";
 import type {
   CompletedQueryInput,
   ListApplicationsInput,
@@ -332,6 +333,15 @@ export const applicationsService = {
 
     const updated = await applicationsRepository.completeAndCreateExperience(app.id);
     if (!updated) throw new AppError("Application not found", 404);
+
+    await cvAudit.record({
+      userId: app.user_id,
+      section: "volunteering",
+      action: "CREATE",
+      entityId: app.id,
+      newValues: { application_id: app.id, activity_id: app.activity_id },
+    });
+
     return mapForOrg(updated);
   },
 

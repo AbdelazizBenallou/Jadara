@@ -1,0 +1,309 @@
+JADARA - VOLUNTEER SYSTEM FRONTEND API CALLS
+==================================================
+
+1. VOLUNTEER / BENEFICIARY
+==================================================
+
+1.1 Browse Published Activities
+--------------------------------------------------
+GET /v1/activities/published
+
+Purpose:
+- Display available volunteering activities.
+- Search and filter activities.
+
+Frontend:
+Activities page
+
+
+1.2 View Activity Details
+--------------------------------------------------
+GET /v1/activities/:id
+
+Purpose:
+- Display activity information.
+- Show organization.
+- Show dates.
+- Show capacity.
+- Show available places.
+- Show required skills.
+- Show current user's application status.
+
+Frontend:
+Activity Details page
+
+
+1.3 Apply to Activity
+--------------------------------------------------
+POST /v1/activities/:id/applications
+
+Body:
+{}
+
+Purpose:
+- Submit a volunteer application.
+- user_id comes from authentication token.
+- Application is created with status = pending.
+
+Frontend:
+Apply button
+
+
+Response:
+{
+  id,
+  activity_id,
+  status: "pending",
+  application_date
+}
+
+
+1.4 View My Applications
+--------------------------------------------------
+GET /v1/volunteer-applications/me
+
+Optional query parameters:
+- status=pending
+- status=accepted
+- status=rejected
+- status=completed
+- page
+- limit
+
+Purpose:
+- Display all applications belonging to the logged-in volunteer.
+
+Frontend:
+My Applications page
+
+
+1.5 View My Completed Volunteering
+--------------------------------------------------
+GET /v1/volunteer-applications/completed
+
+Purpose:
+- Display completed volunteering experiences.
+- Used as the volunteer's volunteering history / CV source.
+
+Frontend:
+My Volunteering page
+
+
+1.6 View Activity Participants
+--------------------------------------------------
+GET /v1/activities/:id/participants
+
+Purpose:
+- Display accepted volunteers participating in an activity.
+
+Frontend:
+Participants section/page
+
+
+==================================================
+2. ORGANIZATION
+==================================================
+
+2.1 View Applications for an Activity
+--------------------------------------------------
+GET /v1/activities/:id/applications
+
+Optional query parameters:
+- status
+- sort=skill_match
+- min_skill_match=0..100
+- page
+- limit
+
+Purpose:
+- Organization reviews volunteers who applied.
+- Display applicant profile.
+- Display skills.
+- Display education.
+- Display work experience.
+- Display skill match.
+
+Frontend:
+Activity -> Applications
+
+
+Application information includes:
+
+application
+applicant
+skills
+education
+work experience
+skill_match
+    - matched_skills
+    - missing_skills
+    - percentage
+
+
+2.2 Accept Volunteer Application
+--------------------------------------------------
+POST /v1/volunteer-applications/:id/accept
+
+Body:
+{}
+
+Purpose:
+- Organization accepts a pending volunteer application.
+- Application status becomes accepted.
+
+Frontend:
+Accept button
+
+
+2.3 Reject Volunteer Application
+--------------------------------------------------
+POST /v1/volunteer-applications/:id/reject
+
+Body:
+{}
+
+Purpose:
+- Organization rejects a pending application.
+- Application status becomes rejected.
+
+Frontend:
+Reject button
+
+
+2.4 Confirm Volunteer Completion
+--------------------------------------------------
+POST /v1/volunteer-applications/:id/complete
+
+Body:
+{}
+
+Purpose:
+- Organization confirms that an accepted volunteer actually
+  completed the activity.
+- Application status becomes completed.
+- A user_completed_volunteering record is created.
+
+Frontend:
+Confirm Completion button
+
+Important:
+- Activity must already be finished.
+- Only an accepted application can be completed.
+
+
+==================================================
+3. ACTIVITY FRONTEND FLOW
+==================================================
+
+Volunteer:
+
+GET /v1/activities/published
+        |
+        v
+GET /v1/activities/:id
+        |
+        v
+POST /v1/activities/:id/applications
+        |
+        v
+PENDING
+        |
+        | Organization reviews
+        |
+        +----------------------+
+        |                      |
+        v                      v
+ACCEPTED                  REJECTED
+        |
+        | Activity finishes
+        |
+        v
+Organization confirms
+        |
+        v
+COMPLETED
+        |
+        v
+GET /v1/volunteer-applications/completed
+
+
+==================================================
+4. FRONTEND STATUS DISPLAY
+==================================================
+
+PENDING
+- "Application under review"
+
+ACCEPTED
+- "You have been accepted"
+
+REJECTED
+- "Application rejected"
+
+COMPLETED
+- "Volunteering completed"
+
+
+==================================================
+5. IMPORTANT FRONTEND RULE
+==================================================
+
+The volunteer frontend NEVER changes:
+
+pending
+accepted
+rejected
+completed
+
+The volunteer only:
+
+1. Applies
+2. Views applications
+3. Views activity information
+4. Views completed volunteering
+
+The organization controls:
+
+1. Accept
+2. Reject
+3. Confirm completion
+
+
+==================================================
+6. COMPLETE API LIST
+==================================================
+
+VOLUNTEER:
+
+GET    /v1/activities/published
+GET    /v1/activities/:id
+POST   /v1/activities/:id/applications
+GET    /v1/volunteer-applications/me
+GET    /v1/volunteer-applications/completed
+GET    /v1/activities/:id/participants
+
+
+ORGANIZATION:
+
+GET    /v1/activities/:id/applications
+POST   /v1/volunteer-applications/:id/accept
+POST   /v1/volunteer-applications/:id/reject
+POST   /v1/volunteer-applications/:id/complete
+GET    /v1/activities/:id
+GET    /v1/activities/:id/participants
+
+
+==================================================
+7. CORE CONCEPT
+==================================================
+
+APPLICATION
+"I want to participate."
+
+ACCEPTED
+"The organization selected me."
+
+COMPLETED
+"The organization confirmed that I participated."
+
+The frontend should reflect this lifecycle directly.

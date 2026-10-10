@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit2, Loader2, Calendar, FileText, Link as LinkIcon } from "lucide-react";
+import { Plus, Trash2, Edit2, Loader2, Calendar, FileText } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ type Certification = {
   issuer?: string;
   issue_date?: string | null;
   expiry_date?: string | null;
-  credential_url?: string | null;
   file_url?: string | null;
 };
 
@@ -42,7 +41,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
     issuer: "",
     issue_date: "",
     expiry_date: "",
-    credential_url: "",
   });
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -71,7 +69,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
         issuer: cert.issuer || "",
         issue_date: cert.issue_date ? cert.issue_date.split("T")[0] : "",
         expiry_date: cert.expiry_date ? cert.expiry_date.split("T")[0] : "",
-        credential_url: cert.credential_url || "",
       });
       setFile(null); // File update is supported but optional
     } else {
@@ -81,7 +78,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
         issuer: "",
         issue_date: "",
         expiry_date: "",
-        credential_url: "",
       });
       setFile(null);
     }
@@ -97,7 +93,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
       payload.append("issuer", formData.issuer);
       payload.append("issue_date", formData.issue_date);
       payload.append("expiry_date", formData.expiry_date);
-      payload.append("credential_url", formData.credential_url);
       if (file) payload.append("file", file);
 
       if (editingId) {
@@ -161,17 +156,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
                       <Calendar className="h-3.5 w-3.5" />
                       Issued: {formatDate(cert.issue_date, i18n.language)}
                     </div>
-                  )}
-                  {cert.credential_url && (
-                    <a
-                      href={cert.credential_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 text-blue-600 hover:underline"
-                    >
-                      <LinkIcon className="h-3.5 w-3.5" />
-                      {t("cv.credentialLink")}
-                    </a>
                   )}
                   {cert.file_url && (
                     <a
@@ -254,16 +238,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
                   onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="credential_url">{t("cv.credentialUrl")}</Label>
-              <Input
-                id="credential_url"
-                type="url"
-                placeholder="https://"
-                value={formData.credential_url}
-                onChange={(e) => setFormData({ ...formData, credential_url: e.target.value })}
-              />
             </div>
             <div className="grid gap-2">
               <Label>{t("cv.certificateFile")}</Label>
