@@ -38,6 +38,20 @@ const organizationDetails = z.preprocess((v) => {
   location: z.string().max(255).optional(),
 }));
 
+const companyDetails = z.preprocess((v) => {
+  if (v === undefined || v === null || v === "") return undefined;
+  if (typeof v === "string") {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v;
+    }
+  }
+  return v;
+}, z.object({
+  name: z.string().trim().min(1).max(255),
+}));
+
 export const submitDemandSchema = z.object({
   // The requested role decides the role granted on approval.
   role: z.enum(DEMAND_ROLES),
@@ -51,6 +65,8 @@ export const submitDemandSchema = z.object({
   domain_ids: domainIds,
   // Required for Organization, ignored for the other demand roles.
   organization: organizationDetails.optional(),
+  // Optional for Company, ignored for the other demand roles.
+  company: companyDetails.optional(),
 });
 
 export const listDemandsSchema = z.object({
@@ -62,6 +78,7 @@ export const listDemandsSchema = z.object({
 
 export const reviewDemandSchema = z.object({
   note: z.string().max(1000).optional(),
+  company_name: z.string().trim().min(1).max(255).optional(),
 });
 
 export type SubmitDemandInput = z.infer<typeof submitDemandSchema>;
