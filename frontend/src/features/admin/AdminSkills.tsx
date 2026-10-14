@@ -14,7 +14,15 @@ interface Skill {
   name: string;
   description: string;
   status: string;
+  category_id: number;
+  category?: { id: number; name: string } | null;
   created_at: string;
+}
+
+interface SkillCategory {
+  id: number;
+  name: string;
+  description?: string | null;
 }
 
 interface Domain {
@@ -29,15 +37,27 @@ export function AdminSkills() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
 
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "" });
 
   // Forms state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     status: "active",
+    category_id: "",
     domain_ids: [] as number[],
+  });
+
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
+    queryKey: ["admin-skill-categories"],
+    queryFn: async () => {
+      const res = await apiClient.get("/skills/categories?limit=100");
+      const cData = res.data?.data ?? [];
+      return Array.isArray(cData) ? (cData as SkillCategory[]) : [];
+    },
   });
 
   const { data: domains = [], isLoading: isLoadingDomains } = useQuery({
@@ -88,7 +108,7 @@ export function AdminSkills() {
 
   const skills = skillsData?.skills || [];
   const skillDomainMap = skillsData?.skillDomainMap || {};
-  const isLoading = isLoadingDomains || isLoadingSkills;
+  const isLoading = isLoadingDomains || isLoadingSkills || isLoadingCategories;
 
   const handleDomainToggle = (domainId: number) => {
     setFormData((prev) => ({
@@ -105,6 +125,7 @@ export function AdminSkills() {
         name: data.name,
         description: data.description,
         status: data.status,
+        category_id: Number(data.category_id),
       });
       const newSkillId = res.data?.data?.id;
 
@@ -118,7 +139,7 @@ export function AdminSkills() {
       queryClient.invalidateQueries({ queryKey: ["admin-skills"] });
       toast.success(t("admin.skillAdded", { defaultValue: "Skill created successfully" }));
       setIsAddModalOpen(false);
-      setFormData({ name: "", description: "", status: "active", domain_ids: [] });
+      setFormData({ name: "", description: "", status: "active", category_id: "", domain_ids: [] });
     },
     onError: (err: unknown) => {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -135,6 +156,7 @@ export function AdminSkills() {
         name: data.name,
         description: data.description,
         status: data.status,
+        category_id: Number(data.category_id),
       });
 
       // Find which domains are newly assigned and which are removed
@@ -202,6 +224,44 @@ export function AdminSkills() {
     },
   });
 
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string }) => {
+      await apiClient.post("/skills/categories", {
+        name: data.name,
+        description: data.description || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-skill-categories"] });
+      toast.success(t("admin.categoryAdded", { defaultValue: "Category created successfully" }));
+      setCategoryForm({ name: "", description: "" });
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast.error(
+        axiosErr.response?.data?.message ||
+          t("admin.categoryAddError", { defaultValue: "Failed to create category" }),
+      );
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/skills/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-skill-categories"] });
+      toast.success(t("admin.categoryDeleted", { defaultValue: "Category deleted successfully" }));
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+      toast.error(
+        axiosErr.response?.data?.message ||
+          t("admin.categoryDeleteError", { defaultValue: "Failed to delete category" }),
+      );
+    },
+  });
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createMutation.mutate(formData);
@@ -225,6 +285,7 @@ export function AdminSkills() {
       name: skill.name,
       description: skill.description || "",
       status: skill.status || "active",
+      category_id: skill.category_id ? String(skill.category_id) : "",
       domain_ids: existingDomains,
     });
     setIsEditModalOpen(true);
@@ -253,15 +314,27 @@ export function AdminSkills() {
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <Button
-            onClick={() => {
-              setFormData({ name: "", description: "", status: "active", domain_ids: [] });
-              setIsAddModalOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
-            {t("admin.addSkill", { defaultValue: "Add Skill" })}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setIsCategoriesModalOpen(true)}>
+              <BookOpen className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
+              {t("admin.manageCategories", { defaultValue: "Categories" })}
+            </Button>
+            <Button
+              onClick={() => {
+                setFormData({
+                  name: "",
+                  description: "",
+                  status: "active",
+                  category_id: "",
+                  domain_ids: [],
+                });
+                setIsAddModalOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
+              {t("admin.addSkill", { defaultValue: "Add Skill" })}
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -288,6 +361,9 @@ export function AdminSkills() {
                       {t("common.title", { defaultValue: "Title" })}
                     </th>
                     <th className="px-6 py-4 font-medium">
+                      {t("admin.category", { defaultValue: "Category" })}
+                    </th>
+                    <th className="px-6 py-4 font-medium">
                       {t("admin.domainsTitle", { defaultValue: "Domains" })}
                     </th>
                     <th className="px-6 py-4 font-medium">
@@ -308,6 +384,9 @@ export function AdminSkills() {
                             {skill.description}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {skill.category?.name || "-"}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
@@ -379,6 +458,26 @@ export function AdminSkills() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
+              {t("admin.category", { defaultValue: "Category" })}
+            </label>
+            <select
+              required
+              className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:border-primary"
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+            >
+              <option value="" disabled>
+                {t("admin.selectCategory", { defaultValue: "Select a category..." })}
+              </option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">
               {t("admin.domainsTitle", { defaultValue: "Domains" })}
             </label>
             <div className="flex flex-wrap gap-2 rounded-xl border p-3">
@@ -442,6 +541,26 @@ export function AdminSkills() {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("admin.category", { defaultValue: "Category" })}
+            </label>
+            <select
+              required
+              className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:border-primary"
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+            >
+              <option value="" disabled>
+                {t("admin.selectCategory", { defaultValue: "Select a category..." })}
+              </option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
@@ -511,6 +630,92 @@ export function AdminSkills() {
               {t("common.delete", { defaultValue: "Delete" })}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isCategoriesModalOpen}
+        onClose={() => {
+          if (!createCategoryMutation.isPending) {
+            setIsCategoriesModalOpen(false);
+            setCategoryForm({ name: "", description: "" });
+          }
+        }}
+        title={t("admin.manageCategories", { defaultValue: "Skill Categories" })}
+        size="lg"
+      >
+        <div className="space-y-6">
+          <div className="space-y-2">
+            {isLoadingCategories ? (
+              <div className="flex h-20 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("admin.noCategories", { defaultValue: "No categories yet." })}
+              </p>
+            ) : (
+              <ul className="divide-y divide-border rounded-xl border">
+                {categories.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
+                      {c.description ? (
+                        <p className="truncate text-xs text-muted-foreground">{c.description}</p>
+                      ) : null}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => deleteCategoryMutation.mutate(c.id)}
+                      disabled={deleteCategoryMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!categoryForm.name.trim()) return;
+              createCategoryMutation.mutate(categoryForm);
+            }}
+            className="space-y-3 rounded-xl border bg-muted/20 p-4"
+          >
+            <p className="text-sm font-medium">
+              {t("admin.addCategory", { defaultValue: "Add a category" })}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                required
+                placeholder={t("common.title", { defaultValue: "Title" })}
+                className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:border-primary sm:w-1/3"
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder={t("common.description", { defaultValue: "Description" })}
+                className="w-full flex-1 rounded-xl border bg-background px-3 py-2 outline-none focus:border-primary"
+                value={categoryForm.description}
+                onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+              />
+              <div className="flex shrink-0 justify-end">
+                <Button type="submit" disabled={createCategoryMutation.isPending}>
+                  {createCategoryMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin rtl:ml-2 rtl:mr-0" />
+                  )}
+                  {t("common.add", { defaultValue: "Add" })}
+                </Button>
+              </div>
+            </div>
+          </form>
         </div>
       </Modal>
     </DashboardLayout>

@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 export interface SkillDict {
   id: number;
   name: string;
+  category?: { id: number; name: string } | null;
 }
 
 export interface UserSkill {
@@ -57,6 +58,7 @@ export function SkillsPage() {
   const [skillDict, setSkillDict] = useState<SkillDict[]>([]);
   const [domains, setDomains] = useState<{ id: number; name: string }[]>([]);
   const [selectedDomainId, setSelectedDomainId] = useState<number | "">("");
+  const [domainSkillIds, setDomainSkillIds] = useState<number[] | null>(null);
 
   // We allow adding multiple skills at once before submitting
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
@@ -105,6 +107,7 @@ export function SkillsPage() {
   const resetAddForm = () => {
     setSelectedSkillIds([]);
     setSelectedDomainId("");
+    setDomainSkillIds(null);
   };
 
   const mappedSkills = skills.map((s) => ({
@@ -114,6 +117,14 @@ export function SkillsPage() {
     level: s.level,
   }));
   const rows = mappedSkills.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
+
+  // The domain filter narrows the picker; the full dict (with categories) stays the source.
+  const visibleSkills = domainSkillIds
+    ? skillDict.filter((s) => domainSkillIds.includes(s.id))
+    : skillDict;
+
+  const categoryNameFor = (skillId: number) =>
+    skillDict.find((d) => d.id === skillId)?.category?.name || null;
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,6 +196,13 @@ export function SkillsPage() {
       ),
     },
     {
+      key: "category",
+      header: t("admin.category", { defaultValue: "Category" }),
+      render: (s) => (
+        <span className="text-muted-foreground">{categoryNameFor(s.skill_id) || "—"}</span>
+      ),
+    },
+    {
       key: "level",
       header: t("common.level"),
       render: (s) => t(`common.${s.level}`),
@@ -243,6 +261,11 @@ export function SkillsPage() {
                       {s.name}
                     </h3>
                     <div className="flex flex-wrap gap-2 mt-1.5">
+                      {categoryNameFor(s.skill_id) ? (
+                        <span className="text-xs text-muted-foreground">
+                          {categoryNameFor(s.skill_id)}
+                        </span>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">
                         {t(`common.${s.level}`)}
                       </span>
@@ -287,13 +310,14 @@ export function SkillsPage() {
                     if (val) {
                       try {
                         const res = await apiClient.get(`/domains/${val}/skills`);
-                        setSkillDict(res.data?.data || []);
+                        const ids = (res.data?.data || []).map((s: { id: number }) => s.id);
+                        setDomainSkillIds(ids);
                       } catch (err) {
                         toast.error("Failed to load domain skills");
+                        setDomainSkillIds([]);
                       }
                     } else {
-                      const res = await apiClient.get("/skills?limit=1000");
-                      setSkillDict(res.data?.data || []);
+                      setDomainSkillIds(null);
                     }
                   }}
                   className="w-full appearance-none rounded-xl border bg-card p-2 pe-8 text-sm"
@@ -313,7 +337,7 @@ export function SkillsPage() {
               <Label>{t("skills.selectSkills", "Select Skills")}</Label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {selectedSkillIds.map((id) => {
-                  const s = skillDict.find((x) => x.id === id) || { name: "Unknown" };
+                  const s = skillDict.find((x) => x.id === id) || { name: "Unknown", category: null };
                   return (
                     <Badge
                       key={id}
@@ -321,6 +345,11 @@ export function SkillsPage() {
                       className="flex items-center gap-1 text-sm py-1"
                     >
                       {s.name}
+                      {s.category?.name ? (
+                        <span className="text-[10px] font-normal text-muted-foreground">
+                          ({s.category.name})
+                        </span>
+                      ) : null}
                       <XIcon
                         className="h-3.5 w-3.5 cursor-pointer hover:text-destructive transition-colors"
                         onClick={() => setSelectedSkillIds((prev) => prev.filter((p) => p !== id))}
@@ -347,10 +376,10 @@ export function SkillsPage() {
                     <CommandList>
                       <CommandEmpty>{t("projects.noSkillsFound", "No skills found.")}</CommandEmpty>
                       <CommandGroup>
-                        {skillDict.map((skill) => (
+                        {visibleSkills.map((skill) => (
                           <CommandItem
                             key={skill.id}
-                            value={skill.name}
+                            value={`${skill.name} ${skill.category?.name || ""}`}
                             onSelect={() => {
                               setSelectedSkillIds((prev) =>
                                 prev.includes(skill.id)
@@ -365,7 +394,14 @@ export function SkillsPage() {
                                 selectedSkillIds.includes(skill.id) ? "opacity-100" : "opacity-0",
                               )}
                             />
-                            {skill.name}
+                            <span className="flex flex-1 items-center justify-between gap-2">
+                              <span dir="auto">{skill.name}</span>
+                              {skill.category?.name ? (
+                                <span className="text-xs text-muted-foreground">
+                                  {skill.category.name}
+                                </span>
+                              ) : null}
+                            </span>
                           </CommandItem>
                         ))}
                       </CommandGroup>

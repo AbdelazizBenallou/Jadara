@@ -28,6 +28,8 @@ export function AdminDomains() {
 
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
+  const [subDomainForm, setSubDomainForm] = useState({ name: "", description: "" });
+  const [editingSubDomainId, setEditingSubDomainId] = useState<number | null>(null);
 
   const {
     data: domains = [],
@@ -52,8 +54,21 @@ export function AdminDomains() {
       ]);
       return {
         skills: skillsRes.data?.data || [],
-        reviewers: revRes.data?.data || [],
+        reviewers: revRes.data?.data?.reviewers || [],
       };
+    },
+    enabled: isViewModalOpen && !!selectedDomain,
+  });
+
+  const { data: subDomains = [], isLoading: loadingSubDomains } = useQuery({
+    queryKey: ["domain-sub-domains", selectedDomain?.id],
+    queryFn: async () => {
+      if (!selectedDomain) return [];
+      const res = await apiClient.get(
+        `/domains/sub-domains?domain_id=${selectedDomain.id}&limit=100`,
+      );
+      const data = res.data?.data?.data || res.data?.data || [];
+      return Array.isArray(data) ? data : [];
     },
     enabled: isViewModalOpen && !!selectedDomain,
   });
@@ -129,6 +144,66 @@ export function AdminDomains() {
     },
   });
 
+  const saveSubDomainMutation = useMutation({
+    mutationFn: async (payload: { id?: number; name: string; description: string }) => {
+      if (payload.id) {
+        await apiClient.patch(`/domains/sub-domains/${payload.id}`, {
+          name: payload.name,
+          description: payload.description || null,
+        });
+      } else {
+        if (!selectedDomain) throw new Error("No domain selected");
+        await apiClient.post("/domains/sub-domains", {
+          name: payload.name,
+          description: payload.description || undefined,
+          domain_id: selectedDomain.id,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["domain-sub-domains", selectedDomain?.id] });
+      toast.success(t("admin.subDomainSaved", { defaultValue: "Sub-domain saved successfully" }));
+      setSubDomainForm({ name: "", description: "" });
+      setEditingSubDomainId(null);
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast.error(
+        axiosErr.response?.data?.message ||
+          t("admin.subDomainSaveError", { defaultValue: "Failed to save sub-domain" }),
+      );
+    },
+  });
+
+  const deleteSubDomainMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/domains/sub-domains/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["domain-sub-domains", selectedDomain?.id] });
+      toast.success(
+        t("admin.subDomainDeleted", { defaultValue: "Sub-domain deleted successfully" }),
+      );
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+      toast.error(
+        axiosErr.response?.data?.message ||
+          t("admin.subDomainDeleteError", { defaultValue: "Failed to delete sub-domain" }),
+      );
+    },
+  });
+
+  const handleSubDomainSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subDomainForm.name.trim()) return;
+    saveSubDomainMutation.mutate({
+      id: editingSubDomainId ?? undefined,
+      name: subDomainForm.name,
+      description: subDomainForm.description,
+    });
+  };
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createMutation.mutate(formData);
@@ -147,6 +222,8 @@ export function AdminDomains() {
 
   const openViewModal = (domain: Domain) => {
     setSelectedDomain(domain);
+    setSubDomainForm({ name: "", description: "" });
+    setEditingSubDomainId(null);
     setIsViewModalOpen(true);
   };
 
@@ -400,14 +477,15 @@ export function AdminDomains() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         title={selectedDomain?.name || ""}
+        size="lg"
       >
         {loadingDetails ? (
           <div className="flex h-32 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-6">
-            <div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="sm:col-span-2">
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                 {t("common.description", { defaultValue: "Description" })}
               </h3>
@@ -459,6 +537,112 @@ export function AdminDomains() {
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">-</p>
               )}
+            </div>
+            <div className="sm:col-span-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                {t("admin.subDomainsTitle", { defaultValue: "Sub-domains" })}
+              </h3>
+              {loadingSubDomains ? (
+                <div className="mt-2 flex h-12 items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : subDomains.length > 0 ? (
+                <ul className="mt-2 divide-y divide-border rounded-xl border">
+                  {subDomains.map(
+                    (sd: { id: number; name: string; description?: string | null }) => (
+                      <li key={sd.id} className="flex items-center justify-between gap-3 p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{sd.name}</p>
+                          {sd.description ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {sd.description}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingSubDomainId(sd.id);
+                              setSubDomainForm({
+                                name: sd.name,
+                                description: sd.description || "",
+                              });
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => deleteSubDomainMutation.mutate(sd.id)}
+                            disabled={deleteSubDomainMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">-</p>
+              )}
+
+              <form
+                onSubmit={handleSubDomainSubmit}
+                className="mt-3 rounded-xl border bg-muted/20 p-3"
+              >
+                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {editingSubDomainId
+                    ? t("admin.editSubDomain", { defaultValue: "Edit sub-domain" })
+                    : t("admin.addSubDomain", { defaultValue: "Add sub-domain" })}
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                  <input
+                    type="text"
+                    required
+                    placeholder={t("common.title", { defaultValue: "Title" })}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:border-primary sm:w-1/3"
+                    value={subDomainForm.name}
+                    onChange={(e) => setSubDomainForm({ ...subDomainForm, name: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    placeholder={t("common.description", { defaultValue: "Description" })}
+                    className="w-full flex-1 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    value={subDomainForm.description}
+                    onChange={(e) =>
+                      setSubDomainForm({ ...subDomainForm, description: e.target.value })
+                    }
+                  />
+                  <div className="flex shrink-0 justify-end gap-2">
+                    {editingSubDomainId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingSubDomainId(null);
+                          setSubDomainForm({ name: "", description: "" });
+                        }}
+                      >
+                        {t("common.cancel", { defaultValue: "Cancel" })}
+                      </Button>
+                    )}
+                    <Button type="submit" size="sm" disabled={saveSubDomainMutation.isPending}>
+                      {saveSubDomainMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin rtl:ml-2 rtl:mr-0" />
+                      )}
+                      {editingSubDomainId
+                        ? t("common.update", { defaultValue: "Update" })
+                        : t("common.add", { defaultValue: "Add" })}
+                    </Button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         )}

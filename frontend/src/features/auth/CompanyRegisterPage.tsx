@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordField } from "@/components/common/PasswordField";
 import { apiClient } from "@/api/client";
 import { AuthShell } from "./AuthShell";
+import { isStrongPassword } from "@/lib/utils";
 import { CheckCircle2, UploadCloud } from "lucide-react";
 
 export function CompanyRegisterPage() {
@@ -33,9 +34,26 @@ export function CompanyRegisterPage() {
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
-    if (step === 1 && password !== confirm) {
-      setError(t("auth.passwordMismatch", { defaultValue: "Passwords do not match" }));
-      return;
+    if (step === 1) {
+      if (password.length < 8) {
+        setError(
+          t("auth.passwordTooShort8", { defaultValue: "Password must be at least 8 characters" }),
+        );
+        return;
+      }
+      if (!isStrongPassword(password)) {
+        setError(
+          t("auth.passwordWeak", {
+            defaultValue:
+              "Password must contain an uppercase letter, a lowercase letter and a number",
+          }),
+        );
+        return;
+      }
+      if (password !== confirm) {
+        setError(t("auth.passwordMismatch", { defaultValue: "Passwords do not match" }));
+        return;
+      }
     }
     setError("");
     setStep((s) => (s + 1) as 1 | 2 | 3);
@@ -47,23 +65,17 @@ export function CompanyRegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const rolesRes = await apiClient.get("/roles");
-      const companyRole = rolesRes.data.data.find(
-        (r: any) => r.name === "Company" || r.name === "company",
-      );
-      if (!companyRole) throw new Error("Company role not found");
-
       const formData = new FormData();
+      formData.append("role", "Company");
       formData.append("email", email);
       formData.append("password", password);
-      formData.append("first_name", name);
-      formData.append("last_name", sector || "N/A");
-      formData.append("role_id", companyRole.id.toString());
+      formData.append("first_name", name.trim() || "Company");
+      formData.append("last_name", sector.trim() || "N/A");
       if (file) {
         formData.append("files", file);
       }
 
-      await apiClient.post("/auth/register", formData, {
+      await apiClient.post("/registration-demands", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

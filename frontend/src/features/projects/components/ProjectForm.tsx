@@ -6,23 +6,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
 import type { Project } from "@/types/project";
 import { Link } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  Save,
-  Loader2,
-  Check,
-  ChevronsUpDown,
-  X as XIcon,
-  ChevronDown,
-} from "lucide-react";
+import { Save, Loader2, ChevronDown } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
+export interface ProjectFormData {
+  title: string;
+  description?: string;
+  github_url?: string | null;
+  live_url?: string | null;
+  figma_url?: string | null;
+  sub_domain_id?: number | null;
+}
+
 interface ProjectFormProps {
   initialData?: Partial<Project>;
-  onSubmit: (
-    data: Omit<Project, "id" | "created_at" | "updated_at" | "status" | "evidence">,
-  ) => void;
+  onSubmit: (data: ProjectFormData) => void;
   isSubmitting?: boolean;
   submitLabel?: string;
 }
@@ -37,11 +36,13 @@ export function ProjectForm({
 
   const [domains, setDomains] = useState<{ id: number; name: string }[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(true);
+  const [subDomains, setSubDomains] = useState<{ id: number; name: string }[]>([]);
+  const [subDomainsLoading, setSubDomainsLoading] = useState(false);
 
   useEffect(() => {
     apiClient
       .get("/domains?limit=100")
-      .then((res: any) => setDomains(res.data.data.domains || res.data.data))
+      .then((res: any) => setDomains(res.data.data || []))
       .catch(() => toast.error("Failed to load domains"))
       .finally(() => setDomainsLoading(false));
   }, []);
@@ -53,13 +54,37 @@ export function ProjectForm({
   const [figma_url, setFigmaUrl] = useState(initialData?.figma_url || "");
 
   const [selectedDomainId, setSelectedDomainId] = useState<number | "">(
-    initialData?.domain_id || "",
+    initialData?.sub_domain?.domain?.id ?? initialData?.domain?.id ?? "",
   );
+  const [selectedSubDomainId, setSelectedSubDomainId] = useState<number | "">(
+    initialData?.sub_domain_id ?? "",
+  );
+
+  useEffect(() => {
+    if (selectedDomainId === "") {
+      setSubDomains([]);
+      return;
+    }
+    let active = true;
+    setSubDomainsLoading(true);
+    apiClient
+      .get(`/domains/sub-domains?domain_id=${selectedDomainId}&limit=100`)
+      .then((res: any) => {
+        if (active) setSubDomains(res.data.data || []);
+      })
+      .catch(() => toast.error("Failed to load sub-domains"))
+      .finally(() => {
+        if (active) setSubDomainsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedDomainId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDomainId) {
-      toast.error(t("projects.requireDomain", "Please select a domain"));
+    if (!selectedSubDomainId) {
+      toast.error(t("projects.requireDomain", "Please select a sub-domain"));
       return;
     }
     onSubmit({
@@ -68,7 +93,7 @@ export function ProjectForm({
       github_url: (github_url.trim() || (initialData ? null : undefined)) as any,
       live_url: (live_url.trim() || (initialData ? null : undefined)) as any,
       figma_url: (figma_url.trim() || (initialData ? null : undefined)) as any,
-      domain_id: Number(selectedDomainId),
+      sub_domain_id: Number(selectedSubDomainId),
     });
   };
 
@@ -136,7 +161,7 @@ export function ProjectForm({
           />
         </div>
 
-        <div className="space-y-2 sm:col-span-2 mt-2">
+        <div className="space-y-2">
           <Label>{t("projects.domain", "Project Domain")} *</Label>
           {domainsLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -146,7 +171,10 @@ export function ProjectForm({
             <div className="relative">
               <select
                 value={selectedDomainId}
-                onChange={(e) => setSelectedDomainId(e.target.value ? Number(e.target.value) : "")}
+                onChange={(e) => {
+                  setSelectedDomainId(e.target.value ? Number(e.target.value) : "");
+                  setSelectedSubDomainId("");
+                }}
                 className="w-full appearance-none rounded-xl border bg-card p-2.5 pe-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 required
               >
@@ -156,6 +184,37 @@ export function ProjectForm({
                 {domains.map((domain) => (
                   <option key={domain.id} value={domain.id}>
                     {domain.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute end-3 top-3 h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("projects.subDomain", "Sub-Domain")} *</Label>
+          {subDomainsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+            </div>
+          ) : (
+            <div className="relative">
+              <select
+                value={selectedSubDomainId}
+                onChange={(e) =>
+                  setSelectedSubDomainId(e.target.value ? Number(e.target.value) : "")
+                }
+                className="w-full appearance-none rounded-xl border bg-card p-2.5 pe-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                required
+                disabled={!selectedDomainId}
+              >
+                <option value="" disabled>
+                  {t("projects.selectSubDomain", "Select a sub-domain...")}
+                </option>
+                {subDomains.map((subDomain) => (
+                  <option key={subDomain.id} value={subDomain.id}>
+                    {subDomain.name}
                   </option>
                 ))}
               </select>

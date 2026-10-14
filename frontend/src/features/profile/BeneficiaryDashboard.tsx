@@ -50,9 +50,9 @@ export function BeneficiaryDashboard() {
         setProjects(projRes.data.data || []);
         setSkills(skillRes.data.data || []);
         setProfile(profileRes.data.data);
-        setWorkExperience(workRes.data.data?.work_experience || []);
-        setEducation(eduRes.data.data?.education || []);
-        setLanguages(langRes.data.data?.languages || []);
+        setWorkExperience(workRes.data.data || []);
+        setEducation(eduRes.data.data || []);
+        setLanguages(langRes.data.data || []);
         setPdfStatus(pdfRes.data?.data);
       } catch (err: any) {
         toast.error(err.response?.data?.message || "Failed to fetch dashboard data");
@@ -70,7 +70,7 @@ export function BeneficiaryDashboard() {
   return (
     <DashboardLayout
       role="beneficiary"
-      title={t("dash.welcome", { name: profile?.first_name || user?.name || "" })}
+      title={t("dash.welcome", { name: profile?.profiles?.first_name || user?.name || "" })}
       subtitle={t("dash.sub")}
     >
       {loading ? (
@@ -173,7 +173,7 @@ export function BeneficiaryDashboard() {
                 <div className="flex flex-col gap-3">
                   {skills.slice(0, 3).map((s) => (
                     <div
-                      key={s.id}
+                      key={s.skill_id}
                       className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 transition-colors hover:bg-muted/30"
                     >
                       <div className="flex items-center gap-3">
