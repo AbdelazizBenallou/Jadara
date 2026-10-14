@@ -62,10 +62,10 @@ export function LanguagesSection({ onUpdate }: LanguagesSectionProps) {
   const fetchData = async () => {
     try {
       const [langsRes, userLangsRes] = await Promise.all([
-        apiClient.get("/languages"),
+        apiClient.get("/languages?limit=100"),
         apiClient.get("/users/me/languages"),
       ]);
-      setAvailableLanguages(langsRes.data.data.languages || langsRes.data.data || []);
+      setAvailableLanguages(langsRes.data.data || []);
       setUserLanguages(userLangsRes.data.data || []);
     } catch (err) {
       console.error(err);
@@ -116,7 +116,7 @@ export function LanguagesSection({ onUpdate }: LanguagesSectionProps) {
       setIsDialogOpen(false);
       onUpdate?.();
       const res = await apiClient.get("/users/me/languages");
-      setUserLanguages(res.data.data.languages || []);
+      setUserLanguages(res.data.data || []);
     } catch (err: any) {
       toast.error(err.response?.data?.message || t("error.title"));
     } finally {
@@ -130,7 +130,7 @@ export function LanguagesSection({ onUpdate }: LanguagesSectionProps) {
       await apiClient.delete(`/users/me/languages/${id}`);
       toast.success(t("common.deletedSuccess"));
       const res = await apiClient.get("/users/me/languages");
-      setUserLanguages(res.data.data.languages || []);
+      setUserLanguages(res.data.data || []);
     } catch (err) {
       toast.error(t("error.title"));
     }

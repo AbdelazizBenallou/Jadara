@@ -90,9 +90,9 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
     try {
       const payload = new FormData();
       payload.append("name", formData.name);
-      payload.append("issuer", formData.issuer);
-      payload.append("issue_date", formData.issue_date);
-      payload.append("expiry_date", formData.expiry_date);
+      if (formData.issuer.trim()) payload.append("issuer", formData.issuer.trim());
+      if (formData.issue_date) payload.append("issue_date", formData.issue_date);
+      if (formData.expiry_date) payload.append("expiry_date", formData.expiry_date);
       if (file) payload.append("file", file);
 
       if (editingId) {

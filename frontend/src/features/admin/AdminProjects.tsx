@@ -16,15 +16,18 @@ type ProjectType = {
   title: string;
   status: string;
   created_at: string;
-  user?: {
-    first_name: string;
-    last_name: string;
+  domain?: { id: number; name: string } | null;
+  sub_domain?: { id: number; name: string } | null;
+  sub_domains?: { id: number; name: string } | null;
+  users?: {
+    first_name?: string;
+    last_name?: string;
     email: string;
-    profile?: {
-      first_name: string;
-      last_name: string;
-    };
-  };
+    profiles?: {
+      first_name?: string | null;
+      last_name?: string | null;
+    } | null;
+  } | null;
   skills?: { name: string }[];
 };
 
@@ -107,7 +110,7 @@ export function AdminProjects() {
     const s = search.toLowerCase();
     return (
       project.title.toLowerCase().includes(s) ||
-      project.user?.email?.toLowerCase().includes(s) ||
+      project.users?.email?.toLowerCase().includes(s) ||
       project.status.toLowerCase().includes(s)
     );
   });
@@ -115,8 +118,9 @@ export function AdminProjects() {
   // Safe names
   const getProjectUserName = (u: any) => {
     if (!u) return "Unknown";
-    const fname = u.first_name || u.profile?.first_name || "";
-    const lname = u.last_name || u.profile?.last_name || "";
+    const prof = u.profiles || u.profile;
+    const fname = u.first_name || prof?.first_name || "";
+    const lname = u.last_name || prof?.last_name || "";
     if (!fname && !lname) return "Unnamed User";
     return `${fname} ${lname}`.trim();
   };
@@ -156,6 +160,9 @@ export function AdminProjects() {
                     {t("common.beneficiary", { defaultValue: "Beneficiary" })}
                   </th>
                   <th className="px-6 py-4 font-medium">
+                    {t("admin.domain", { defaultValue: "Domain" })}
+                  </th>
+                  <th className="px-6 py-4 font-medium">
                     {t("common.status", { defaultValue: "Status" })}
                   </th>
                   <th className="px-6 py-4 font-medium">
@@ -169,13 +176,13 @@ export function AdminProjects() {
               <tbody className="divide-y divide-border">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center">
+                    <td colSpan={6} className="p-8 text-center">
                       <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                     </td>
                   </tr>
                 ) : filteredProjects.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
                       {t("admin.noProjectsFound", { defaultValue: "No projects found." })}
                     </td>
                   </tr>
@@ -195,10 +202,20 @@ export function AdminProjects() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-medium text-foreground">
-                            {getProjectUserName(project.user)}
+                            {getProjectUserName(project.users)}
                           </span>
                           <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                            {project.user?.email || ""}
+                            {project.users?.email || ""}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">
+                            {project.domain?.name || "—"}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">
+                            {project.sub_domain?.name || project.sub_domains?.name || "—"}
                           </span>
                         </div>
                       </td>
@@ -259,7 +276,26 @@ export function AdminProjects() {
                   {t("common.beneficiary")}
                 </h3>
                 <p className="mt-1 text-sm font-medium">
-                  {getProjectUserName(projectDetails.user)}
+                  {getProjectUserName(projectDetails.users)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-muted-foreground">
+                  {t("admin.domain", { defaultValue: "Domain" })}
+                </h3>
+                <p className="mt-1 text-sm font-medium">
+                  {projectDetails.domain?.name || "—"}
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-muted-foreground">
+                  {t("admin.subDomain", { defaultValue: "Sub-domain" })}
+                </h3>
+                <p className="mt-1 text-sm font-medium">
+                  {projectDetails.sub_domain?.name || projectDetails.sub_domains?.name || "—"}
                 </p>
               </div>
             </div>
@@ -296,25 +332,37 @@ export function AdminProjects() {
                   Evidence / Documents
                 </h3>
                 <div className="space-y-2">
-                  {projectDetails.evidence.map((ev: any) => (
-                    <div
-                      key={ev.id}
-                      className="flex items-center justify-between p-3 border rounded-lg bg-card"
-                    >
-                      <span className="text-sm font-medium truncate max-w-[300px]">
-                        {ev.document?.name || "Document"}
-                      </span>
-                      <Button variant="ghost" size="sm" asChild>
-                        <a
-                          href={ev.document?.download_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Download className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" /> Download
-                        </a>
-                      </Button>
-                    </div>
-                  ))}
+                  {projectDetails.evidence.map((ev: any) => {
+                    const external =
+                      typeof ev.external_url === "string" && ev.external_url.startsWith("http")
+                        ? ev.external_url
+                        : null;
+                    const url = ev.download_url || external;
+                    return (
+                      <div
+                        key={ev.id}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium truncate max-w-[300px]">
+                            {ev.title || "Evidence"}
+                          </span>
+                          {ev.type && (
+                            <span className="text-xs text-muted-foreground capitalize">
+                              {String(ev.type).replace(/_/g, " ")}
+                            </span>
+                          )}
+                        </div>
+                        {url && (
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={url} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" /> Download
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

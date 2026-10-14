@@ -19,7 +19,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, isStrongPassword } from "@/lib/utils";
 import type { AxiosError } from "axios";
 
 interface Domain {
@@ -106,6 +106,16 @@ export function ReviewerRegisterPage() {
       return;
     }
 
+    if (!isStrongPassword(password)) {
+      setError(
+        t("auth.passwordWeak", {
+          defaultValue:
+            "Password must contain an uppercase letter, a lowercase letter and a number",
+        }),
+      );
+      return;
+    }
+
     if (password !== confirm) {
       setError(t("auth.passwordMismatch", { defaultValue: "Passwords do not match" }));
       return;
@@ -133,31 +143,25 @@ export function ReviewerRegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const rolesRes = await apiClient.get("/roles");
-      const roles = rolesRes.data.data as { id: number; name: string }[];
-      const revRole = roles.find((r) => r.name.toLowerCase() === "reviewer");
-
-      if (!revRole) throw new Error("Reviewer role not found on server");
-
       const names = name.trim().split(" ");
       const first_name = names[0] || "Unknown";
       const last_name = names.slice(1).join(" ") || "Unknown";
 
       const formData = new FormData();
+      formData.append("role", "Reviewer");
       formData.append("email", email);
       formData.append("password", password);
       formData.append("first_name", first_name);
       formData.append("last_name", last_name);
       formData.append("phone", phone);
-      formData.append("role_id", String(revRole.id));
 
       selectedDomains.forEach((id) => {
-        formData.append("domain_ids[]", String(id));
+        formData.append("domain_ids", String(id));
       });
 
       formData.append("files", file);
 
-      await apiClient.post("/auth/register", formData, {
+      await apiClient.post("/registration-demands", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

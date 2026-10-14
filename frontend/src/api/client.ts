@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// Assume the backend is hosted at the same origin + /api, or read from env.
-// For local dev, Vite proxy can handle /api -> localhost:3000
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// The browser talks to the API host directly; the client appends /v1.
+// Dev and production both use http://localhost:3001 (see README → frontend/.env).
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export const apiClient = axios.create({
   baseURL: `${API_URL}/v1`,

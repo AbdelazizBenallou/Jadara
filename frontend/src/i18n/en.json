@@ -277,6 +277,7 @@
     "passwordMismatch": "Passwords do not match",
     "passwordTooShort": "Password is too short (min 6 chars)",
     "passwordTooShort8": "Password must be at least 8 characters",
+    "passwordWeak": "Password must contain an uppercase letter, a lowercase letter and a number",
     "invalidEmail": "Please enter a valid email address",
     "nameRequired": "Full Name is required",
     "phoneRequired": "Phone number is required",
