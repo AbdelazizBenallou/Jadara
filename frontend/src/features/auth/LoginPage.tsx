@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,38 @@ import { AuthShell } from "./AuthShell";
 
 export function LoginPage() {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper to extract a validated safe redirect destination
+  const getRedirectDestination = (defaultDest: string): string => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get("redirect");
+      if (
+        redirectParam &&
+        redirectParam.startsWith("/") &&
+        !redirectParam.startsWith("//") &&
+        !redirectParam.startsWith("/login")
+      ) {
+        return redirectParam;
+      }
+    }
+    return defaultDest;
+  };
+
+  // If user is already authenticated, redirect away from /login
+  useEffect(() => {
+    if (!isLoading && user) {
+      const roleKey = user.role.toLowerCase() as Role;
+      const defaultDest = ROLE_HOME[roleKey] || "/dashboard";
+      navigate({ to: getRedirectDestination(defaultDest) });
+    }
+  }, [user, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +58,10 @@ export function LoginPage() {
       if (loggedInUser && loggedInUser.role) {
         // Map backend role (e.g. 'Admin', 'Beneficiary') to frontend route constants
         const roleKey = loggedInUser.role.toLowerCase() as Role;
-        navigate({ to: ROLE_HOME[roleKey] || "/dashboard" });
+        const defaultDest = ROLE_HOME[roleKey] || "/dashboard";
+        navigate({ to: getRedirectDestination(defaultDest) });
       } else {
-        navigate({ to: "/dashboard" });
+        navigate({ to: getRedirectDestination("/dashboard") });
       }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

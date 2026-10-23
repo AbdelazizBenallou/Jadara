@@ -15,7 +15,10 @@ function DashboardLayout() {
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      navigate({ to: "/login" });
+      navigate({
+        to: "/login",
+        search: { redirect: location.pathname },
+      });
     } else if (user.role !== "beneficiary") {
       // If not beneficiary, they can ONLY access /dashboard/settings
       if (!location.pathname.startsWith("/dashboard/settings")) {
