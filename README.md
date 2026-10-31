@@ -601,6 +601,71 @@ docker compose exec api npx prisma studio                     # Prisma Studio
 > rebuild (`docker compose build api && docker compose up -d api`). For live-reload
 > development prefer **Option A**.
 
+#### Optional — CV translation with LibreTranslate
+
+The CV PDF feature can auto-translate a beneficiary's CV between the languages it
+renders (`EN`, `FR`). Translation is **off by default** and is powered by a
+self-hosted [LibreTranslate](https://libretranslate.com) container that is already
+declared as the `libretranslate` service (`jadara_translator`) in
+`docker-compose.yml`.
+
+```bash
+# 1. Start the translator. The first run downloads the en/fr models (~1–2 min).
+docker compose up -d libretranslate
+
+# 2. It is only READY when this returns 200 with a JSON array of languages.
+curl http://localhost:5000/languages
+# [{"code":"en",...},{"code":"fr",...}]
+
+# 3. Follow model download / logs while it warms up
+docker compose logs -f libretranslate
+
+# 4. Turn the feature on. The api service only reads backend/.env, so add these
+#    two lines there, then recreate the container:
+#      CV_TRANSLATION_ENABLED=true
+#      LIBRETRANSLATE_URL=http://libretranslate:5000
+docker compose up -d api
+
+# Stop / cleanup
+docker compose stop libretranslate
+docker compose down            # keeps the downloaded model volume
+docker compose down -v         # also deletes the downloaded models
+```
+
+You can also run it standalone (equivalent to the compose service) and hit its
+API directly:
+
+```bash
+docker run -p 5000:5000 \
+  -e LT_LOAD_ONLY=en,fr \
+  -v libretranslate_models:/home/libretranslate/.local \
+  libretranslate/libretranslate:latest
+
+curl -s http://localhost:5000/translate \
+  -H "Content-Type: application/json" \
+  -d '{"q":"Backend Developer","source":"en","target":"fr","format":"text"}'
+# {"translatedText":"Développeur de moteur"}
+```
+
+**How it works with the backend** (`src/modules/cv-pdf/`):
+
+- The in-process CV worker (`cv-pdf.worker.ts`) calls `translateSnapshot()`
+  (`cv-pdf.translate.ts`) **before** rendering the LaTeX template.
+- The **source language is auto-detected** from the user-typed content
+  (`buildSourceText()` + `detectLanguage()`), then persisted on the job. If the
+  requested target equals the source, nothing is translated.
+- Only **free-text fields** are translated — bio, job title, work/education
+  descriptions, project title/description and activity title. Names, companies,
+  schools, issuers, URLs and dates are left untouched.
+- Results are cached per item in the `cv_translations` table (keyed by
+  `source_hash` + `target_lang`), so re-generating a CV with unchanged text never
+  calls LibreTranslate again.
+- If the service is down and `CV_TRANSLATION_REQUIRED=false`, the worker logs a
+  warning and falls back to the **source text** (the PDF still generates). Set
+  `CV_TRANSLATION_REQUIRED=true` to fail the job instead.
+- The API talks to it at `LIBRETRANSLATE_URL` — `http://localhost:5000` on the
+  host, or `http://libretranslate:5000` when the API runs inside Compose.
+
 ---
 
 ## Default Accounts
@@ -657,6 +722,26 @@ value or a short JWT secret prints `❌ Invalid environment variables:` and exit
 
 Buckets `avatars`, `documents`, `evidence`, `certifications` are created
 automatically at startup.
+
+### `backend/.env` — CV generation & translation
+
+The CV feature runs on an **in-process, DB-backed worker** (no Redis) and can
+optionally translate the CV with self-hosted **LibreTranslate** (see
+[Optional — CV translation with LibreTranslate](#optional--cv-translation-with-libretranslate)).
+
+| Variable | Required | Default | Purpose |
+|---|:---:|---|---|
+| `MINIO_PRESIGNED_EXPIRY` | — | `3600` | TTL (seconds) of `download_url` presigned links |
+| `CV_WORKER_ENABLED` | — | `true` | Enable the background CV job worker |
+| `CV_WORKER_INTERVAL_MS` | — | `3000` | Poll interval between queue sweeps |
+| `CV_WORKER_CONCURRENCY` | — | `2` | Jobs processed in parallel |
+| `CV_JOB_STALE_MS` | — | `300000` | Requeue jobs stuck in `processing` longer than this |
+| `CV_JOB_MAX_ATTEMPTS` | — | `3` | Attempts before a job is marked `failed` |
+| `CV_TRANSLATION_ENABLED` | — | `false` | Master switch for LibreTranslate translation |
+| `CV_TRANSLATION_REQUIRED` | — | `false` | `true` = fail the job if translation fails (no source-text fallback) |
+| `LIBRETRANSLATE_URL` | — | `http://localhost:5000` | LibreTranslate base URL (`http://libretranslate:5000` in Compose) |
+| `LIBRETRANSLATE_API_KEY` | — | — | Optional key if the instance requires auth |
+| `CV_TRANSLATION_TIMEOUT_MS` | — | `8000` | Per-request timeout when calling LibreTranslate |
 
 ### `backend/.env` — e-mail (SMTP)
 

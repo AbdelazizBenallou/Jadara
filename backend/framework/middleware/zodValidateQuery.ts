@@ -14,9 +14,15 @@ export const zodValidateQuery = (schema: ZodSchema) => {
       });
       return;
     }
-    const query = req.query as Record<string, unknown>;
-    for (const key of Object.keys(query)) delete query[key];
-    Object.assign(query, result.data);
+    // In Express 5, req.query is a lazy getter that returns a fresh object on
+    // every access, so mutating it does not persist. Redefine it as a plain
+    // writable property holding the validated (coerced, defaulted) data.
+    Object.defineProperty(req, "query", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: result.data,
+    });
     next();
   };
 };

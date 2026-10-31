@@ -49,7 +49,9 @@ export function CvBuilderPage() {
           apiClient.get("/users/me/education"),
           apiClient.get("/users/me/certifications"),
           apiClient.get("/users/me/languages"),
-          apiClient.get("/users/me/pdf-status").catch(() => ({ data: { data: null } })),
+          apiClient
+            .get("/users/me/pdf-status?all=true")
+            .catch(() => ({ data: { data: { languages: [] } } })),
         ]);
 
       setProfile(profileRes.data.data?.profiles || profileRes.data.data?.profile || {});
@@ -59,7 +61,8 @@ export function CvBuilderPage() {
       setEducation(eduRes.data.data || []);
       setCertifications(certRes.data.data || []);
       setLanguages(langRes.data.data || []);
-      setPdfStatus(pdfRes.data?.data);
+      const statusList: any[] = pdfRes.data?.data?.languages ?? [];
+      setPdfStatus(statusList.find((s) => s.language === "EN") || statusList[0] || null);
     } catch (err) {
       toast.error(t("error.title"));
     } finally {
@@ -71,17 +74,56 @@ export function CvBuilderPage() {
     fetchCvData();
   }, [fetchCvData]);
 
+  const pollPdfStatus = useCallback(
+    async (remaining = 15) => {
+      for (let i = 0; i < remaining; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        try {
+          const res = await apiClient.get("/users/me/pdf-status?all=true");
+          const list: any[] = res.data?.data?.languages ?? [];
+          const status = list.find((s) => s.language === "EN") || list[0];
+          if (!status) continue;
+
+          if (status.status === "completed" && status.download_url) {
+            setPdfStatus(status);
+            toast.success(t("cv.generated"));
+            return;
+          }
+          if (status.status === "failed") {
+            setPdfStatus(status);
+            toast.error(status.error_message || t("error.desc"));
+            return;
+          }
+          // queued / processing / superseded -> reflect live status and keep polling
+          setPdfStatus(status);
+        } catch {
+          // ignore transient polling errors and keep trying
+        }
+      }
+    },
+    [t],
+  );
+
   const handleGeneratePdf = async () => {
     setGenerating(true);
     try {
       const res = await apiClient.post("/users/me/pdf-generate");
-      const { status, missing_fields } = res.data.data;
+      const jobs: { status: string; download_url: string | null; language: string }[] =
+        res.data.data?.jobs ?? [];
+      const ready = jobs.find((job) => job.status === "completed" && job.download_url);
 
-      if (status === "incomplete") {
-        toast.error(`${t("cv.incompleteProfile")}${missing_fields.join(", ")}`);
-      } else {
+      if (ready) {
+        setPdfStatus({
+          status: "completed",
+          download_url: ready.download_url,
+          language: ready.language,
+        });
         toast.success(t("cv.generated"));
-        fetchCvData(); // Refresh to get latest download URL
+        fetchCvData();
+      } else {
+        setPdfStatus({ status: "queued" });
+        toast.success(t("cv.generating", "Generating your CV…"));
+        await pollPdfStatus();
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || t("error.desc"));
@@ -102,14 +144,14 @@ export function CvBuilderPage() {
     );
   }
 
-  // --- Readiness Calculation ---
+  // --- Completeness (informational only — the backend treats every section as optional) ---
   const readinessChecks = [
     { label: t("cv.personalInfo"), complete: !!profile?.first_name && !!profile?.location },
     { label: t("cv.profSummary"), complete: !!profile?.bio },
-    { label: t("sidebar.skills"), complete: skills.length > 0, mandatory: true },
-    { label: t("exp.work"), complete: workExperience.length > 0, mandatory: true },
-    { label: t("profile.educationLevel"), complete: education.length > 0, mandatory: true },
-    { label: t("domain.language"), complete: languages.length > 0, mandatory: true },
+    { label: t("sidebar.skills"), complete: skills.length > 0 },
+    { label: t("exp.work"), complete: workExperience.length > 0 },
+    { label: t("profile.educationLevel"), complete: education.length > 0 },
+    { label: t("domain.language"), complete: languages.length > 0 },
     { label: t("exp.projects"), complete: projects.length > 0 },
     { label: t("docs.certificate"), complete: certifications.length > 0 },
   ];
@@ -118,8 +160,10 @@ export function CvBuilderPage() {
     (readinessChecks.filter((c) => c.complete).length / readinessChecks.length) * 100,
   );
 
-  const missingMandatory = readinessChecks.some((c) => c.mandatory && !c.complete);
-  const isGenerated = pdfStatus?.status === "completed" && pdfStatus?.download_url;
+  const status = pdfStatus?.status as string | undefined;
+  const isGenerated = status === "completed" && !!pdfStatus?.download_url;
+  const isInProgress = status === "queued" || status === "processing";
+  const isFailed = status === "failed";
 
   return (
     <DashboardLayout role="beneficiary" title={t("cv.title")} subtitle={t("cv.subtitle")}>
@@ -159,53 +203,66 @@ export function CvBuilderPage() {
             </div>
             <div>
               <h3 className="font-bold text-lg">{t("cv.cvReadiness")}</h3>
-              {missingMandatory ? (
-                <p className="text-sm text-destructive">{t("cv.missingMandatory")}</p>
+              {isInProgress ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("cv.generating", "Generating your CV…")}
+                </p>
+              ) : isFailed ? (
+                <p className="text-sm text-destructive">
+                  {pdfStatus?.error_message || t("error.desc")}
+                </p>
               ) : (
-                <p className="text-sm text-muted-foreground">{t("cv.profileReady")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("cv.allSectionsOptional", {
+                    defaultValue: "All sections are optional — you can generate your CV anytime.",
+                  })}
+                </p>
               )}
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            {!isGenerated ? (
-              <Button
-                onClick={handleGeneratePdf}
-                disabled={generating || missingMandatory}
-                className="gap-2"
-              >
-                {generating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <FileText className="h-4 w-4" />
-                )}
-                {t("cv.generateCv")}
-              </Button>
-            ) : (
-              <Button asChild className="gap-2">
+            {isGenerated && (
+              <Button asChild variant="outline" className="gap-2">
                 <a href={pdfStatus.download_url} target="_blank" rel="noopener noreferrer">
                   <Download className="h-4 w-4" />
                   {t("cv.downloadPdf")}
                 </a>
               </Button>
             )}
+            <Button
+              onClick={handleGeneratePdf}
+              disabled={generating || isInProgress}
+              className="gap-2"
+            >
+              {generating || isInProgress ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              {isInProgress
+                ? t("cv.generating", "Generating…")
+                : isFailed
+                  ? t("cv.retry", { defaultValue: "Retry" })
+                  : isGenerated
+                    ? t("cv.regenerate", { defaultValue: "Regenerate" })
+                    : t("cv.generateCv")}
+            </Button>
           </div>
         </div>
 
-        {/* Readiness Breakdown */}
+        {/* Completeness Breakdown (informational) */}
         <div className="rounded-2xl border bg-card p-5 shadow-soft">
           <ul className="grid sm:grid-cols-2 gap-4 text-sm">
             {readinessChecks.map((check, i) => (
               <li key={i} className="flex items-center gap-2">
                 {check.complete ? (
                   <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-                ) : check.mandatory ? (
-                  <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                 ) : (
                   <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
                 )}
                 <span className={cn(!check.complete && "text-muted-foreground")}>
-                  {check.label} {check.mandatory && <span className="text-destructive">*</span>}
+                  {check.label}
                 </span>
               </li>
             ))}
@@ -273,10 +330,10 @@ export function CvBuilderPage() {
             {skills.length > 0 ? (
               skills.map((s) => (
                 <span
-                  key={s.id}
+                  key={s.skill_id}
                   className="rounded-full bg-muted px-3 py-1 text-xs font-medium border"
                 >
-                  {s.skills?.name || s.name}{" "}
+                  {s.name || s.skills?.name}{" "}
                   <span className="text-muted-foreground font-normal ml-1 capitalize">
                     ({s.level})
                   </span>

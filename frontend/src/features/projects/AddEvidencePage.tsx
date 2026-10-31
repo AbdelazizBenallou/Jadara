@@ -34,7 +34,7 @@ export function AddEvidencePage() {
           apiClient.get("/documents"),
         ]);
         setProject(projRes.data.data);
-        setDocuments(docsRes.data.data.documents || []);
+        setDocuments(docsRes.data.data || []);
       } catch (err: any) {
         toast.error(err.response?.data?.message || "Failed to fetch data");
       } finally {

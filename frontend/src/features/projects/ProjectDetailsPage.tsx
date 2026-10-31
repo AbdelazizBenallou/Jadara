@@ -205,9 +205,14 @@ export function ProjectDetailsPage() {
             <div className="rounded-2xl border bg-card p-6 shadow-soft">
               <h2 className="text-lg font-bold mb-3">{t("projects.domain", "Domain")}</h2>
               <div className="flex flex-wrap gap-2">
-                {project.domains ? (
+                {project.sub_domain?.domain?.name && (
+                  <span className="rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+                    {project.sub_domain.domain.name}
+                  </span>
+                )}
+                {project.sub_domain ? (
                   <span className="rounded-lg bg-muted px-3 py-1.5 text-sm font-medium">
-                    {project.domains.name}
+                    {project.sub_domain.name}
                   </span>
                 ) : (
                   <span className="text-sm text-muted-foreground">{t("common.none", "None")}</span>

@@ -82,6 +82,7 @@ const profileSelect = {
   user_socials: {
     select: {
       id: true,
+      platform_id: true,
       url: true,
       created_at: true,
       social_platforms: {
@@ -239,6 +240,7 @@ export const userRepository = {
         user_socials: {
           select: {
             id: true,
+            platform_id: true,
             url: true,
             created_at: true,
             social_platforms: {
@@ -282,7 +284,6 @@ export const userRepository = {
             issuer: true,
             issue_date: true,
             expiry_date: true,
-            credential_url: true,
             file_url: true,
           },
           orderBy: { issue_date: "desc" as const },
@@ -315,7 +316,7 @@ export const userRepository = {
             live_url: true,
             figma_url: true,
             created_at: true,
-            domains: { select: { id: true, name: true } },
+            sub_domain: { select: { id: true, name: true } },
           },
           orderBy: { created_at: "desc" as const },
         },
@@ -332,14 +333,8 @@ export const userRepository = {
     return {
       ...rest,
       role: roles.name,
-      user_socials: user.user_socials.map(mapUserSocial),
+      user_socials: user_socials.map(mapUserSocial),
       profiles: user.profiles ? { ...user.profiles, avatar_url: avatarUrl } : null,
-      user_socials: user_socials.map((s) => ({
-        id: s.id,
-        platform: s.social_platforms.name,
-        url: s.url,
-        created_at: s.created_at,
-      })),
     };
   },
 
@@ -360,17 +355,11 @@ export const userRepository = {
     return {
       ...rest,
       role: roles.name,
-      user_socials: user.user_socials.map(mapUserSocial),
+      user_socials: user_socials.map(mapUserSocial),
       profiles: {
         ...user.profiles,
         avatar_url: avatarUrl,
       },
-      user_socials: user_socials.map((s) => ({
-        id: s.id,
-        platform: s.social_platforms.name,
-        url: s.url,
-        created_at: s.created_at,
-      })),
     };
   },
 
@@ -416,15 +405,23 @@ export const userRepository = {
   },
 
   // ─── Socials ─────────────────────────────────────────────
-  async addSocial(userId: number, platform: string, url: string) {
-    const platformRecord = await prisma.social_platforms.upsert({
-      where: { name: platform.toLowerCase() },
-      update: {},
-      create: { name: platform.toLowerCase() },
+  async findAllPlatforms() {
+    return prisma.social_platforms.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
+  },
 
+  async findPlatformById(id: number) {
+    return prisma.social_platforms.findUnique({
+      where: { id },
+      select: { id: true, name: true },
+    });
+  },
+
+  async addSocial(userId: number, platformId: number, url: string) {
     const existing = await prisma.user_socials.findFirst({
-      where: { user_id: userId, platform_id: platformRecord.id },
+      where: { user_id: userId, platform_id: platformId },
       select: { id: true },
     });
     if (existing) {
@@ -446,7 +443,7 @@ export const userRepository = {
       };
     }
     const created = await prisma.user_socials.create({
-      data: { user_id: userId, platform_id: platformRecord.id, url },
+      data: { user_id: userId, platform_id: platformId, url },
       select: {
         id: true,
         url: true,

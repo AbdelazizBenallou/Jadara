@@ -27,7 +27,7 @@ export const errorHandler = (
       },
       "Application error",
     );
-    response.error(res, err.message, err.statusCode);
+    response.error(res, err.message, err.statusCode, err.details);
     return;
   }
 

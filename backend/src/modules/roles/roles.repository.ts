@@ -1,10 +1,15 @@
 import prisma from "../../../framework/config/prisma.js";
+import { DEMAND_ROLES, DIRECT_REGISTRATION_ROLES } from "../demands/demands.constants.js";
 
 export const roleRepository = {
+  // Public catalog: roles you can either register with directly or request
+  // through a demand. `is_selectable` marks the direct ones. Internal-only
+  // roles (Admin) are neither, so they stay off this endpoint.
   async findAll() {
+    const listable = [...DIRECT_REGISTRATION_ROLES, ...DEMAND_ROLES];
     return prisma.roles.findMany({
-      where: { is_selectable: true },
-      select: { id: true, name: true },
+      where: { name: { in: listable } },
+      select: { id: true, name: true, is_selectable: true },
       orderBy: { id: "asc" },
     });
   },

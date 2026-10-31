@@ -1,5 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 
+
 // Fall back to backend port 3001 if VITE_API_URL is unset
 const getBaseApiUrl = (): string => {
   if (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) {
@@ -9,6 +10,11 @@ const getBaseApiUrl = (): string => {
 };
 
 const API_BASE_URL = `${getBaseApiUrl().replace(/\/+$/, "")}/v1`;
+=======
+// The browser talks to the API host directly; the client appends /v1.
+// Dev and production both use http://localhost:3001 (see README → frontend/.env).
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

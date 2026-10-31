@@ -31,7 +31,6 @@ const certificationSelect = {
   issuer: true,
   issue_date: true,
   expiry_date: true,
-  credential_url: true,
   file_url: true,
   created_at: true,
   updated_at: true,
@@ -177,7 +176,6 @@ export const cvRepository = {
       issuer?: string;
       issue_date?: Date;
       expiry_date?: Date | null;
-      credential_url?: string;
       file_url?: string;
     },
   ) {
@@ -195,7 +193,6 @@ export const cvRepository = {
       issuer?: string | null;
       issue_date?: Date | null;
       expiry_date?: Date | null;
-      credential_url?: string | null;
       file_url?: string | null;
     },
   ) {

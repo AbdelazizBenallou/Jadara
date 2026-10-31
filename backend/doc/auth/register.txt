@@ -18,7 +18,7 @@ Rate limit: 30 requests per hour per IP (429 after.)
 --------------------------------------------------
 Active immediately, cookies set.
 
-curl -X POST http://localhost:3001/v1/auth/register \
+curl -X POST http://localhost:3000/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "newuser@jadara.com",

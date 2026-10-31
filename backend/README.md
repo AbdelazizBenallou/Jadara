@@ -75,10 +75,17 @@ npx prisma migrate deploy
 # If you have an existing dev database that has drifted, push instead:
 npx prisma db push
 
-# Seed default data (roles, permissions, admin, domains, skills, languages)
+# Seed default data (domains, sub-domains, skills, languages, social platforms)
 npx prisma db seed
+
+# Seed roles, permissions, role permissions and default users
+npm run db:seed:users
 ```
 
+> `npx prisma db seed` runs `prisma/seed.ts`, which already calls the users
+> seed at the end. Run `npm run db:seed:users` on its own to re-apply only
+> roles, permissions, role permissions and default users (idempotent).
+>
 > Note: on a database that has been modified outside of the migration folder
 > (`prisma migrate dev` reports drift), use `npx prisma migrate deploy` or
 > `npx prisma db push` on top of the manual SQL.
@@ -98,14 +105,25 @@ The server runs at `http://localhost:3001` (configurable via `PORT`).
 
 ---
 
-## Default Admin Account
+## Default Accounts
 
-| Field    | Value              |
-| -------- | ------------------ |
-| Email    | `admin@jadara.com` |
-| Password | `Admin@12345`      |
+Seeded by `prisma/seed_users.ts` — all with status `active`.
 
-The seed also creates the baseline **Beneficiary**, **Reviewer**, and **Company** roles (admin role is _not_ selectable at registration) plus the domain catalog, skills linked to domains, and the common languages.
+| Role          | Email                       | Password             |
+| ------------- | --------------------------- | -------------------- |
+| Admin         | `admin@jadara.com`          | `Admin@12345`        |
+| Reviewer      | `reviewer@jadara.com`       | `Reviewer@12345`     |
+| Company       | `company@jadara.com`        | `Company@12345`      |
+| Beneficiary   | `beneficiary@jadara.com`    | `Beneficiary@12345`  |
+| Organization  | `organization@jadara.com`   | `Organization@12345` |
+
+> These are development credentials only — change or remove them before any
+> shared deployment.
+
+The seed also creates the **Beneficiary**, **Reviewer**, **Company**, and
+**Organization** roles as selectable at registration (the Admin role is _not_
+selectable), assigns each role its baseline permissions, plus the domain
+catalog, skills linked to domains, and the common languages.
 
 ---
 
@@ -132,6 +150,17 @@ The seed also creates the baseline **Beneficiary**, **Reviewer**, and **Company*
 | `UPLOAD_DIR`             | No       | `uploads`               | Local fallback upload directory         |
 | `UPLOAD_MAX_FILE_SIZE`   | No       | `10485760`              | Max file size (10MB)                    |
 | `UPLOAD_MAX_AVATAR_SIZE` | No       | `2097152`               | Max avatar size (2MB)                   |
+| `MINIO_PRESIGNED_EXPIRY` | No       | `3600`                  | Presigned `download_url` TTL (seconds)  |
+| `CV_WORKER_ENABLED`      | No       | `true`                  | Enable the in-process CV PDF worker     |
+| `CV_WORKER_INTERVAL_MS`  | No       | `3000`                  | CV queue poll interval (ms)             |
+| `CV_WORKER_CONCURRENCY`  | No       | `2`                     | CV jobs processed in parallel           |
+| `CV_JOB_STALE_MS`        | No       | `300000`                | Requeue `processing` jobs after (ms)    |
+| `CV_JOB_MAX_ATTEMPTS`    | No       | `3`                     | Attempts before a CV job is `failed`    |
+| `CV_TRANSLATION_ENABLED` | No       | `false`                 | Translate CVs with LibreTranslate       |
+| `CV_TRANSLATION_REQUIRED`| No       | `false`                 | Fail the job when translation fails     |
+| `LIBRETRANSLATE_URL`     | No       | `http://localhost:5000` | LibreTranslate base URL                 |
+| `LIBRETRANSLATE_API_KEY` | No       | —                       | Optional key if the instance needs auth |
+| `CV_TRANSLATION_TIMEOUT_MS` | No    | `8000`                  | LibreTranslate request timeout (ms)     |
 
 ---
 
@@ -228,6 +257,48 @@ Self-service routes work for any authenticated user on their own account. Admin 
 `skills`, `work_experience`). The generated CV includes experience, education,
 **projects** (title, domain, URL, status, bullets), skills, certifications, and
 languages.
+
+#### CV translation (LibreTranslate)
+
+CV PDFs can be auto-translated between the rendered languages (`EN`, `FR`) with a
+self-hosted **LibreTranslate** service. It is **disabled by default**; the
+`libretranslate` service is already declared in the root `docker-compose.yml`.
+
+```bash
+# from the repo root
+docker compose up -d libretranslate      # first run downloads the en/fr models
+curl http://localhost:5000/languages     # ready when this returns 200
+
+# local dev — enable it inline (reads .env, process env wins)
+CV_TRANSLATION_ENABLED=true npm run dev
+
+# under Docker, add CV_TRANSLATION_ENABLED=true and
+# LIBRETRANSLATE_URL=http://libretranslate:5000 to backend/.env, then:
+docker compose up -d api
+```
+
+**How it works** (all in `src/modules/cv-pdf/`):
+
+1. On demand, `cv-pdf.service.ts` detects the CV's source language from the
+   user-typed text (`buildSourceText()` + `detectLanguage()`) and stores it.
+2. The worker (`cv-pdf.worker.ts`) calls `translateSnapshot()`
+   (`cv-pdf.translate.ts`) before `renderLatexCv()`.
+3. Only free-text fields are translated (bio, job title, work/education
+   descriptions, project title/description, activity title). Names, companies,
+   schools, issuers, URLs and dates are kept as-is.
+4. Each translated string is cached in `cv_translations` (keyed by
+   `source_hash` + `target_lang`), so unchanged text is never re-sent.
+5. If LibreTranslate is unreachable, the worker falls back to the source text
+   unless `CV_TRANSLATION_REQUIRED=true`, in which case the job fails.
+
+Direct API check:
+
+```bash
+curl -s http://localhost:5000/translate \
+  -H "Content-Type: application/json" \
+  -d '{"q":"Backend Developer","source":"en","target":"fr","format":"text"}'
+# {"translatedText":"Développeur de moteur"}
+```
 
 ### User Skills
 
@@ -541,7 +612,8 @@ backend/
 ├── prisma/
 │   ├── schema.prisma              # Database schema (27 models + enums)
 │   ├── migrations/                # Versioned SQL migrations
-│   └── seed.ts                    # Roles, permissions, admin, domains, skills, languages
+│   ├── seed.ts                    # Domains, sub-domains, skills, languages, social platforms
+│   └── seed_users.ts              # Roles, permissions, role permissions, default users
 ├── doc/
 │   ├── schema.puml / schema.png   # ER diagram
 │   ├── architecture.md            # Architecture notes
@@ -568,6 +640,7 @@ Each module follows the same layering: `routes → controller → service → re
 | `npm run db:generate`   | Generate Prisma client                 |
 | `npm run db:migrate`    | Run Prisma migrations                  |
 | `npm run db:seed`       | Seed database with default data        |
+| `npm run db:seed:users` | Seed roles, permissions and users only |
 | `npm run db:studio`     | Open Prisma Studio (DB browser)        |
 | `npm run db:push`       | Push schema to database (no migration) |
 | `npm run lint`          | Run ESLint                             |

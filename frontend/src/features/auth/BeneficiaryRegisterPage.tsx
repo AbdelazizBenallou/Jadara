@@ -9,6 +9,7 @@ import { PasswordStrength } from "@/components/common/PasswordStrength";
 import { useAuth } from "@/context/AuthContext";
 import { AuthShell } from "./AuthShell";
 import { apiClient } from "@/api/client";
+import { isStrongPassword } from "@/lib/utils";
 
 export function BeneficiaryRegisterPage() {
   const { t } = useTranslation();
@@ -29,9 +30,18 @@ export function BeneficiaryRegisterPage() {
       setError(t("auth.passwordMismatch", { defaultValue: "كلمتا المرور غير متطابقتين" }));
       return;
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       setError(
-        t("auth.passwordTooShort", { defaultValue: "كلمة المرور قصيرة جدا (6 أحرف على الأقل)" }),
+        t("auth.passwordTooShort8", { defaultValue: "Password must be at least 8 characters" }),
+      );
+      return;
+    }
+    if (!isStrongPassword(password)) {
+      setError(
+        t("auth.passwordWeak", {
+          defaultValue:
+            "Password must contain an uppercase letter, a lowercase letter and a number",
+        }),
       );
       return;
     }

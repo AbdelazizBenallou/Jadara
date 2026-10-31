@@ -47,7 +47,6 @@ export const createCertificationSchema = z.object({
   issuer: z.string().max(255).optional(),
   issue_date: z.coerce.date().optional(),
   expiry_date: z.coerce.date().nullable().optional(),
-  credential_url: z.string().url().max(500).optional(),
 });
 
 export const updateCertificationSchema = z.object({
@@ -55,7 +54,6 @@ export const updateCertificationSchema = z.object({
   issuer: z.string().max(255).nullable().optional(),
   issue_date: z.coerce.date().nullable().optional(),
   expiry_date: z.coerce.date().nullable().optional(),
-  credential_url: z.string().url().max(500).nullable().optional(),
 });
 
 // ─── Languages ───────────────────────────────────────────────

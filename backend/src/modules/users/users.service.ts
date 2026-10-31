@@ -2,6 +2,7 @@ import { AppError } from "../../../framework/utils/AppError.js";
 import { storage } from "../../../framework/utils/storage.js";
 import { BUCKETS } from "../../../framework/config/minio.js";
 import { userRepository } from "./user.repository.js";
+import { cvAudit } from "../cv-pdf/cv-pdf.audit.js";
 import type { UpdateUserInput, UpdateProfileInput } from "./users.validator.js";
 
 export const usersService = {
@@ -127,6 +128,15 @@ export const usersService = {
       updated.avatar = file.originalname;
       updated.avatar_url = await storage.getPresignedUrl(BUCKETS.avatars, avatarObjectName);
     }
+
+    await cvAudit.record({
+      userId,
+      section: "profile",
+      action: "UPDATE",
+      entityId: userId,
+      newValues: updated,
+    });
+
     return updated;
   },
 

@@ -14,14 +14,6 @@ export const registerSchema = z.object({
   phone: z.string().max(20).optional(),
   gender: z.enum(["Male", "Female"]).optional(),
   role_id: coercedNumber(z.number().int().positive()),
-  domain_ids: z.preprocess((v) => {
-    if (v === undefined || v === null || v === "") return undefined;
-    const raw = Array.isArray(v) ? v : String(v).split(",");
-    const nums = raw
-      .map((x) => Number(String(x).trim()))
-      .filter((n) => Number.isInteger(n) && n > 0);
-    return nums.length > 0 ? [...new Set(nums)] : undefined;
-  }, z.array(z.number().int().positive()).optional()),
 });
 
 export const loginSchema = z.object({

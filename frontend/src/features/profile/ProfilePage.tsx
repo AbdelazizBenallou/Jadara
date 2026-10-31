@@ -65,6 +65,23 @@ export function ProfilePage() {
   const [githubUrl, setGithubUrl] = useState(getSocialUrl("github"));
   const [portfolioUrl, setPortfolioUrl] = useState(getSocialUrl("portfolio"));
 
+  // Social platform name -> id catalog (backend expects platform_id on write).
+  const [platformIds, setPlatformIds] = useState<Record<string, number>>({});
+  useEffect(() => {
+    apiClient
+      .get("/users/me/socials/platforms")
+      .then((res) => {
+        const map: Record<string, number> = {};
+        for (const p of res.data.data || []) {
+          map[String(p.name).toLowerCase()] = p.id;
+        }
+        setPlatformIds(map);
+      })
+      .catch(() => {
+        // Non-fatal: writes will surface a clear error if a platform is missing.
+      });
+  }, []);
+
   const [nameError, setNameError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -179,8 +196,12 @@ export function ProfilePage() {
               if (p.url !== existing?.url) {
                 // Changed or cleared
                 if (p.url) {
+                  const platformId = platformIds[p.name];
+                  if (!platformId) {
+                    throw new Error(`Unknown social platform: ${p.name}`);
+                  }
                   await apiClient.post("/users/me/socials", {
-                    platform: p.name,
+                    platform_id: platformId,
                     url: p.url,
                   });
                 } else if (existing) {

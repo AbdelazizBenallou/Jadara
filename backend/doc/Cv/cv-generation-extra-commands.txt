@@ -1,0 +1,299 @@
+================================================================================
+ CV GENERATION - EXTRA DATA COMMANDS (curl)  [companion to cv-generation-commands.txt]
+================================================================================
+ This file documents the SECOND pass: adding the remaining CV data that the
+ first file does not cover, then regenerating the two CVs.
+
+ Extra data added to the SAME beneficiary (Amina Kaci, user id 27):
+   * a completed VOLUNTEERING experience  (full multi-actor workflow)
+   * a PROJECT                            (created, then Admin-verified)
+   * more SKILLS, a LANGUAGE, a CERTIFICATION, another WORK EXPERIENCE
+
+ The commands below are exactly the ones that were run, with the real data
+ (ids, dates, payloads) that were used.
+
+ IMPORTANT: activities are created by an ORGANIZATION and approved by an ADMIN;
+ projects only appear in the CV once their status is "verified".
+================================================================================
+
+0. SESSION SETUP  (three actors, three cookie jars)
+--------------------------------------------------------------------------------
+ The workflow needs three different accounts. All are seeded (see
+ prisma/seed_users.ts). Run the API with translation on for the FR step:
+
+   # repo root
+   docker compose up -d jadara_db jadara_drive libretranslate
+
+   # backend
+   CV_TRANSLATION_ENABLED=true PORT=3000 node dist/src/index.js
+
+ Base URL:  http://localhost:3000/v1
+
+   # beneficiary (user id 27) - the person the CV is for
+   curl -s -c /tmp/opencode/ben.cookies   -X POST http://localhost:3000/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"amina.kaci@example.com","password":"Passw0rd123"}'
+
+   # organization (user id 6 -> organizations.id 4 "Jadara Volunteers")
+   curl -s -c /tmp/opencode/org.cookies   -X POST http://localhost:3000/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"organization@jadara.com","password":"Organization@12345"}'
+
+   # admin (user id 1)
+   curl -s -c /tmp/opencode/admin.cookies -X POST http://localhost:3000/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"admin@jadara.com","password":"Admin@12345"}'
+
+ Responses (real):
+   organization@jadara.com -> {"success":true,"data":{"user":{"id":6, "role":"Organization"}}}
+   admin@jadara.com        -> {"success":true,"data":{"user":{"id":1, "role":"Admin"}}}
+
+================================================================================
+1. ADD A PROJECT (beneficiary creates it as draft)
+================================================================================
+ NOTE: the CV snapshot only includes projects whose status is "verified".
+       create -> (submit) -> Admin verifies. Here we create then force-verify.
+
+ POST /v1/projects
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/projects/ \
+     -H "Content-Type: application/json" \
+     -d '{
+           "title": "Jadara CV Generator",
+           "description": "Async multilingual CV generation service rendering LaTeX templates through an in-process worker.",
+           "github_url": "https://github.com/amina-kaci/jadara-cv"
+         }'
+
+ Response (real):
+   {"success":true,"message":"Project created successfully","data":
+     {"id":6,"title":"Jadara CV Generator","status":"draft", ...}}
+
+================================================================================
+2. ADMIN VERIFIES THE PROJECT  (makes it show up in the CV)
+================================================================================
+ PATCH /v1/projects/{id}/status        (permission: manage_projects)
+   curl -s -b /tmp/opencode/admin.cookies -X PATCH http://localhost:3000/v1/projects/6/status \
+     -H "Content-Type: application/json" \
+     -d '{"status":"verified"}'
+
+ Response (real):
+   {"success":true,"message":"Project status updated","data":
+     {"id":6,"status":"verified", ...}}
+
+================================================================================
+3. CREATE A VOLUNTEERING ACTIVITY (organization)
+================================================================================
+ POST /v1/activities/    (multipart/form-data; permission: create_activity)
+ The activity is created as "pending_review". End dates are in the PAST because
+ the completion step (section 6) refuses activities that have not finished.
+
+   # a tiny file for authorization_file (multipart requires a real file part)
+   printf 'Jadara authorization letter - demo' > /tmp/opencode/auth.txt
+
+   curl -s -b /tmp/opencode/org.cookies -X POST http://localhost:3000/v1/activities/ \
+     -F "title=Coastal Cleanup Drive 2026" \
+     -F "description=Beach and coastal cleanup with local schools along the Algiers bay." \
+     -F "location=Alger, Algiers Bay" \
+     -F "start_date=2026-05-01" \
+     -F "end_date=2026-06-30" \
+     -F "capacity=30" \
+     -F "requirements=Bring gloves and sun protection" \
+     -F "authorization_file=@/tmp/opencode/auth.txt;type=text/plain"
+
+ Response (real):
+   {"success":true,"message":"Activity submitted for review","data":
+     {"id":17,"organization":{"id":4,"name":"Jadara Volunteers"},
+      "title":"Coastal Cleanup Drive 2026","location":"Alger, Algiers Bay",
+      "start_date":"2026-05-01T00:00:00.000Z","end_date":"2026-06-30T00:00:00.000Z",
+      "capacity":30,"status":"pending_review",
+      "authorization_file":{"id":22,"name":"auth.txt", ...}}}
+
+================================================================================
+4. ADMIN APPROVES THE ACTIVITY  (pending_review -> published)
+================================================================================
+ POST /v1/activities/{id}/approve       (permission: approve_activity)
+   curl -s -b /tmp/opencode/admin.cookies -X POST http://localhost:3000/v1/activities/17/approve \
+     -H "Content-Type: application/json" \
+     -d '{"note":"Approved for testing"}'
+
+ Response (real):
+   {"success":true,"message":"Activity approved","data":
+     {"id":17,"status":"published","approved_by":1, ...}}
+
+================================================================================
+5. BENEFICIARY APPLIES TO THE ACTIVITY
+================================================================================
+ POST /v1/activities/{id}/applications   (permission: apply_to_activity)
+ Body is optional; user_id comes from the token.
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/activities/17/applications \
+     -H "Content-Type: application/json" -d '{}'
+
+ Response (real):
+   {"success":true,"message":"Application submitted","data":
+     {"id":12,"activity_id":17,"status":"pending", ...}}
+
+ A second identical call returns (idempotency guard):
+   {"success":false,"message":"You have already applied to this activity"}
+
+================================================================================
+6. ORGANIZATION ACCEPTS, THEN COMPLETES  (this is what creates the CV entry)
+================================================================================
+ ACCEPTED != COMPLETED. Only "complete" creates the user_completed_volunteering
+ record the CV snapshot reads.
+
+   # accept  (permission: accept_application)
+   curl -s -b /tmp/opencode/org.cookies -X POST http://localhost:3000/v1/volunteer-applications/12/accept
+
+   # complete (permission: confirm_completion) - needs activity end_date in the past
+   curl -s -b /tmp/opencode/org.cookies -X POST http://localhost:3000/v1/volunteer-applications/12/complete
+
+ Responses (real):
+   accept   -> {"success":true,"message":"Application accepted","data":{"id":12,"status":"accepted"}}
+   complete -> {"success":true,"message":"Volunteer completion confirmed","data":
+                 {"id":12,"activity_id":17,"status":"completed",
+                  "applicant":{"id":27,"email":"amina.kaci@example.com", ...}}}
+
+ Verify it is now visible to the beneficiary:
+   curl -s -b /tmp/opencode/ben.cookies http://localhost:3000/v1/volunteer-applications/completed
+
+ Response (real):
+   {"success":true,"message":"Completed volunteering fetched successfully","data":[
+     {"id":6,
+      "activity":{"id":17,"title":"Coastal Cleanup Drive 2026",
+                  "location":"Alger, Algiers Bay",
+                  "start_date":"2026-05-01T00:00:00.000Z",
+                  "end_date":"2026-06-30T00:00:00.000Z"},
+      "organization":{"id":4,"name":"Jadara Volunteers"},
+      "completed_at":"2026-10-10T17:32:04.460Z"}],
+    "meta":{"total":1,"page":1,"limit":10,...}}
+
+================================================================================
+7. ADD MORE SIMPLE CV DATA (beneficiary)
+================================================================================
+ All under /v1/users/me/* (cookie = ben). SkillLevel: beginner|intermediate|
+ advanced|expert. LanguageProficiency: basic|conversational|fluent|native.
+
+   # SKILLS  (catalog ids: 6=Node.js 33=PostgreSQL 20=Docker 25=Git ...)
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/users/me/skills \
+     -H "Content-Type: application/json" \
+     -d '{"skills":[
+           {"skill_id":6,"level":"expert"},
+           {"skill_id":33,"level":"advanced"},
+           {"skill_id":20,"level":"intermediate"},
+           {"skill_id":25,"level":"advanced"}]}'
+   # real: {"success":true,"message":"Skills assigned successfully",
+   #        "data":{"skills":[<Node.js, PostgreSQL, Docker>],"already_linked":[<Git>],
+   #                "not_found":[]}}
+   # (Git/25 was already linked from the first pass, so only 3 were newly added.)
+
+   # LANGUAGE  (catalog ids: 1=Arabic 2=English 3=French ...)
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/users/me/languages \
+     -H "Content-Type: application/json" \
+     -d '{"language_id":3,"proficiency":"fluent"}'
+
+   # CERTIFICATION
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/users/me/certifications \
+     -H "Content-Type: application/json" \
+     -d '{"name":"Meta Front-End Developer","issuer":"Coursera","issue_date":"2024-03-01"}'
+   # real: {"success":true,"data":{"id":9,"name":"Meta Front-End Developer","issuer":"Coursera"}}
+
+   # WORK EXPERIENCE
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/users/me/work-experience \
+     -H "Content-Type: application/json" \
+     -d '{"company":"Freelance",
+          "job_title":"Full-Stack Developer",
+          "description":"Designed and shipped web apps with React and Node.js for local NGOs.",
+          "start_date":"2022-09-01",
+          "end_date":"2023-12-31"}'
+   # real: {"success":true,"data":{"id":7,"job_title":"Full-Stack Developer"}}
+
+================================================================================
+8. REGENERATE BOTH CVs (EN + FR) WITH THE NEW DATA
+================================================================================
+ POST /v1/users/me/pdf-generate
+   curl -s -b /tmp/opencode/ben.cookies -X POST http://localhost:3000/v1/users/me/pdf-generate \
+     -H "Content-Type: application/json" \
+     -d '{"languages":["EN","FR"]}'
+
+ Response (real):
+   {"success":true,"message":"CV generation queued","data":
+     {"request_group":"e8fb1c7e-3c79-48ff-bd08-b1433949fac2",
+      "jobs":[
+        {"id":25,"language":"EN","status":"queued","cached":false,"download_url":null},
+        {"id":26,"language":"FR","status":"queued","cached":false,"download_url":null}]}}
+
+ Poll (wait ~10s, the in-process worker picks it up):
+   curl -s -b /tmp/opencode/ben.cookies "http://localhost:3000/v1/users/me/pdf-status?language=EN"
+   curl -s -b /tmp/opencode/ben.cookies "http://localhost:3000/v1/users/me/pdf-status?language=FR"
+
+ Responses (real):
+   EN -> {"id":25,"status":"completed","file_size":148462,
+          "download_url":"http://localhost:9000/documents/cv-pdfs/27/0662e75c-a971-4576-8956-82ff435edb4e.pdf?..."}
+   FR -> {"id":26,"status":"completed","file_size":152882,
+          "download_url":"http://localhost:9000/documents/cv-pdfs/27/e40c740d-144d-446d-998c-9a359ec099e0.pdf?..."}
+
+ Download locally:
+   curl -s -o beneficiary-27-EN.pdf "$(curl -s -b /tmp/opencode/ben.cookies \
+     'http://localhost:3000/v1/users/me/pdf-status?language=EN' | jq -r '.data.download_url')"
+   curl -s -b /tmp/opencode/ben.cookies "http://localhost:3000/v1/users/me/pdf-status?language=FR" \
+     | jq -r '.data.download_url' | xargs -I{} curl -s -o beneficiary-27-FR.pdf "{}"
+
+================================================================================
+9. VERIFY THE NEW SECTIONS LANDED IN THE PDF
+================================================================================
+   pdftotext backend/doc/Cv/beneficiary-27-EN.pdf - | \
+     grep -iE "Volunteering|Coastal Cleanup|Jadara Volunteers|Jadara CV Generator|Node.js|Meta|Freelance|French"
+
+ Expected EN (real):
+   Full-stack engineer focused on Node.js and React...
+   Node.js — Expert
+   Git, JavaScript, PostgreSQL, React — Advanced
+   Freelance
+   Jadara CV Generator
+   Link: https://github.com/amina-kaci/jadara-cv
+   Meta Front-End Developer
+   Volunteering Experience
+   Coastal Cleanup Drive 2026
+   Jadara Volunteers
+   French (Fluent)
+
+ FR translation proof:
+   pdftotext beneficiary-27-FR.pdf - | grep -iE "nettoyage|benevole|organisme"
+   -> "Circuit de nettoyage côtier 2026", "Organisme : Coursera"
+
+================================================================================
+9b. QUICK REFERENCE - EXTRA ROUTES
+================================================================================
+ POST  /v1/projects                             create project (beneficiary)
+ PATCH /v1/projects/{id}/status                 {"status":"verified"} (admin)
+ POST  /v1/activities/                          create activity (org, multipart)
+ POST  /v1/activities/{id}/approve              publish activity (admin)
+ POST  /v1/activities/{id}/applications         apply (beneficiary)
+ POST  /v1/volunteer-applications/{id}/accept   accept applicant (org/admin)
+ POST  /v1/volunteer-applications/{id}/complete confirm completion -> CV entry
+ GET   /v1/volunteer-applications/completed     beneficiary's completed list
+ POST  /v1/users/me/skills                      add skills
+ POST  /v1/users/me/languages                   add language
+ POST  /v1/users/me/certifications              add certification
+ POST  /v1/users/me/work-experience             add work experience
+ POST  /v1/users/me/pdf-generate                {"languages":["EN","FR"]}
+
+================================================================================
+10. BEHAVIOUR NOTES
+================================================================================
+ * Projects: only status "verified" projects enter the CV snapshot.
+ * Volunteering: the CV reads user_completed_volunteering, which is created
+   ONLY by POST /v1/volunteer-applications/{id}/complete (not by accept).
+ * complete requires the activity end_date to already be in the past, and the
+   application to be in "accepted" state.
+ * Activities must be approved by an Admin before beneficiaries can apply.
+ * A single POST /users/me/pdf-generate with {"languages":["EN","FR"]} queued
+   BOTH jobs at once (25 EN, 26 FR) with cached=false, because the data had
+   changed since the previous generation. An unchanged demand would instead
+   come back cached=true with the stored download_url.
+ * Each language has its own cache/version: after adding new data a fresh
+   demand returns cached=false and generates a new uuid, so both PDFs are the
+   CURRENT snapshot, not a stale one.
+ * IDs used in this run: user 27, org user 6 / organizations.id 4,
+   activity 17, application 12, project 6, certification 9, work 7, jobs 25
+   (EN) and 26 (FR).
+================================================================================

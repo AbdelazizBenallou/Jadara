@@ -39,8 +39,13 @@ export const response = {
     send<T>(res, statusCode, { success: true, message, data });
   },
 
-  error: (res: Response, message = "Something went wrong", statusCode = 500): void => {
-    send(res, statusCode, { success: false, message });
+  error: (
+    res: Response,
+    message = "Something went wrong",
+    statusCode = 500,
+    details?: Record<string, unknown>,
+  ): void => {
+    send(res, statusCode, { success: false, message, ...details });
   },
 
   paginated: <T>(res: Response, data: T[], meta: PaginationMeta, message = "Success"): void => {

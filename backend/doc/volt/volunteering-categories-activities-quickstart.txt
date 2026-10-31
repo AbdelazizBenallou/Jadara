@@ -1,0 +1,420 @@
+================================================================
+  VOLUNTEERING — CATEGORIES + GET ACTIVITIES QUICKSTART
+  Base URL: http://localhost:3000
+  File: doc/volt/volunteering-categories-activities-quickstart.txt
+  Covers the volunteering module additions: the category API, every
+  "get activities" endpoint, and the sibling additions (block/unblock,
+  published feed, review_note, view_published_activities).
+  Every curl below was verified by manual request.
+================================================================
+
+  NOTE: this is a quickstart companion. The detailed references are
+  volunteering-activities-api.txt and volunteering-system-how-it-works.txt.
+  GET activity endpoints belong to v1. Do NOT confuse this with the
+  image feature (which is NOT built).
+
+
+================================================================
+  0. TEST USERS  (login saves cookies to a jar)
+================================================================
+
+  email                       password            role
+  --------------------------  ------------------  ----------------
+  admin@jadara.com            Admin@12345         Admin
+  organization@jadara.com     Organization@12345  Organization
+  beneficiary@jadara.com      Beneficiary@12345   Beneficiary
+  reviewer@jadara.com         Reviewer@12345      Reviewer
+  company@jadara.com          Company@12345       Company
+  ben2@x.io                   Ben2@12345          Beneficiary (extra)
+  ben3@x.io                   Ben3@12345          Beneficiary (extra)
+
+  Login example (Beneficiary jar):
+  curl -X POST http://localhost:3000/v1/auth/login \
+    -H "Content-Type: application/json" -c /tmp/opencode/ben.jar \
+    -d '{"email":"beneficiary@jadara.com","password":"Beneficiary@12345"}'
+
+  Create a NEW Beneficiary (JSON only, no file):
+  curl -X POST http://localhost:3000/v1/auth/register \
+    -H "Content-Type: application/json" \
+    -d '{"email":"ben@x.io","password":"Password1!",
+         "first_name":"A","last_name":"B","role_id":1}'
+  -> 201  (role_id=1 = Beneficiary; Reviewer/Company/Organization
+            cannot register directly, they must use registration demands)
+
+  NOTE: /v1/auth/register takes JSON only. Send -F/multipart and you
+  get 422 with empty errors. Login returns httpOnly cookies; use -b jar.
+
+  CAUTION about the current dev DB: reviewer@jadara.com was re-created as
+  a Beneficiary (role_id 1) during earlier testing, so it no longer tests
+  Reviewer behavior. Separate test users exist only for the roles above.
+  Verify a role with: SELECT u.email, r.name FROM users u JOIN roles r
+  ON r.id=u.role_id;
+
+
+================================================================
+  1. ACTIVITY CATEGORY API
+================================================================
+  Table: activity_categories (id, name unique, description, timestamps).
+  Seeded 8 rows (id 1..8):
+     1 Environment          2 Education           3 Health
+     4 Social Services      5 Humanitarian Relief 6 Community Development
+     7 Culture & Arts       8 Sports & Recreation
+
+  Permissions (verified):
+    GET    /v1/activity-categories            view_activities
+    POST   /v1/activity-categories            manage_activity_categories (Admin)
+    PATCH  /v1/activity-categories/:id        manage_activity_categories (Admin)
+    DELETE /v1/activity-categories/:id        manage_activity_categories (Admin)
+
+  Why GET is view_activities: the Organization needs this list in the
+  "create activity" form dropdown. Admin-only writes keep the seeded
+  catalog controlled.
+
+  1.1 LIST (org picker)
+  curl -s -b /tmp/opencode/org.jar \
+    "http://localhost:3000/v1/activity-categories?limit=100" | jq
+    optional: ?page, ?limit (max 100), ?q (case-insensitive name search)
+    200 => data: [ {id,name,description,created_at,updated_at} ], meta {...}
+    (the list is array + meta sibling, not nested)
+
+  1.2 CREATE (Admin only)
+  curl -X POST http://localhost:3000/v1/activity-categories \
+    -b /tmp/opencode/adm.jar -H "Content-Type: application/json" \
+    -d '{"name":"Animal Welfare","description":"Animal rescue & care"}'
+    201 created | 409 "name already exists" | 403 non-admin | 422 bad body
+
+  1.3 PATCH (Admin only)
+  curl -X PATCH http://localhost:3000/v1/activity-categories/9 \
+    -b /tmp/opencode/adm.jar -H "Content-Type: application/json" \
+    -d '{"description":"Updated description"}'
+    200 | 404 | 409 (name taken by another row) | 422 | 403
+
+  1.4 DELETE (Admin only)
+  curl -X DELETE http://localhost:3000/v1/activity-categories/9 \
+    -b /tmp/opencode/adm.jar
+    200 | 404 | 403
+    400 "Cannot delete category: linked to N activity(activities).
+         Reassign them first."
+    (FK is ON DELETE SET NULL; this block protects Org data from
+     silently losing its category, so the server refuses instead)
+
+  Organization calling an Admin write -> 403.
+
+
+================================================================
+  2. GET ACTIVITIES — the four read endpoints
+================================================================
+  Full vs Public shape (VERY important for the frontend):
+
+  FULL view  = every field: organization_id, organization {id,name},
+               category {id,name}, title, description, location,
+               start_date, end_date, capacity/required_volunteers,
+               requirements, registration_deadline, status, is_active,
+               required_skills[], approved_by, approver {id,email},
+               review_note, authorization_file {id,name,file_url,...}
+               -> shown to the owning Organization and to Admin only.
+
+  PUBLIC view = same fields MINUS organization_id, approver/approved_by,
+               review_note, authorization_file; organization stays
+               {id,name} so the card can show the org.
+               -> used by the published feed and non-owner detail.
+
+  2.1  ORG OWN LIST — GET /v1/activities        (Organization only)
+  curl -s -b /tmp/opencode/org.jar "http://localhost:3000/v1/activities" | jq
+    ?page, ?limit (max 100), ?status=pending_review, ?q (title search)
+    NEVER crosses organizations. Non-org (Beneficiary/Reviewer/Company) -> 403;
+    Admin has no organizations row so Admin also gets 403 "No organization
+    found for this account" -> use /v1/activities/all instead.
+    Review outcome: rejected/published rows carry review_note.
+
+  2.2  ADMIN QUEUE — GET /v1/activities/all    (Admin only)
+  curl -s -b /tmp/opencode/adm.jar \
+    "http://localhost:3000/v1/activities/all?status=pending_review&limit=50" | jq
+    Cross-organization moderation list. Everyone else -> 403.
+
+  2.3  PUBLIC FEED — GET /v1/activities/published
+                                    (any authenticated user)
+  curl -s -b /tmp/opencode/ben.jar "http://localhost:3000/v1/activities/published" | jq
+  curl -s -b /tmp/opencode/ben.jar \
+    "http://localhost:3000/v1/activities/published?q=beach&category_id=1&page=1&limit=10" | jq
+
+    Filters (all optional): page (>=1), limit (1..100),
+      q or search (<=255, case-insensitive title),
+      category_id (positive int), location (<=255, case-insensitive),
+      organization_id (positive int), required_skill_id (positive int,
+      "activity requires this skill"),
+      start_date + end_date (date-time; WINDOW filter - the activity must
+      overlap: end_date >= start_date AND start_date <= end_date).
+    `status` cannot be requested; a client-sent status is dropped.
+    An activity appears ONLY if ALL hold:
+      status = published
+      is_active = true          (not blocked)
+      end_date >= now           (not finished)
+      registration_deadline = null OR >= now    (not expired)
+    Returns PUBLIC view.
+
+  2.4  GET ONE — GET /v1/activities/:id
+  curl -s -b /tmp/opencode/ben.jar "http://localhost:3000/v1/activities/5" | jq
+
+    Header gate: checkAnyPermission(view_activities, view_published_activities).
+    - owning Organization or Admin  -> FULL view (any status).
+    - anyone else                   -> PUBLIC view ONLY if publicly
+                                        visible (rule above); otherwise 404
+                                        so unreviewed/blocked/finished
+                                        activities cannot be enumerated.
+    Uses: Org shows its own management detail; Admin reviews; every
+    volunteer opens activity cards from the feed.
+
+    NEW for the join flow, EVERY response now also carries:
+      accepted_count    = number of ACCEPTED applications (not all)
+      available_places  = max(0, capacity - accepted_count)
+      my_application    = { id, status } of the caller's own application
+                          on this activity, or null if never applied.
+                          (status flows pending -> accepted/rejected)
+
+  Route order note: /all and /published MUST be registered before
+  /:id in activities.routes.ts or they are parsed as an activity id.
+
+
+================================================================
+  3. OTHER ADDITIONS MADE ALONG THE WAY
+================================================================
+
+  3.1 BLOCK / UNBLOCK — POST /v1/activities/:id/block | /unblock
+  curl -X POST http://localhost:3000/v1/activities/5/block -b /tmp/opencode/org.jar
+  curl -X POST http://localhost:3000/v1/activities/5/unblock -b /tmp/opencode/org.jar
+    update_activity (Org owner or Admin, identical to PATCH ownership).
+    Flips is_active=false / true. 400 unless status=published:
+      "Only published activities can be blocked/unblocked"
+    While blocked: leaves /published, non-owner detail 404, owner/Admin
+    still see the full row; status stays published so the Org list and
+    Admin queue are unchanged.
+
+
+  3.2 review_note (validation message from Admin)
+    approve/reject accept an optional JSON body {"note":"..."} (<=1000).
+    Stored in documents? NO - stored in volunteering_activities.review_note.
+    The Org reads it from its list/detail (status=rejected or published).
+
+  curl -X POST http://localhost:3000/v1/activities/5/approve \
+    -b /tmp/opencode/adm.jar -H "Content-Type: application/json" \
+    -d '{"note":"Permit verified - approved"}'
+  curl -X POST http://localhost:3000/v1/activities/5/reject \
+    -b /tmp/opencode/adm.jar -H "Content-Type: application/json" \
+    -d '{"note":"No valid permit attached"}'
+
+
+  3.3 view_published_activities + the 5 application permissions
+    Now 35 permissions total. Application perms:
+      apply_to_activity        (Beneficiary baseline) - volunteer applies
+      view_own_applications    (Beneficiary baseline) - volunteer /me
+      view_applications        (Organization)         - org review queue
+      accept_application       (Organization)         - org accept
+      reject_application       (Organization)         - org reject
+      (Admin holds everything automatically.)
+    Combined with view_published_activities, granted to ALL five roles,
+    any authenticated user can browse published activities. Seeded via
+    prisma/seed_users.ts; after seeding, flush the Redis permission cache
+    (permissions:user:<id>) before re-testing.
+
+  Check grants:
+  SELECT r.name, p.name FROM role_permissions rp
+    JOIN roles r ON r.id = rp.role_id
+    JOIN permissions p ON p.id = rp.permission_id
+    WHERE p.name = 'view_published_activities';
+
+  New helper checkAnyPermission(names) in
+  framework/middleware/checkPermission.ts - reuse the same 60s Redis
+  cache as checkPermission; useful when a route is open to several
+  permissions (e.g. GET /v1/activities/:id).
+
+
+  3.4 is_active column + migration 20261006120000
+    volunteering_activities.is_active Boolean @default(true).
+    Hand-written SQL + `npx prisma migrate deploy` (do NOT use
+    migrate dev on this repo - it sweeps unrelated drift).
+
+
+  3.5 Express 5 query fix in framework/middleware/zodValidateQuery.ts
+    In Express 5, req.query is a lazy getter returning a FRESH object
+    on every access, so the old "mutate then Object.assign(req.query)"
+    pattern never persisted -> coerced query numbers (e.g. category_id)
+    silently stayed strings. Fixed by redefining req.query via
+    Object.defineProperty to hold the validated (coerced/defaulted)
+    result. Affected every ?page/limit/category_id endpoint.
+
+
+================================================================
+  4. VOLUNTEER JOIN / APPLICATION API
+================================================================
+  Table: volunteer_applications (id, user_id, activity_id,
+  application_date, status enum pending|accepted|rejected|completed,
+  UNIQUE(user_id, activity_id)). Applications are ONLY ever created as
+  pending; Organizations decide; the Beneficiary never changes status.
+  There is NO auto-accept anywhere. user_id ALWAYS comes from the token,
+  never from the request body (all bodies are empty {}).
+
+  4.1 Beneficiary browses  -> GET /v1/activities/published  (section 2.3)
+      Beneficiary views     -> GET /v1/activities/:id       (section 2.4)
+      The "Suggested API: GET /v1/activities ..." from the spec was
+      REJECTED: that path is already the Organization's own list. The
+      browse filters live on /published instead.
+
+  4.2 APPLY — POST /v1/activities/:id/applications   (Beneficiary)
+  curl -X POST http://localhost:3000/v1/activities/5/applications \
+    -b /tmp/opencode/ben.jar -H "Content-Type: application/json" -d '{}'
+    201 => { id, activity_id, status:"pending", application_date }
+  Validation order (all verified):
+    404 "Activity not found"
+    400 "Activity is not open for applications"      (not published / blocked)
+    400 "Registration deadline has passed"
+    400 "Activity is full"                           (accepted >= capacity)
+    409 "You have already applied to this activity"
+    403 "Only Beneficiaries can apply to activities" (Admin reaches here;
+         Company/Org stop earlier at the permission gate with 403 Forbidden)
+
+  4.3 TRACK — GET /v1/volunteer-applications/me      (Beneficiary)
+  curl -s -b /tmp/opencode/ben.jar \
+    "http://localhost:3000/v1/volunteer-applications/me?status=pending" | jq
+    ?status=pending|accepted|rejected|completed, ?page, ?limit
+    data: [ { id, activity_id, status, application_date,
+              activity: { id,title,description,location,start_date,
+                          end_date,capacity,registration_deadline,
+                          organization:{id,name}, required_skills[] } } ]
+    This is how the volunteer sees the Org's decision.
+
+  4.4 ORG REVIEW QUEUE — GET /v1/activities/:id/applications (Organization)
+  curl -s -b /tmp/opencode/org.jar \
+    "http://localhost:3000/v1/activities/5/applications?sort=skill_match&min_skill_match=50" | jq
+    Header gate: view_applications (Admin bypasses ownership; cross-org 404).
+    ?status=pending|accepted|rejected  ?sort=skill_match (best first)
+    ?min_skill_match=0..100 (drops applicants without a match)
+    data: [ { id, activity_id, status, application_date,
+              skill_match: { matched_skills[], missing_skills[],
+                             percentage (0..100 int, or null when the
+                             activity requires no skills) },
+              applicant: { id, email, status,
+                           profile: { first_name,last_name,avatar(presigned),
+                                      bio,location },
+                           skills: [{id,name,level}],
+                           education:   [{school,degree,field_of_study}],
+                           work_experience: [{company,job_title}] } } ]
+    Match = round(matched / required * 100), 1:1 with
+    user_skills vs activity_required_skills. No private auth data,
+    no documents, no phone. Nobody is auto-accepted.
+
+  4.5 DECIDE — POST /v1/volunteer-applications/:id/accept | /reject
+  curl -X POST http://localhost:3000/v1/volunteer-applications/2/accept \
+    -b /tmp/opencode/org.jar
+  curl -X POST http://localhost:3000/v1/volunteer-applications/2/reject \
+    -b /tmp/opencode/org.jar
+    Gates: accept_application / reject_application (Org owner or Admin).
+    404 "Application not found"; cross-org 404.
+    400 "Only pending applications can be accepted/rejected"
+    accept additionally checks capacity -> 400 "Activity is full".
+    reject has NO capacity check.
+    Returns the full org-view application (4.4 shape) with new status.
+
+  4.6 PARTICIPANTS — GET /v1/activities/:id/participants
+  curl -s -b /tmp/opencode/ben.jar http://localhost:3000/v1/activities/5/participants | jq
+    Header gate: checkAnyPermission(view_published_activities,
+      view_applications). Visible when the caller may see the activity
+      (owner/Admin, or anyone when publicly visible) -> else 404.
+    ACCEPTED applications only. Public info only:
+    [ { id, name, avatar(presigned), bio, location,
+        skills: [names of the participant's skills that the activity
+                 requires] } ]   <- NO email, NO phone, NO documents.
+    This is the public "who joined" list.
+
+  4.7 COMPLETE — POST /v1/volunteer-applications/:id/complete (Organization)
+  curl -X POST http://localhost:3000/v1/volunteer-applications/6/complete \
+    -b /tmp/opencode/org.jar
+    200 => "Volunteer completion confirmed", full org-view application
+           (4.4 shape) with status:"completed"
+    Gates: confirm_completion (Org owner or Admin; Admin bypasses ownership).
+    ACCEPTED != COMPLETED. A volunteer may be accepted but not attend;
+    only this action records actual participation. No request body.
+    Validation order (all verified):
+      404 "Application not found"
+      cross-org -> 404 "Activity not found"
+      400 "Only accepted applications can be completed"
+          (blocks pending|rejected|completed -> complete)
+      400 "Activity has not finished yet"  (end_date is still >= now)
+    Then, in ONE transaction (completeAndCreateExperience):
+      1) application.status accepted -> completed
+      2) user_completed_volunteering(user_id, activity_id,
+         organization_id, completed_at, created_at) is created
+      All values come from the application/activity rows, NEVER the body.
+      Duplicate-completion is impossible: status completes first + the
+      2nd call returns 400, and the table is UNIQUE(user_id, activity_id)
+      (checked inside the tx, so no 500 on a race).
+      If either write fails both roll back (never completed+missing record).
+
+  4.8 COMPLETED EXPERIENCES — GET /v1/volunteer-applications/completed (caller)
+  curl -s -b /tmp/opencode/ben.jar \
+    http://localhost:3000/v1/volunteer-applications/completed | jq
+    Header gate: view_own_applications. The caller's OWN completed
+    volunteering only (scoped to req.user.userId, never from query/body).
+    ?page, ?limit. Backed by user_completed_volunteering:
+    data: [ { id, activity: { id,title,location,start_date,end_date },
+              organization: { id,name }, completed_at } ]
+    NO email/phone/profile data. This is the CV source of truth:
+    pending/rejected/accepted are NOT here — only completed.
+
+  Skills flow for demoing matches:
+  curl -X POST http://localhost:3000/v1/users/me/skills -b /tmp/opencode/ben.jar \
+    -H "Content-Type: application/json" \
+    -d '{"skills":[{"skill_id":1,"level":"intermediate"}]}'
+
+  Activity-detail numbers stay live: after ben was accepted on activity 5,
+  GET /v1/activities/5 shows accepted_count 1 / available_places 24 /
+  my_application {id,status:"accepted"}.
+
+  Dev DB now holds: app 2 = beneficiary@jadara.com on activity 5 ACCEPTED
+  (50% skill match), app 3 = reviewer@jadara.com (a Beneficiary) on
+  activity 5 PENDING (0%, no skills). Probe activities used to verify
+  deadline/capacity were created and deleted afterwards. The completion
+  probe (finished activity + apply + accept + complete) was run against a
+  temporary activity which was then deleted (its user_completed_volunteering
+  row cascaded away).
+
+
+================================================================
+  5. STATUS CODE SUMMARY (verified)
+================================================================
+  GET  /v1/activity-categories            200 401 403 422
+  POST /v1/activity-categories            201 401 403 409 422
+  PATCH/DELETE /v1/activity-categories/:id 200 400 401 403 404 409 422
+
+  GET  /v1/activities                      200 401 403 422
+  GET  /v1/activities/all                  200 401 403 422
+  GET  /v1/activities/published            200 401 422
+  GET  /v1/activities/:id                  200 400 401 403 404
+  POST /v1/activities/:id/block|/unblock   200 400 401 403 404
+  POST /v1/activities/:id/applications     201 400 401 403 404 409
+  GET  /v1/activities/:id/applications     200 400 401 403 404 422
+  GET  /v1/activities/:id/participants     200 400 401 404
+  GET  /v1/volunteer-applications/me       200 401 403 422
+  GET  /v1/volunteer-applications/completed 200 401 403 422
+  POST /v1/volunteer-applications/:id/accept|/reject|/complete
+                                            200 400 401 403 404
+
+  400 = bad data/id/missing file   401 = not authenticated
+  403 = permission/no-org denied   404 = not found (or cross-org / hidden)
+  409 = conflict (duplicate)       422 = validation errors
+
+  Frontend rule of thumb: on an activity GET, treat 404 as "not yours,
+  hidden, or gone"; 403 as "wrong role for this screen"; 422 errors as
+  inline form errors (errors map keyed by field name).
+
+================================================================
+  NOTES
+================================================================
+- Server on port 3000; MinIO on 9000 (docker container jadara-minio,
+  restart with `docker start jadara-minio` if the API returns 500 on
+  uploads). Postgres 5432, Redis 6379.
+- Permission cache lives 60s in Redis; flush permissions:user:* after
+  any seed/DB permission change before re-testing.
+- Everyday verification loop: login 5 users -> curl matrix above ->
+  npx tsc --noEmit (repo baseline is 9 pre-existing errors, none in
+  the volunteering module).

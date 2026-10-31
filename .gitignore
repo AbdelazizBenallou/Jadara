@@ -21,6 +21,7 @@ build/
 .cache/
 .vinxi/
 .tanstack/
+uploads/
 
 # Auto-generated TanStack Router tree
 src/routeTree.gen.ts
@@ -41,6 +42,7 @@ backend/.env.production
 frontend/.env.production
 .env.db
 .env.minio
+Production_env/
 
 # OS files
 .DS_Store
@@ -62,3 +64,6 @@ cookies.txt
 
 # Info disclosure / setup docs with credentials
 docker_commands/
+
+# CV reference template (user-provided)
+backend/doc/cv_template/

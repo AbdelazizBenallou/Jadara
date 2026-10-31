@@ -15,7 +15,44 @@ import {
 const router = Router();
 const permissionRouter = Router();
 
-// ── Public routes ─────────────────────────────────────────────
+/**
+ * @openapi
+ * /v1/roles:
+ *   get:
+ *     summary: List all roles
+ *     description: >
+ *       Returns every role. `is_selectable` is true only for roles that can be
+ *       registered directly; Reviewer, Company and Organization must go through
+ *       POST /v1/registration-demands. Public endpoint, no authentication needed.
+ *     tags:
+ *       - Roles
+ *     responses:
+ *       200:
+ *         description: Roles fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       name:
+ *                         type: string
+ *                         example: Beneficiary
+ *                       is_selectable:
+ *                         type: boolean
+ *                         example: true
+ */
 router.get("/", roleController.findAll);
 
 // ── Admin-only routes ─────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { AppError } from "../../../framework/utils/AppError.js";
 import { userSkillsRepository } from "./user-skills.repository.js";
+import { cvAudit } from "../cv-pdf/cv-pdf.audit.js";
 import type { SkillLevel } from "@prisma/client";
 import type { AddUserSkillsInput, UpdateSkillLevelInput } from "./user-skills.validator.js";
 
@@ -44,6 +45,12 @@ export const userSkillsService = {
 
     if (addedRows.length > 0) {
       await userSkillsRepository.addSkills(addedRows, targetUserId);
+      await cvAudit.record({
+        userId: targetUserId,
+        section: "skills",
+        action: "UPDATE",
+        newValues: addedRows,
+      });
     }
 
     const skills = await userSkillsRepository.getSkills(targetUserId);
@@ -63,6 +70,13 @@ export const userSkillsService = {
     }
 
     await userSkillsRepository.updateLevel(targetUserId, skillId, data.level);
+    await cvAudit.record({
+      userId: targetUserId,
+      section: "skills",
+      action: "UPDATE",
+      entityId: skillId,
+      newValues: { skill_id: skillId, level: data.level },
+    });
     return userSkillsRepository.getSkills(targetUserId);
   },
 
@@ -73,6 +87,12 @@ export const userSkillsService = {
     if (deleted === 0) {
       throw new AppError("Skill is not assigned to this user", 404);
     }
+    await cvAudit.record({
+      userId: targetUserId,
+      section: "skills",
+      action: "DELETE",
+      entityId: skillId,
+    });
   },
 
   async ensureUserExists(userId: number) {

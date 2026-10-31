@@ -16,10 +16,10 @@ type UserType = {
   role: string;
   status: string;
   created_at: string;
-  profile?: {
-    first_name: string;
-    last_name: string;
-  };
+  profiles?: {
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
 };
 
 export function AdminUsers() {
@@ -35,8 +35,9 @@ export function AdminUsers() {
 
   const [formData, setFormData] = useState({ status: "active", first_name: "", last_name: "" });
   const [userDomains, setUserDomains] = useState<number[]>([]);
+  const [originalDomainId, setOriginalDomainId] = useState<number | null>(null);
   const [newSkillId, setNewSkillId] = useState("");
-  const [newSkillLevel, setNewSkillLevel] = useState("Beginner");
+  const [newSkillLevel, setNewSkillLevel] = useState("beginner");
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["adminUsers"],
@@ -107,8 +108,14 @@ export function AdminUsers() {
 
   const saveDomainsMutation = useMutation({
     mutationFn: async (domains: number[]) => {
-      if (domains.length === 0) throw new Error("At least one domain is required.");
-      await apiClient.put(`/users/${selectedUser?.id}/review-domains`, { domain_ids: domains });
+      const userId = selectedUser?.id;
+      if (!userId) throw new Error("No user selected");
+      // The backend stores at most one domain per reviewer (unique on user_id).
+      if (domains.length > 0) {
+        await apiClient.put(`/users/${userId}/review-domains`, { domain_id: domains[0] });
+      } else if (originalDomainId != null) {
+        await apiClient.delete(`/users/${userId}/review-domains/${originalDomainId}`);
+      }
     },
     onSuccess: () => {
       toast.success("Domains updated successfully");
@@ -152,8 +159,8 @@ export function AdminUsers() {
     setSelectedUser(u);
     setFormData({
       status: u.status,
-      first_name: u.profile?.first_name || "",
-      last_name: u.profile?.last_name || "",
+      first_name: u.profiles?.first_name || "",
+      last_name: u.profiles?.last_name || "",
     });
     setIsEditModalOpen(true);
   };
@@ -168,15 +175,16 @@ export function AdminUsers() {
     setIsDomainsModalOpen(true);
     try {
       const res = await apiClient.get(`/users/${u.id}/review-domains`);
-      const doms = res.data.data || [];
-      setUserDomains(doms.map((d: any) => d.id));
+      const domain = res.data.data;
+      setOriginalDomainId(domain?.id ?? null);
+      setUserDomains(domain?.id ? [domain.id] : []);
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to load domains");
     }
   };
 
   const toggleUserDomain = (id: number) => {
-    setUserDomains((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
+    setUserDomains((prev) => (prev.includes(id) ? [] : [id]));
   };
 
   const openSkillsModal = (u: UserType) => {
@@ -187,7 +195,7 @@ export function AdminUsers() {
   const filteredUsers = users.filter((user: UserType) => {
     if (!search) return true;
     const s = search.toLowerCase();
-    const name = `${user.profile?.first_name || ""} ${user.profile?.last_name || ""}`.toLowerCase();
+    const name = `${user.profiles?.first_name || ""} ${user.profiles?.last_name || ""}`.toLowerCase();
     return (
       user.email.toLowerCase().includes(s) ||
       name.includes(s) ||
@@ -260,8 +268,8 @@ export function AdminUsers() {
                             <Users className="h-4 w-4" />
                           </div>
                           <span className="font-medium text-foreground truncate max-w-[150px]">
-                            {user.profile?.first_name || user.profile?.last_name
-                              ? `${user.profile.first_name || ""} ${user.profile.last_name || ""}`
+                            {user.profiles?.first_name || user.profiles?.last_name
+                              ? `${user.profiles.first_name || ""} ${user.profiles.last_name || ""}`
                               : "Unnamed User"}
                           </span>
                         </div>
@@ -273,7 +281,7 @@ export function AdminUsers() {
                       </td>
                       <td className="px-6 py-4 text-right rtl:text-left">
                         <div className="flex items-center justify-end rtl:justify-start gap-1">
-                          {user.role === "reviewer" && (
+                          {user.role?.toLowerCase() === "reviewer" && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -283,7 +291,7 @@ export function AdminUsers() {
                               <ShieldCheck className="h-4 w-4 text-blue-500" />
                             </Button>
                           )}
-                          {user.role === "beneficiary" && (
+                          {user.role?.toLowerCase() === "beneficiary" && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -446,10 +454,10 @@ export function AdminUsers() {
               value={newSkillLevel}
               onChange={(e) => setNewSkillLevel(e.target.value)}
             >
-              <option value="Beginner">Beginner</option>
-              <option value="Intermediate">Intermediate</option>
-              <option value="Advanced">Advanced</option>
-              <option value="Expert">Expert</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="expert">Expert</option>
             </select>
             <Button
               onClick={() => addSkillMutation.mutate()}
@@ -461,15 +469,15 @@ export function AdminUsers() {
 
           <div className="border rounded-xl divide-y">
             {userSkills.map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between p-3 text-sm">
+              <div key={s.skill_id} className="flex items-center justify-between p-3 text-sm">
                 <div>
-                  <p className="font-medium">{s.skill?.name}</p>
-                  <p className="text-xs text-muted-foreground">{s.level}</p>
+                  <p className="font-medium">{s.name}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{s.level}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => deleteSkillMutation.mutate(s.id)}
+                  onClick={() => deleteSkillMutation.mutate(s.skill_id)}
                   disabled={deleteSkillMutation.isPending}
                   className="text-destructive"
                 >
