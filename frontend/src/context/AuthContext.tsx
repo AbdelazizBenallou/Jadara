@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Role } from "@/constants/roles";
 import { apiClient } from "@/api/client";
 
@@ -67,6 +68,7 @@ interface AuthContextValue {
   login: (data: Record<string, unknown>) => Promise<User | void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -75,23 +77,54 @@ const AuthContext = createContext<AuthContextValue>({
   login: async () => {},
   logout: async () => {},
   updateUser: () => {},
+  refreshUser: async () => null,
 });
+
+// Cache initial profile fetch to avoid duplicate calls during React StrictMode mount
+let initialProfilePromise: Promise<User | null> | null = null;
+
+async function fetchCurrentUser(): Promise<User | null> {
+  const res = await apiClient.get("/users/me/profile");
+  if (res.data?.data) {
+    return normalizeUser(res.data.data);
+  }
+  return null;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // Initialize auth state on mount
   useEffect(() => {
     let mounted = true;
 
-    const fetchProfile = async () => {
+    const restoreSession = async () => {
+      if (!initialProfilePromise) {
+        initialProfilePromise = fetchCurrentUser()
+          .catch((error: unknown) => {
+            // Log network errors for debugging without crashing
+            const axiosErr = error as { response?: unknown; message?: string };
+            if (!axiosErr.response) {
+              console.warn("Unable to contact auth server during session restoration:", axiosErr.message);
+            }
+            return null;
+          })
+          .finally(() => {
+            // Keep active briefly so React StrictMode duplicate mount reuses the same request
+            setTimeout(() => {
+              initialProfilePromise = null;
+            }, 1000);
+          });
+      }
+
       try {
-        const res = await apiClient.get("/users/me/profile");
-        if (mounted && res.data?.data) {
-          setUser(normalizeUser(res.data.data));
+        const restoredUser = await initialProfilePromise;
+        if (mounted) {
+          setUser(restoredUser);
         }
-      } catch (error) {
+      } catch {
         if (mounted) {
           setUser(null);
         }
@@ -102,25 +135,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    fetchProfile();
+    restoreSession();
 
-    // Listen for refresh failures from the Axios interceptor
+    // Listen for refresh failures broadcast by the Axios interceptor
     const handleRefreshFailed = () => {
-      setUser(null);
+      if (mounted) {
+        setUser(null);
+        queryClient.clear();
+      }
     };
-    window.addEventListener("auth-refresh-failed", handleRefreshFailed);
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("auth-refresh-failed", handleRefreshFailed);
+    }
 
     return () => {
       mounted = false;
-      window.removeEventListener("auth-refresh-failed", handleRefreshFailed);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("auth-refresh-failed", handleRefreshFailed);
+      }
     };
-  }, []);
+  }, [queryClient]);
 
   const login = async (credentials: Record<string, unknown>) => {
     const res = await apiClient.post("/auth/login", credentials);
     if (res.data?.data?.user) {
       const u = normalizeUser(res.data.data.user);
       setUser(u);
+      queryClient.clear();
       return u;
     }
     throw new Error("Login failed");
@@ -133,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Logout error", error);
     } finally {
       setUser(null);
+      queryClient.clear();
     }
   };
 
@@ -140,11 +183,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => (prev ? { ...prev, ...updates } : null));
   };
 
+  const refreshUser = async (): Promise<User | null> => {
+    try {
+      const u = await fetchCurrentUser();
+      setUser(u);
+      return u;
+    } catch {
+      return null;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export const useAuth = () => useContext(AuthContext);
+
