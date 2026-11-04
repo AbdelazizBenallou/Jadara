@@ -12,80 +12,14 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiClient } from "@/api/client";
+import { getAvailableReviews } from "@/api/reviews";
+import { queryKeys } from "@/lib/query-keys";
+import type { AvailableReview, ReviewProject } from "@/types/review";
 
-interface ReviewProject {
-  id: number;
-  title: string;
-  description?: string | null;
-  status?: string;
-  created_at?: string | null;
-  user?: {
-    id: number;
-    email?: string;
-    profile?: {
-      first_name?: string;
-      last_name?: string;
-      headline?: string | null;
-      avatar_url?: string | null;
-    } | null;
-  } | null;
-  domain?: {
-    id: number;
-    name: string;
-  } | null;
-}
-
-interface AvailableReview {
-  id: number;
-  project_id: number;
-  status: string;
-  submitted_at: string;
-  rating?: {
-    average: number | null;
-    count: number;
-  };
-  project: ReviewProject;
-}
-
-interface ReviewResponse {
-  data?: unknown;
-  reviews?: unknown;
-  items?: unknown;
-  results?: unknown;
-  total?: number;
-  count?: number;
-}
-
-function extractArray<T>(response: ReviewResponse | T[] | undefined): T[] {
-  if (!response) return [];
-
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  if (Array.isArray(response.data)) {
-    return response.data as T[];
-  }
-
-  if (Array.isArray(response.reviews)) {
-    return response.reviews as T[];
-  }
-
-  if (Array.isArray(response.items)) {
-    return response.items as T[];
-  }
-
-  if (Array.isArray(response.results)) {
-    return response.results as T[];
-  }
-
-  return [];
-}
-
-function getPersonName(project?: ReviewProject | null, t?: any) {
+function getPersonName(project?: ReviewProject | null, t?: TFunction) {
   const profile = project?.user?.profile;
 
   if (!profile) {
@@ -97,7 +31,7 @@ function getPersonName(project?: ReviewProject | null, t?: any) {
   return name || project?.user?.email || (t ? t("reviewer.unknownTalent", { defaultValue: "Unknown talent" }) : "Unknown talent");
 }
 
-function getInitials(project?: ReviewProject | null, t?: any) {
+function getInitials(project?: ReviewProject | null, t?: TFunction) {
   const profile = project?.user?.profile;
   const defaultInitials = t ? t("reviewer.initials", { defaultValue: "JT" }) : "JT";
 
@@ -125,7 +59,7 @@ function formatDate(value?: string | null, lng?: string) {
   }).format(date);
 }
 
-function normalizeStatus(status?: string, t?: any) {
+function normalizeStatus(status?: string, t?: TFunction) {
   if (!status) return t ? t("status.pending", { defaultValue: "Pending" }) : "Pending";
 
   if (t) {
@@ -148,15 +82,12 @@ export default function VerificationQueue() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const query = useQuery({
-    queryKey: ["reviewer", "verification-queue"],
-    queryFn: async () => {
-      const response = await apiClient.get("/reviews/available");
-      return response.data as ReviewResponse | AvailableReview[];
-    },
+    queryKey: queryKeys.reviews.queue,
+    queryFn: getAvailableReviews,
   });
 
   const reviews = useMemo(
-    () => extractArray<AvailableReview>(query.data),
+    () => query.data ?? [],
     [query.data],
   );
 
@@ -180,7 +111,7 @@ export default function VerificationQueue() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [reviews, search, statusFilter]);
+  }, [reviews, search, statusFilter, t]);
 
   const submittedCount = reviews.filter(
     (review) =>

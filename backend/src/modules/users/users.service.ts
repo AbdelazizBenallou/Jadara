@@ -1,6 +1,7 @@
 import { AppError } from "../../../framework/utils/AppError.js";
 import { storage } from "../../../framework/utils/storage.js";
 import { BUCKETS } from "../../../framework/config/minio.js";
+import prisma from "../../../framework/config/prisma.js";
 import { userRepository } from "./user.repository.js";
 import { cvAudit } from "../cv-pdf/cv-pdf.audit.js";
 import type { UpdateUserInput, UpdateProfileInput } from "./users.validator.js";
@@ -89,21 +90,39 @@ export const usersService = {
     return user;
   },
 
-  async updateMyProfile(userId: number, data: UpdateProfileInput, file?: Express.Multer.File) {
+  async updateMyProfile(
+    userId: number,
+    data: UpdateProfileInput,
+    avatarFile?: Express.Multer.File,
+    coverFile?: Express.Multer.File,
+  ) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError("User not found", 404);
     }
 
     let avatarObjectName: string | undefined;
+    let coverObjectName: string | undefined;
 
-    if (file) {
+    if (avatarFile) {
       if (user.profiles?.avatar) {
         await storage.deleteAvatar(user.profiles.avatar);
       }
-      const objectName = await storage.uploadAvatar(userId, file);
+      const objectName = await storage.uploadAvatar(userId, avatarFile);
       avatarObjectName = objectName;
       await userRepository.updateAvatar(userId, objectName);
+    }
+
+    if (coverFile) {
+      if ((user.profiles as any)?.cover) {
+        await storage.deleteCover((user.profiles as any).cover);
+      }
+      const objectName = await storage.uploadCover(coverFile, userId);
+      coverObjectName = objectName;
+      await prisma.profiles.update({
+        where: { user_id: userId },
+        data: { cover: objectName },
+      });
     }
 
     await userRepository.update(userId, {
@@ -124,9 +143,12 @@ export const usersService = {
     if (data.gender !== undefined) updated.gender = data.gender;
     if (data.bio !== undefined) updated.bio = data.bio;
     if (data.location !== undefined) updated.location = data.location;
-    if (file && avatarObjectName) {
-      updated.avatar = file.originalname;
+    if (avatarFile && avatarObjectName) {
+      updated.avatar = avatarFile.originalname;
       updated.avatar_url = await storage.getPresignedUrl(BUCKETS.avatars, avatarObjectName);
+    }
+    if (coverFile && coverObjectName) {
+      updated.cover_url = await storage.getPresignedUrl(BUCKETS.covers, coverObjectName);
     }
 
     await cvAudit.record({
@@ -163,5 +185,9 @@ export const usersService = {
     if (deleted === 0) {
       throw new AppError("Social link not found", 404);
     }
+  },
+
+  async getUserAnalytics() {
+    return userRepository.getUserAnalytics();
   },
 };

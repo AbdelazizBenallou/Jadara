@@ -68,7 +68,10 @@ export const usersController = {
 
   updateMyProfile: asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
-    const user = await usersService.updateMyProfile(userId, req.body, req.file);
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const avatarFile = files?.avatar?.[0] || (req.file as Express.Multer.File | undefined);
+    const coverFile = files?.cover?.[0];
+    const user = await usersService.updateMyProfile(userId, req.body, avatarFile, coverFile);
     response.success(res, user, "Profile updated");
   }),
 
@@ -133,5 +136,10 @@ export const usersController = {
     }
     const domains = await reviewService.removeReviewerDomain(id, domainId);
     response.success(res, domains, "Reviewer domain removed");
+  }),
+
+  getUserAnalytics: asyncHandler(async (_req: Request, res: Response) => {
+    const analytics = await usersService.getUserAnalytics();
+    response.success(res, analytics, "User analytics retrieved");
   }),
 };

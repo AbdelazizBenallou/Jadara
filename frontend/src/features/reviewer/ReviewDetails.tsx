@@ -9,44 +9,39 @@ import {
   XCircle,
   Loader2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams, Link } from "@tanstack/react-router";
-import type { AxiosError } from "axios";
-import { apiClient } from "@/api/client";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { getReview } from "@/api/reviews";
+import { queryKeys } from "@/lib/query-keys";
+import { getErrorMessage, notifyError } from "@/lib/notify";
 import { formatDate } from "@/utils/formatDate";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 
-import type { DetailedProjectReview } from "./types";
-
 export default function ReviewDetails() {
   const { reviewId } = useParams({ strict: false }) as { reviewId: string };
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
 
-  const [review, setReview] = useState<DetailedProjectReview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const reviewQuery = useQuery({
+    queryKey: queryKeys.reviews.detail(reviewId),
+    queryFn: () => getReview(reviewId),
+    enabled: Boolean(reviewId),
+  });
+  const review = reviewQuery.data ?? null;
+  const loading = reviewQuery.isLoading;
+  const error = reviewQuery.isError
+    ? getErrorMessage(reviewQuery.error, "reviewer.fetchReviewError")
+    : null;
 
   useEffect(() => {
-    const fetchReview = async () => {
-      try {
-        const res = await apiClient.get(`/reviews/${reviewId}`);
-        setReview(res.data.data);
-      } catch (err: unknown) {
-        const error = err as AxiosError<{ message: string }>;
-        const msg = error.response?.data?.message || t("reviewer.fetchReviewError", { defaultValue: "Failed to fetch review details" });
-        toast.error(msg);
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchReview();
-  }, [reviewId]);
+    if (reviewQuery.error) {
+      notifyError(reviewQuery.error, "reviewer.fetchReviewError");
+    }
+  }, [reviewQuery.error]);
 
   if (loading) {
     return (

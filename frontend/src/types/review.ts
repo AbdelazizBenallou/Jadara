@@ -1,37 +1,17 @@
-export interface ReviewerDomain {
-  id: number;
-  name: string;
-  description?: string | null;
-}
-
-export interface ReviewProjectUser {
+export interface ReviewUser {
   id: number;
   email: string;
-  profile: {
-    first_name: string;
-    last_name: string;
+  profile?: {
+    first_name?: string | null;
+    last_name?: string | null;
     headline?: string | null;
     avatar_url?: string | null;
+    bio?: string | null;
+    location?: string | null;
   } | null;
 }
 
-export interface ReviewProjectDomain {
-  id: number;
-  name: string;
-}
-
-export interface ReviewProjectDetail {
-  id: number;
-  title: string;
-  description: string;
-  status?: string;
-  created_at?: string | null;
-  user: ReviewProjectUser;
-  domain?: ReviewProjectDomain | null;
-  evidence?: ReviewProjectEvidence[];
-}
-
-export interface ReviewProjectEvidence {
+export interface ReviewEvidence {
   id: number;
   project_id: number;
   type: string;
@@ -39,6 +19,17 @@ export interface ReviewProjectEvidence {
   description?: string | null;
   file_url?: string | null;
   download_url?: string | null;
+}
+
+export interface ReviewProject {
+  id: number;
+  title: string;
+  description: string;
+  status?: string;
+  created_at?: string | null;
+  user: ReviewUser;
+  domain?: { id: number; name: string } | null;
+  evidence?: ReviewEvidence[];
 }
 
 export interface ReviewRatingSummary {
@@ -52,7 +43,7 @@ export interface AvailableReview {
   status: string;
   submitted_at: string;
   rating: ReviewRatingSummary;
-  project: ReviewProjectDetail;
+  project: ReviewProject;
 }
 
 export interface HistoryReview {
@@ -64,7 +55,7 @@ export interface HistoryReview {
   updated_at?: string | null;
   project_average: number | null;
   project_rating_count: number;
-  project: ReviewProjectDetail;
+  project: ReviewProject;
 }
 
 export interface DetailedProjectReview {
@@ -77,7 +68,12 @@ export interface DetailedProjectReview {
     rating: number;
     feedback: string | null;
     created_at: string;
-    reviewer: ReviewProjectUser;
+    reviewer: ReviewUser;
   }[];
-  project: ReviewProjectDetail;
+  project: ReviewProject;
+}
+
+export interface ReviewRatingInput {
+  rating: number;
+  feedback?: string;
 }

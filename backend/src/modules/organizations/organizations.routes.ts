@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { organizationController } from "./organizations.controller.js";
 import { verifyAccessToken } from "../../../framework/middleware/verifyAccessToken.js";
-import { checkPermission } from "../../../framework/middleware/checkPermission.js";
+import { checkPermission, checkAnyPermission } from "../../../framework/middleware/checkPermission.js";
 import { zodValidate } from "../../../framework/middleware/zodValidate.js";
 import { updateOrganizationSchema } from "./organizations.validation.js";
 import {
@@ -140,6 +140,32 @@ router.delete(
   checkPermission("delete_organization"),
   updateUserRateLimit,
   organizationController.removeMine,
+);
+
+/**
+ * @openapi
+ * /v1/organizations:
+ *   get:
+ *     summary: List organizations for public search and discovery
+ */
+router.get(
+  "/",
+  checkAnyPermission(["view_organizations", "view_published_activities"]),
+  getUserRateLimit,
+  organizationController.list,
+);
+
+/**
+ * @openapi
+ * /v1/organizations/{id}:
+ *   get:
+ *     summary: Get public organization profile with activities and stats
+ */
+router.get(
+  "/:id",
+  checkAnyPermission(["view_organizations", "view_published_activities"]),
+  getUserRateLimit,
+  organizationController.getById,
 );
 
 export default router;

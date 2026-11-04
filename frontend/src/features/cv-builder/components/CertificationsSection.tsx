@@ -1,38 +1,35 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit2, Loader2, Calendar, FileText } from "lucide-react";
-import { apiClient } from "@/api/client";
+import { useState } from "react";
+import { Plus, Trash2, Edit2, Loader2, Calendar, Award, ExternalLink } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createCertification,
+  listCertifications,
+  removeCertification,
+  updateCertification,
+} from "@/api/users";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileUpload } from "@/components/ui/FileUpload";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { formatDate } from "@/utils/formatDate";
 import { useTranslation } from "react-i18next";
-
-type Certification = {
-  id: number;
-  name: string;
-  issuer?: string;
-  issue_date?: string | null;
-  expiry_date?: string | null;
-  file_url?: string | null;
-};
+import type { Certification } from "@/types/cv";
 
 type CertificationsSectionProps = {
   onUpdate?: () => void;
 };
 
 export function CertificationsSection({ onUpdate }: CertificationsSectionProps) {
-  const { t, i18n } = useTranslation();
-  const [certifications, setCertifications] = useState<Certification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -43,23 +40,40 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
     expiry_date: "",
   });
   const [file, setFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchCertifications();
-  }, []);
+  const certificationsQuery = useQuery({
+    queryKey: queryKeys.cv.certifications,
+    queryFn: listCertifications,
+  });
+  const certifications = certificationsQuery.data ?? [];
+  const loading = certificationsQuery.isLoading;
 
-  const fetchCertifications = async () => {
-    try {
-      const res = await apiClient.get("/users/me/certifications");
-      setCertifications(res.data.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error(t("error.title"));
-    } finally {
-      setLoading(false);
-    }
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.certifications });
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.data });
   };
+
+  const saveMutation = useMutation({
+    mutationFn: (data: FormData) =>
+      editingId ? updateCertification(editingId, data) : createCertification(data),
+    onSuccess: () => {
+      toast.success(t("common.saved", { defaultValue: "Saved successfully!" }));
+      setIsDialogOpen(false);
+      invalidate();
+      onUpdate?.();
+    },
+    onError: (error) => notifyError(error, "error.title"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: removeCertification,
+    onSuccess: () => {
+      toast.success(t("common.deleted", { defaultValue: "Deleted successfully!" }));
+      invalidate();
+      onUpdate?.();
+    },
+    onError: (error) => notifyError(error, "error.title"),
+  });
 
   const handleOpenDialog = (cert?: Certification) => {
     if (cert) {
@@ -70,7 +84,6 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
         issue_date: cert.issue_date ? cert.issue_date.split("T")[0] : "",
         expiry_date: cert.expiry_date ? cert.expiry_date.split("T")[0] : "",
       });
-      setFile(null); // File update is supported but optional
     } else {
       setEditingId(null);
       setFormData({
@@ -79,187 +92,205 @@ export function CertificationsSection({ onUpdate }: CertificationsSectionProps) 
         issue_date: "",
         expiry_date: "",
       });
-      setFile(null);
     }
+    setFile(null);
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    try {
-      const payload = new FormData();
-      payload.append("name", formData.name);
-      if (formData.issuer.trim()) payload.append("issuer", formData.issuer.trim());
-      if (formData.issue_date) payload.append("issue_date", formData.issue_date);
-      if (formData.expiry_date) payload.append("expiry_date", formData.expiry_date);
-      if (file) payload.append("file", file);
+    const data = new FormData();
+    data.append("name", formData.name);
+    if (formData.issuer) data.append("issuer", formData.issuer);
+    if (formData.issue_date) data.append("issue_date", formData.issue_date);
+    if (formData.expiry_date) data.append("expiry_date", formData.expiry_date);
+    if (file) data.append("file", file);
 
-      if (editingId) {
-        await apiClient.patch(`/users/me/certifications/${editingId}`, payload);
-        toast.success(t("common.saved"));
-      } else {
-        await apiClient.post("/users/me/certifications", payload);
-        toast.success(t("common.saved"));
-      }
-      setIsDialogOpen(false);
-      await fetchCertifications();
-      onUpdate?.();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || t("error.title"));
-    } finally {
-      setSubmitting(false);
-    }
+    saveMutation.mutate(data);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(t("common.confirmDelete"))) return;
-    try {
-      await apiClient.delete(`/users/me/certifications/${id}`);
-      toast.success(t("common.deletedSuccess"));
-      await fetchCertifications();
-      onUpdate?.();
-    } catch (err) {
-      toast.error(t("error.title"));
-    }
+  const handleDelete = (id: number) => {
+    if (!confirm(t("common.confirmDelete", { defaultValue: "Are you sure you want to delete this certificate?" }))) return;
+    deleteMutation.mutate(id);
   };
 
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-soft mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold">{t("cv.certifications")}</h3>
-        <Button onClick={() => handleOpenDialog()} variant="outline" size="sm" className="gap-2">
-          <Plus className="h-4 w-4" /> {t("cv.addCertification")}
+    <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs mb-6">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <Award className="h-5 w-5 text-[#7135E8]" />
+          <h3 className="text-base font-bold text-[#212529]">
+            {t("docs.certificate", { defaultValue: "Certifications & Accreditations" })}
+          </h3>
+        </div>
+        <Button
+          onClick={() => handleOpenDialog()}
+          size="sm"
+          className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold gap-1.5 shadow-xs"
+        >
+          <Plus className="h-4 w-4" />
+          <span>{t("cv.addCertificate", { defaultValue: "Add Certificate" })}</span>
         </Button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex justify-center p-6">
+          <Loader2 className="h-6 w-6 animate-spin text-[#7135E8]" />
         </div>
       ) : certifications.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">{t("cv.noCertifications")}</p>
+        <div className="p-6 text-center text-xs text-[#6C757D] rounded-xl border border-dashed border-[#E9ECEF]">
+          <p>{t("cv.noCertificates", { defaultValue: "No certifications added yet." })}</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {certifications.map((cert) => (
             <div
               key={cert.id}
-              className="group relative rounded-xl border p-4 hover:border-primary/50 transition-colors flex justify-between items-start"
+              className="flex flex-col justify-between rounded-xl border border-[#E9ECEF] bg-white p-4.5 hover:border-[#7135E8] transition-colors"
             >
               <div>
-                <h4 className="font-semibold">{cert.name}</h4>
-                {cert.issuer && <p className="text-sm text-muted-foreground mb-2">{cert.issuer}</p>}
-
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
-                  {cert.issue_date && (
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Issued: {formatDate(cert.issue_date, i18n.language)}
-                    </div>
-                  )}
-                  {cert.file_url && (
-                    <a
-                      href={cert.file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-sm font-bold text-[#212529]">{cert.name}</h4>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDialog(cert)}
+                      className="rounded p-1 text-[#6C757D] hover:bg-[#F8F9FA] hover:text-[#7135E8]"
+                      title="Edit"
                     >
-                      <FileText className="h-3.5 w-3.5" />
-                      {t("cv.viewCertificate")}
-                    </a>
-                  )}
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(cert.id)}
+                      className="rounded p-1 text-[#DC3545] hover:bg-[#DC3545]/10"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
+                {cert.issuer && (
+                  <p className="text-xs font-semibold text-[#7135E8] mt-0.5">{cert.issuer}</p>
+                )}
+                {cert.issue_date && (
+                  <p className="text-[11px] text-[#6C757D] mt-1 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>Issued: {formatDate(cert.issue_date)}</span>
+                  </p>
+                )}
               </div>
 
-              <div className="flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-blue-600"
-                  onClick={() => handleOpenDialog(cert)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-red-600"
-                  onClick={() => handleDelete(cert.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {cert.file_url && (
+                <div className="mt-3 border-t border-[#E9ECEF] pt-2">
+                  <a
+                    href={cert.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0D6EFD] hover:underline"
+                  >
+                    <span>View Credential File</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
+      {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-md bg-white border-[#E9ECEF]">
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? t("cv.editCertification") : t("cv.addCertification")}
+            <DialogTitle className="text-base font-bold text-[#212529]">
+              {editingId
+                ? t("cv.editCertificate", { defaultValue: "Edit Certification" })
+                : t("cv.addCertificate", { defaultValue: "Add Certification" })}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">{t("cv.certificationName")}</Label>
+
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.certName", { defaultValue: "Certification Name" })}
+              </Label>
               <Input
-                id="name"
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="AWS Certified Solutions Architect"
+                className="border-[#E9ECEF] text-xs"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="issuer">{t("cv.issuer")}</Label>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.issuer", { defaultValue: "Issuing Organization" })}
+              </Label>
               <Input
-                id="issuer"
                 value={formData.issuer}
                 onChange={(e) => setFormData({ ...formData, issuer: e.target.value })}
+                placeholder="Amazon Web Services, Coursera, Cisco..."
+                className="border-[#E9ECEF] text-xs"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="issue_date">{t("cv.issueDate")}</Label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#212529]">
+                  {t("cv.issueDate", { defaultValue: "Issue Date" })}
+                </Label>
                 <Input
-                  id="issue_date"
                   type="date"
                   value={formData.issue_date}
                   onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
+                  className="border-[#E9ECEF] text-xs"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="expiry_date">{t("cv.expiryDate")}</Label>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#212529]">
+                  {t("cv.expiryDate", { defaultValue: "Expiry Date (optional)" })}
+                </Label>
                 <Input
-                  id="expiry_date"
                   type="date"
                   value={formData.expiry_date}
                   onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                  className="border-[#E9ECEF] text-xs"
                 />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label>{t("cv.certificateFile")}</Label>
-              <FileUpload
-                accept=".pdf,.png,.jpg,.jpeg"
-                maxSizeMB={5}
-                onAttach={async (_, __, f) => {
-                  setFile(f);
-                  return Promise.resolve();
-                }}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.certFile", { defaultValue: "Upload Credential Document (PDF/Image)" })}
+              </Label>
+              <Input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="border-[#E9ECEF] text-xs"
               />
-              <p className="text-xs text-muted-foreground">{t("cv.fileConstraint")}</p>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t("common.cancel")}
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[#E9ECEF]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="border-[#E9ECEF] text-xs text-[#6C757D]"
+              >
+                {t("common.cancel", { defaultValue: "Cancel" })}
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("common.save")}
+              <Button
+                type="submit"
+                disabled={saveMutation.isPending}
+                className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold"
+              >
+                {saveMutation.isPending ? "Saving..." : t("common.save", { defaultValue: "Save" })}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

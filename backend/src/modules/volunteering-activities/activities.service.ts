@@ -58,16 +58,47 @@ function mapActivity(a: ActivityWithRelations) {
   };
 }
 
+async function avatarUrl(avatar: string | null): Promise<string | null> {
+  if (!avatar) return null;
+  return storage.getPresignedUrl(BUCKETS.avatars, avatar);
+}
+
 /**
  * Public projection for the published feed and for non-owner detail views.
- * Same shape as mapActivity but without internal data: no organization_id,
- * no reviewer (approved_by/approver), no review_note, no authorization file.
+ * Enriched with organization details, presigned logos, accepted counts, and accepted member avatars.
  */
-function mapPublicActivity(a: ActivityWithRelations) {
+async function mapPublicActivity(a: ActivityWithRelations) {
+  const orgAvatar = (a.organization as any)?.user?.profiles?.avatar;
+  const orgLogoUrl = await avatarUrl(orgAvatar ?? null);
+
+  const acceptedCount = (a as any)._count?.applications ?? (a as any).applications?.length ?? 0;
+  const rawApps = (a as any).applications || [];
+  const acceptedVolunteers = await Promise.all(
+    rawApps.map(async (app: any) => {
+      const p = app.user?.profiles;
+      const name = p
+        ? `${p.first_name || ""} ${p.last_name || ""}`.trim()
+        : app.user?.email || "Volunteer";
+      return {
+        id: app.user?.id,
+        name: name || "Volunteer",
+        avatar: await avatarUrl(p?.avatar ?? null),
+      };
+    })
+  );
+
   return {
     id: a.id,
+    organization_id: a.organization_id,
     organization: a.organization
-      ? { id: a.organization.id, name: a.organization.name }
+      ? {
+          id: a.organization.id,
+          name: a.organization.name,
+          email: a.organization.email,
+          website: a.organization.website,
+          location: a.organization.location,
+          logo_url: orgLogoUrl,
+        }
       : null,
     category_id: a.category_id,
     category: a.category ? { id: a.category.id, name: a.category.name } : null,
@@ -82,6 +113,11 @@ function mapPublicActivity(a: ActivityWithRelations) {
     registration_deadline: a.registration_deadline,
     status: a.status,
     is_active: a.is_active,
+    created_at: a.created_at,
+    updated_at: a.updated_at,
+    accepted_count: acceptedCount,
+    available_places: Math.max(0, a.required_volunteers - acceptedCount),
+    accepted_volunteers: acceptedVolunteers,
     required_skills: a.required_skills.map((link) => ({
       id: link.skill.id,
       name: link.skill.name,
@@ -214,14 +250,14 @@ export const activitiesService = {
     const activity = await activitiesRepository.findById(id);
     if (!activity) throw new AppError("Activity not found", 404);
 
-    let view: ActivityView | ActivityPublicView;
+    let view: any;
     if (role === ADMIN_ROLE || (await activitiesRepository.findOrganizationByUser(userId))?.id === activity.organization_id) {
       view = mapActivity(activity);
     } else {
       if (!isPubliclyVisible(activity, new Date())) {
         throw new AppError("Activity not found", 404);
       }
-      view = mapPublicActivity(activity);
+      view = await mapPublicActivity(activity);
     }
 
     // Application summary for the Volunteer Join flow.
@@ -296,7 +332,7 @@ export const activitiesService = {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      activities: items.map(mapPublicActivity),
+      activities: await Promise.all(items.map(mapPublicActivity)),
       meta: { total, page, limit, totalPages, nextCursor: page < totalPages ? page + 1 : null },
     };
   },

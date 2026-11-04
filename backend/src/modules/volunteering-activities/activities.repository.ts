@@ -2,7 +2,15 @@ import prisma from "../../../framework/config/prisma.js";
 import type { Prisma, ActivityStatus } from "@prisma/client";
 
 const activityInclude = {
-  organization: true,
+  organization: {
+    include: {
+      user: {
+        include: {
+          profiles: true,
+        },
+      },
+    },
+  },
   category: true,
   approver: { select: { id: true, email: true } },
   required_skills: {
@@ -10,6 +18,22 @@ const activityInclude = {
     orderBy: { id: "asc" as const },
   },
   documents: true,
+  applications: {
+    where: { status: "accepted" },
+    include: {
+      user: {
+        include: {
+          profiles: true,
+        },
+      },
+    },
+    take: 5,
+  },
+  _count: {
+    select: {
+      applications: { where: { status: "accepted" } },
+    },
+  },
 } satisfies Prisma.volunteering_activitiesInclude;
 
 type ActivityWithRelations = Prisma.volunteering_activitiesGetPayload<{

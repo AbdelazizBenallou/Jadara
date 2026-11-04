@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +8,9 @@ import { useTranslation } from "react-i18next";
 import type { Project } from "@/types/project";
 import { Link } from "@tanstack/react-router";
 import { Save, Loader2, ChevronDown } from "lucide-react";
-import { apiClient } from "@/api/client";
+import { getSubDomains, listDomains } from "@/api/domains";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 
 export interface ProjectFormData {
@@ -34,21 +37,23 @@ export function ProjectForm({
 }: ProjectFormProps) {
   const { t } = useTranslation();
 
-  const [domains, setDomains] = useState<{ id: number; name: string }[]>([]);
-  const [domainsLoading, setDomainsLoading] = useState(true);
-  const [subDomains, setSubDomains] = useState<{ id: number; name: string }[]>([]);
-  const [subDomainsLoading, setSubDomainsLoading] = useState(false);
+  const {
+    data: domains = [],
+    isLoading: domainsLoading,
+    error: domainsError,
+  } = useQuery({
+    queryKey: queryKeys.domains.list({ limit: 100 }),
+    queryFn: () => listDomains({ limit: 100 }),
+  });
 
   useEffect(() => {
-    apiClient
-      .get("/domains?limit=100")
-      .then((res: any) => setDomains(res.data.data || []))
-      .catch(() => toast.error("Failed to load domains"))
-      .finally(() => setDomainsLoading(false));
-  }, []);
+    if (domainsError) notifyError(domainsError);
+  }, [domainsError]);
 
   const [title, setTitle] = useState(initialData?.title || "");
-  const [description, setDescription] = useState(initialData?.description || "");
+  const [description, setDescription] = useState(
+    initialData?.description || "",
+  );
   const [github_url, setGithubUrl] = useState(initialData?.github_url || "");
   const [live_url, setLiveUrl] = useState(initialData?.live_url || "");
   const [figma_url, setFigmaUrl] = useState(initialData?.figma_url || "");
@@ -60,26 +65,19 @@ export function ProjectForm({
     initialData?.sub_domain_id ?? "",
   );
 
+  const {
+    data: subDomains = [],
+    isLoading: subDomainsLoading,
+    error: subDomainsError,
+  } = useQuery({
+    queryKey: queryKeys.domains.subDomains(selectedDomainId || "none"),
+    queryFn: () => getSubDomains(selectedDomainId as number),
+    enabled: selectedDomainId !== "",
+  });
+
   useEffect(() => {
-    if (selectedDomainId === "") {
-      setSubDomains([]);
-      return;
-    }
-    let active = true;
-    setSubDomainsLoading(true);
-    apiClient
-      .get(`/domains/sub-domains?domain_id=${selectedDomainId}&limit=100`)
-      .then((res: any) => {
-        if (active) setSubDomains(res.data.data || []);
-      })
-      .catch(() => toast.error("Failed to load sub-domains"))
-      .finally(() => {
-        if (active) setSubDomainsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [selectedDomainId]);
+    if (subDomainsError) notifyError(subDomainsError);
+  }, [subDomainsError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,15 +88,18 @@ export function ProjectForm({
     onSubmit({
       title,
       description,
-      github_url: (github_url.trim() || (initialData ? null : undefined)) as any,
-      live_url: (live_url.trim() || (initialData ? null : undefined)) as any,
-      figma_url: (figma_url.trim() || (initialData ? null : undefined)) as any,
+      github_url: github_url.trim() || (initialData ? null : undefined),
+      live_url: live_url.trim() || (initialData ? null : undefined),
+      figma_url: figma_url.trim() || (initialData ? null : undefined),
       sub_domain_id: Number(selectedSubDomainId),
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border bg-card p-6 shadow-soft">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 rounded-2xl border bg-card p-6 shadow-soft"
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="title">{t("common.name")} *</Label>
@@ -172,7 +173,9 @@ export function ProjectForm({
               <select
                 value={selectedDomainId}
                 onChange={(e) => {
-                  setSelectedDomainId(e.target.value ? Number(e.target.value) : "");
+                  setSelectedDomainId(
+                    e.target.value ? Number(e.target.value) : "",
+                  );
                   setSelectedSubDomainId("");
                 }}
                 className="w-full appearance-none rounded-xl border bg-card p-2.5 pe-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -203,7 +206,9 @@ export function ProjectForm({
               <select
                 value={selectedSubDomainId}
                 onChange={(e) =>
-                  setSelectedSubDomainId(e.target.value ? Number(e.target.value) : "")
+                  setSelectedSubDomainId(
+                    e.target.value ? Number(e.target.value) : "",
+                  )
                 }
                 className="w-full appearance-none rounded-xl border bg-card p-2.5 pe-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
                 required
@@ -227,7 +232,10 @@ export function ProjectForm({
       <div className="flex items-center justify-end gap-3 border-t pt-5">
         <Button asChild variant="outline" type="button">
           {initialData?.id ? (
-            <Link to="/dashboard/projects/$id" params={{ id: String(initialData.id) }}>
+            <Link
+              to="/dashboard/projects/$id"
+              params={{ id: String(initialData.id) }}
+            >
               {t("common.cancel")}
             </Link>
           ) : (

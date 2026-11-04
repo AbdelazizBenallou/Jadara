@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit2, Loader2, Globe } from "lucide-react";
-import { apiClient } from "@/api/client";
+import { useState } from "react";
+import { Plus, Trash2, Edit2, Loader2, Globe, Languages as LanguagesIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createMyLanguage,
+  listMyLanguages,
+  removeMyLanguage,
+  updateMyLanguage,
+} from "@/api/users";
+import { listLanguages } from "@/api/languages";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,7 +18,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -19,22 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
-
-type UserLanguage = {
-  id: number;
-  language_id: number;
-  proficiency: string;
-  languages?: {
-    name: string;
-    code: string;
-  };
-};
-
-type Language = {
-  id: number;
-  name: string;
-  code: string;
-};
+import type { LanguageProficiency, UserLanguage } from "@/types/cv";
 
 type LanguagesSectionProps = {
   onUpdate?: () => void;
@@ -42,10 +35,7 @@ type LanguagesSectionProps = {
 
 export function LanguagesSection({ onUpdate }: LanguagesSectionProps) {
   const { t } = useTranslation();
-  const [userLanguages, setUserLanguages] = useState<UserLanguage[]>([]);
-  const [availableLanguages, setAvailableLanguages] = useState<Language[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -53,206 +43,222 @@ export function LanguagesSection({ onUpdate }: LanguagesSectionProps) {
     language_id: "",
     proficiency: "",
   });
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const availableLanguagesQuery = useQuery({
+    queryKey: queryKeys.cv.availableLanguages,
+    queryFn: () => listLanguages({ limit: 100 }),
+  });
+  const availableLanguages = availableLanguagesQuery.data ?? [];
 
-  const fetchData = async () => {
-    try {
-      const [langsRes, userLangsRes] = await Promise.all([
-        apiClient.get("/languages?limit=100"),
-        apiClient.get("/users/me/languages"),
-      ]);
-      setAvailableLanguages(langsRes.data.data || []);
-      setUserLanguages(userLangsRes.data.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error(t("error.title"));
-    } finally {
-      setLoading(false);
-    }
+  const myLanguagesQuery = useQuery({
+    queryKey: queryKeys.cv.languages,
+    queryFn: listMyLanguages,
+  });
+  const myLanguages = myLanguagesQuery.data ?? [];
+  const loading = myLanguagesQuery.isLoading;
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.languages });
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.data });
   };
 
-  const handleOpenDialog = (lang?: UserLanguage) => {
-    if (lang) {
-      setEditingId(lang.id);
+  const saveMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number | null; input: any }) =>
+      id
+        ? updateMyLanguage(id, { proficiency: input.proficiency })
+        : createMyLanguage(input),
+    onSuccess: () => {
+      toast.success(t("common.saved", { defaultValue: "Saved successfully!" }));
+      setIsDialogOpen(false);
+      invalidate();
+      onUpdate?.();
+    },
+    onError: (error) => notifyError(error, "error.title"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: removeMyLanguage,
+    onSuccess: () => {
+      toast.success(t("common.deleted", { defaultValue: "Deleted successfully!" }));
+      invalidate();
+      onUpdate?.();
+    },
+    onError: (error) => notifyError(error, "error.title"),
+  });
+
+  const handleOpenDialog = (userLang?: UserLanguage) => {
+    if (userLang) {
+      setEditingId(userLang.id);
       setFormData({
-        language_id: lang.language_id.toString(),
-        proficiency: lang.proficiency,
+        language_id: String(userLang.language_id || userLang.languages?.id || ""),
+        proficiency: userLang.proficiency,
       });
     } else {
       setEditingId(null);
       setFormData({
         language_id: "",
-        proficiency: "",
+        proficiency: "intermediate",
       });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.language_id || !formData.proficiency) {
-      toast.error(t("error.title"));
-      return;
-    }
+    if (!formData.language_id || !formData.proficiency) return;
 
-    setSubmitting(true);
-    try {
-      if (editingId) {
-        await apiClient.patch(`/users/me/languages/${editingId}`, {
-          proficiency: formData.proficiency,
-        });
-        toast.success(t("common.saved"));
-      } else {
-        await apiClient.post("/users/me/languages", {
-          language_id: Number(formData.language_id),
-          proficiency: formData.proficiency,
-        });
-        toast.success(t("common.saved"));
-      }
-      setIsDialogOpen(false);
-      onUpdate?.();
-      const res = await apiClient.get("/users/me/languages");
-      setUserLanguages(res.data.data || []);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || t("error.title"));
-    } finally {
-      setSubmitting(false);
-    }
+    saveMutation.mutate({
+      id: editingId,
+      input: {
+        language_id: Number(formData.language_id),
+        proficiency: formData.proficiency as LanguageProficiency,
+      },
+    });
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(t("common.confirmDelete"))) return;
-    try {
-      await apiClient.delete(`/users/me/languages/${id}`);
-      toast.success(t("common.deletedSuccess"));
-      const res = await apiClient.get("/users/me/languages");
-      setUserLanguages(res.data.data || []);
-    } catch (err) {
-      toast.error(t("error.title"));
-    }
+  const handleDelete = (id: number) => {
+    if (!confirm(t("common.confirmDelete", { defaultValue: "Are you sure you want to remove this language?" }))) return;
+    deleteMutation.mutate(id);
   };
 
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-soft mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold">{t("cv.languages")}</h3>
-        <Button onClick={() => handleOpenDialog()} variant="outline" size="sm" className="gap-2">
-          <Plus className="h-4 w-4" /> {t("cv.addLanguage")}
+    <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs mb-6">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <LanguagesIcon className="h-5 w-5 text-[#7135E8]" />
+          <h3 className="text-base font-bold text-[#212529]">
+            {t("domain.language", { defaultValue: "Languages" })}
+          </h3>
+        </div>
+        <Button
+          onClick={() => handleOpenDialog()}
+          size="sm"
+          className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold gap-1.5 shadow-xs"
+        >
+          <Plus className="h-4 w-4" />
+          <span>{t("cv.addLanguage", { defaultValue: "Add Language" })}</span>
         </Button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex justify-center p-6">
+          <Loader2 className="h-6 w-6 animate-spin text-[#7135E8]" />
         </div>
-      ) : userLanguages.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">{t("cv.noLanguages")}</p>
+      ) : myLanguages.length === 0 ? (
+        <div className="p-6 text-center text-xs text-[#6C757D] rounded-xl border border-dashed border-[#E9ECEF]">
+          <p>{t("cv.noLanguages", { defaultValue: "No languages added yet." })}</p>
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {userLanguages.map((lang) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {myLanguages.map((l) => (
             <div
-              key={lang.id}
-              className="group relative rounded-xl border p-4 hover:border-primary/50 transition-colors flex justify-between items-center"
+              key={l.id}
+              className="flex items-center justify-between rounded-xl border border-[#E9ECEF] bg-white p-4 hover:border-[#7135E8] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Globe className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="font-semibold">
-                    {lang.languages?.name || t("cv.unknownLanguage")}
-                  </h4>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {lang.proficiency === "native" && t("cv.proficiencyNative")}
-                    {lang.proficiency === "fluent" && t("cv.proficiencyFluent")}
-                    {lang.proficiency === "advanced" && t("cv.proficiencyAdvanced")}
-                    {lang.proficiency === "intermediate" && t("cv.proficiencyIntermediate")}
-                    {lang.proficiency === "beginner" && t("cv.proficiencyBeginner")}
-                  </p>
-                </div>
+              <div>
+                <h4 className="text-sm font-bold text-[#212529]">
+                  {l.languages?.name || "Language"}
+                </h4>
+                <span className="rounded bg-[#F8F9FA] px-2 py-0.5 text-[10px] font-bold text-[#6C757D] uppercase mt-1 inline-block">
+                  {l.proficiency}
+                </span>
               </div>
-
-              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-blue-600"
-                  onClick={() => handleOpenDialog(lang)}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleOpenDialog(l)}
+                  className="rounded p-1.5 text-[#6C757D] hover:bg-[#F8F9FA] hover:text-[#7135E8]"
+                  title="Edit"
                 >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-red-600"
-                  onClick={() => handleDelete(lang.id)}
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(l.id)}
+                  className="rounded p-1.5 text-[#DC3545] hover:bg-[#DC3545]/10"
+                  title="Delete"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="max-w-md bg-white border-[#E9ECEF]">
           <DialogHeader>
-            <DialogTitle>{editingId ? t("cv.editLanguage") : t("cv.addLanguage")}</DialogTitle>
+            <DialogTitle className="text-base font-bold text-[#212529]">
+              {editingId
+                ? t("cv.editLanguage", { defaultValue: "Edit Language" })
+                : t("cv.addLanguage", { defaultValue: "Add Language" })}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="language_id">{t("cv.language")}</Label>
-              <Select
-                value={formData.language_id}
-                onValueChange={(val) => setFormData({ ...formData, language_id: val })}
-                disabled={!!editingId}
-              >
-                <SelectTrigger id="language_id">
-                  <SelectValue placeholder={t("cv.selectLanguage")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableLanguages.map((l) => (
-                    <SelectItem key={l.id} value={l.id.toString()}>
-                      {l.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="proficiency">{t("cv.proficiency")}</Label>
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            {!editingId && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#212529]">
+                  {t("domain.language", { defaultValue: "Language" })}
+                </Label>
+                <Select
+                  value={formData.language_id}
+                  onValueChange={(val) => setFormData({ ...formData, language_id: val })}
+                >
+                  <SelectTrigger className="border-[#E9ECEF] text-xs">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {availableLanguages.map((lang) => (
+                      <SelectItem key={lang.id} value={String(lang.id)} className="text-xs">
+                        {lang.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.proficiency", { defaultValue: "Proficiency Level" })}
+              </Label>
               <Select
                 value={formData.proficiency}
                 onValueChange={(val) => setFormData({ ...formData, proficiency: val })}
               >
-                <SelectTrigger id="proficiency">
-                  <SelectValue placeholder={t("cv.selectProficiency")} />
+                <SelectTrigger className="border-[#E9ECEF] text-xs">
+                  <SelectValue placeholder="Select proficiency" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="native">{t("cv.proficiencyNative")}</SelectItem>
-                  <SelectItem value="fluent">{t("cv.proficiencyFluent")}</SelectItem>
-                  <SelectItem value="advanced">{t("cv.proficiencyAdvanced")}</SelectItem>
-                  <SelectItem value="intermediate">{t("cv.proficiencyIntermediate")}</SelectItem>
-                  <SelectItem value="beginner">{t("cv.proficiencyBeginner")}</SelectItem>
+                  <SelectItem value="beginner" className="text-xs">Beginner (A1-A2)</SelectItem>
+                  <SelectItem value="intermediate" className="text-xs">Intermediate (B1-B2)</SelectItem>
+                  <SelectItem value="advanced" className="text-xs">Advanced (C1)</SelectItem>
+                  <SelectItem value="fluent" className="text-xs">Fluent (C2)</SelectItem>
+                  <SelectItem value="native" className="text-xs">Native Speaker</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t("common.cancel")}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[#E9ECEF]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="border-[#E9ECEF] text-xs text-[#6C757D]"
+              >
+                {t("common.cancel", { defaultValue: "Cancel" })}
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("common.save")}
+              <Button
+                type="submit"
+                disabled={saveMutation.isPending || (!editingId && !formData.language_id)}
+                className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold"
+              >
+                {saveMutation.isPending ? "Saving..." : t("common.save", { defaultValue: "Save" })}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

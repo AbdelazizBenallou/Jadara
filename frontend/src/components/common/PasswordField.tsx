@@ -1,5 +1,4 @@
 import { useState, forwardRef } from "react";
-import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,10 +7,11 @@ import { useTranslation } from "react-i18next";
 
 interface PasswordFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   className?: string;
+  icon?: string;
 }
 
 export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, icon, ...props }, ref) => {
     const { t } = useTranslation();
     const [show, setShow] = useState(false);
 
@@ -21,13 +21,14 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
           ref={ref}
           type={show ? "text" : "password"}
           className={cn("pe-10", className)}
+          icon={icon}
           {...props}
         />
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute end-0 top-0 h-full w-10 text-muted-foreground hover:text-foreground hover:bg-transparent"
+          className="absolute end-0 top-0 h-full w-10 text-primary/70 hover:text-primary hover:bg-transparent"
           onClick={() => setShow((v) => !v)}
           tabIndex={-1}
           aria-label={
@@ -36,7 +37,12 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
               : t("common.showPassword", { defaultValue: "Show password" })
           }
         >
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          <span
+            aria-hidden="true"
+            className="material-icons-round text-[20px] leading-none"
+          >
+            {show ? "visibility_off" : "visibility"}
+          </span>
         </Button>
       </div>
     );

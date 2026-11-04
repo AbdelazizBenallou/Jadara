@@ -38,7 +38,8 @@
     "uploadedOk": "Document uploaded",
     "beneficiary": "Beneficiary",
     "reviewer": "Reviewer",
-    "company": "Company"
+    "company": "Company",
+    "organization": "Organization"
   },
   "status": {
     "verified": "Verified",
@@ -126,7 +127,8 @@
     "id": "ID",
     "role": "Role",
     "backToHome": "Back to Home",
-    "locale": "en"
+    "locale": "en",
+    "other": "Other"
   },
   "empty": {
     "title": "Nothing here yet",
@@ -138,6 +140,18 @@
     "invalidType": "Invalid file type. Allowed: {{accept}}",
     "fileTooLarge": "File too large. Maximum size: {{maxSize}}MB",
     "uploadFailed": "Upload failed. Please try again."
+  },
+  "errors": {
+    "network": "Network error. Check your connection and try again.",
+    "timeout": "The request timed out. Please try again.",
+    "unauthorized": "Your session has expired. Please sign in again.",
+    "forbidden": "You do not have permission to perform this action.",
+    "notFound": "The requested resource was not found.",
+    "conflict": "This item already exists or conflicts with another record.",
+    "validation": "Please check the information you entered.",
+    "rateLimited": "Too many requests. Please wait a moment and try again.",
+    "server": "The server encountered an error. Please try again later.",
+    "unknown": "An unexpected error occurred. Please try again."
   },
   "footer": {
     "rights": "All rights reserved.",
@@ -208,7 +222,146 @@
     "vision": "We aspire for Jadara to become the trusted national reference for documenting Algerian youth competencies.",
     "communityTitle": "Jadara Community",
     "community": "The Jadara community grows day by day through field meetings and workshops that bring together youth, trainers, and experts, supported by field partners, foremost among them the Directorate of Youth and Sports of Tiaret. Together, we build an environment that links youth with the skills of the future, and opens doors to exchange experiences and build tangible joint projects.",
-    "discoverPlatform": "Explore the Platform"
+    "discoverPlatform": "Explore the Platform",
+    "members": {
+      "eyebrow": "The People",
+      "titleLine1": "Meet the",
+      "titleLine2": "community.",
+      "lead": "Jadara members are builders, analysts, designers and makers from across Algeria. Explore the fields where they document their work, and see how proof replaces guesswork.",
+      "index": "Fields index",
+      "edition": "Edition 2026",
+      "quote": "A profile should show what someone can do, not only what they studied. Every project, every piece of evidence and every verified skill is a step toward being seen for real competence.",
+      "quoteBy": "The Jadara principle",
+      "statFields": "Fields to explore",
+      "statLanguages": "Interface languages",
+      "statStandard": "Shared standard",
+      "statEdition": "Edition",
+      "filterLabel": "Filter member fields",
+      "filterAll": "All",
+      "filterBuild": "Build",
+      "filterData": "Data",
+      "filterSecurity": "Security",
+      "filterDesign": "Design",
+      "countLabel": "fields shown",
+      "joinNote": "Every profile starts with one documented skill.",
+      "join": "Join Jadara",
+      "fields": {
+        "web": {
+          "title": "Web Development",
+          "desc": "Interfaces, APIs and full-stack products built for the web.",
+          "skills": "Frontend · Backend · Full-stack"
+        },
+        "mobile": {
+          "title": "Mobile Development",
+          "desc": "Native and cross-platform applications.",
+          "skills": "Android · iOS · Cross-platform"
+        },
+        "data": {
+          "title": "Data Science & AI",
+          "desc": "Analysis, machine learning and intelligent systems.",
+          "skills": "Analytics · ML · Deep learning"
+        },
+        "security": {
+          "title": "Cybersecurity",
+          "desc": "Secure systems, applications and networks.",
+          "skills": "Network · AppSec · Pentesting"
+        },
+        "cloud": {
+          "title": "Cloud & DevOps",
+          "desc": "Cloud infrastructure, automation and delivery.",
+          "skills": "Cloud · DevOps · CI/CD"
+        },
+        "design": {
+          "title": "UI/UX Design",
+          "desc": "Research-led interfaces and product experiences.",
+          "skills": "Research · UI · Design systems"
+        },
+        "game": {
+          "title": "Game Development",
+          "desc": "Playable worlds, mechanics and game systems.",
+          "skills": "Game design · Programming · Art"
+        },
+        "databases": {
+          "title": "Databases",
+          "desc": "Reliable data models, storage and administration.",
+          "skills": "SQL · NoSQL · Administration"
+        },
+        "graphic": {
+          "title": "Graphic Design",
+          "desc": "Visual identity, editorial layouts and brand systems.",
+          "skills": "Branding · Layout · Illustration"
+        },
+        "marketing": {
+          "title": "Digital Marketing",
+          "desc": "Campaigns, content and audience growth across digital channels.",
+          "skills": "Strategy · Content · Analytics"
+        },
+        "finance": {
+          "title": "Finance & Accounting",
+          "desc": "Budgeting, reporting and financial management for organizations.",
+          "skills": "Accounting · Analysis · Reporting"
+        },
+        "entrepreneurship": {
+          "title": "Entrepreneurship",
+          "desc": "Turning ideas into sustainable products, services and ventures.",
+          "skills": "Strategy · Operations · Growth"
+        },
+        "nursing": {
+          "title": "Nursing & Care",
+          "desc": "Patient care, clinical support and community health practice.",
+          "skills": "Patient care · First aid · Health education"
+        },
+        "nutrition": {
+          "title": "Nutrition & Wellness",
+          "desc": "Food, wellbeing and healthy living guidance for communities.",
+          "skills": "Nutrition · Meal planning · Wellness"
+        },
+        "teaching": {
+          "title": "Teaching & Training",
+          "desc": "Learning design, classroom practice and professional training.",
+          "skills": "Pedagogy · Curriculum · Facilitation"
+        },
+        "translation": {
+          "title": "Translation & Languages",
+          "desc": "Multilingual communication across Arabic, French and English.",
+          "skills": "Translation · Interpretation · Editing"
+        },
+        "music": {
+          "title": "Music & Sound",
+          "desc": "Performance, production and sound design for creative work.",
+          "skills": "Performance · Production · Sound design"
+        },
+        "film": {
+          "title": "Film & Photography",
+          "desc": "Visual storytelling through photography, video and editing.",
+          "skills": "Photography · Video · Editing"
+        },
+        "electrical": {
+          "title": "Electrical Work",
+          "desc": "Installation, maintenance and safe electrical systems.",
+          "skills": "Installation · Maintenance · Safety"
+        },
+        "construction": {
+          "title": "Construction & Carpentry",
+          "desc": "Building, woodwork and practical site craftsmanship.",
+          "skills": "Carpentry · Finishing · Site work"
+        },
+        "culinary": {
+          "title": "Culinary Arts",
+          "desc": "Professional cooking, pastry and food service.",
+          "skills": "Cooking · Pastry · Food service"
+        }
+      },
+      "collectiveLabel": "Collective portrait",
+      "collectiveCaption": "The Jadara community, together in Tiaret.",
+      "collectiveAlt": "The Jadara community gathered together.",
+      "filterTechnology": "Technology",
+      "filterBusiness": "Business",
+      "filterHealth": "Health",
+      "filterEducation": "Education",
+      "filterArts": "Arts",
+      "filterTrades": "Trades"
+    }
   },
   "faq": {
     "title": "Frequently Asked Questions",
@@ -231,7 +384,25 @@
     "q8": "Can companies view my profile without my consent?",
     "a8": "No, you control your profile visibility to partner companies at any time via your account privacy settings.",
     "q9": "Is my personal data secure?",
-    "a9": "Yes, we prioritize your privacy and data protection. We follow strict standards to secure your information; for more details, please read our [Privacy Policy](/privacy-policy)."
+    "a9": "Yes, we prioritize your privacy and data protection. We follow strict standards to secure your information; for more details, please read our [Privacy Policy](/privacy-policy).",
+    "topics": "Topics",
+    "all": "All questions",
+    "answers": "answers",
+    "results": "results",
+    "browse": "Browse answers",
+    "searchPlaceholder": "Search questions...",
+    "emptyTitle": "No matching questions",
+    "emptyText": "Try another keyword or show all questions.",
+    "clearFilters": "Show all questions",
+    "helpTitle": "Still need help?",
+    "helpText": "Our team is here to answer anything not covered above.",
+    "contactCta": "Contact the team",
+    "categories": {
+      "gettingStarted": "Getting started",
+      "evidence": "Evidence & proofs",
+      "verification": "Review & badges",
+      "account": "Account & privacy"
+    }
   },
   "contact": {
     "title": "Contact us",
@@ -239,8 +410,11 @@
     "name": "Full name",
     "subject": "Subject",
     "message": "Message",
+    "description": "Description",
     "send": "Send message",
     "sent": "Your message was sent successfully. We will get back to you soon.",
+    "note": "This form opens your email app with your message ready to send.",
+    "opened": "Your email app is opening with your message ready to send.",
     "infoT": "Contact information",
     "addr": "Algiers, Algeria"
   },
@@ -328,7 +502,15 @@
     "domainsSelected": "{{count}} domains selected",
     "domainsSelectedCompact": "+{{count}} more",
     "noDomainsAvailable": "No domains available",
-    "noDomainsFound": "No domains found."
+    "noDomainsFound": "No domains found.",
+    "roleOrgDesc": "Join as an organization and publish opportunities",
+    "loginSuccess": "Signed in successfully",
+    "beneficiaryCreated": "Account created successfully",
+    "demandSubmitted": "Request submitted successfully",
+    "rolesLoadError": "Unable to load roles",
+    "rolesEmpty": "No registration roles are available right now.",
+    "roleUnavailableDesc": "Registration for this role is not available yet.",
+    "chooseAnotherRole": "Choose another role"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -900,7 +1082,13 @@
     "skillUpdateError": "Failed to update skill",
     "skillDeleted": "Skill deleted successfully",
     "skillDeleteError": "Failed to delete skill",
-    "addSkill": "Add Skill"
+    "addSkill": "Add Skill",
+    "domain": "Domain",
+    "activityOverview": "Activity Overview",
+    "lastSevenDays": "Last 7 days",
+    "requestStatus": "Request Status",
+    "recentSample": "Latest registration requests",
+    "breadcrumbRoot": "Admin"
   },
   "trainer": {
     "title": "Trainer Dashboard",
@@ -1233,5 +1421,22 @@
     "otherSkills": "Other Skills",
     "noSkills": "No verified skills.",
     "languages": "Languages"
+  },
+  "organization": {
+    "regTitle": "Organization Registration",
+    "regSubtitle": "Create your organization account to publish opportunities",
+    "stepAccount": "Account",
+    "stepDetails": "Organization",
+    "nextBtn": "Continue",
+    "contactName": "Contact Full Name",
+    "orgName": "Organization Name",
+    "description": "Short Description",
+    "website": "Website (Optional)",
+    "uploadDoc": "Supporting Document",
+    "uploadHelper": "Upload one official document to verify your organization",
+    "submitReg": "Submit Registration",
+    "pendingTitle": "Registration Submitted",
+    "pendingDesc": "Your organization registration is pending review. We will contact you once it is approved.",
+    "requiredFields": "Organization name and contact name are required"
   }
 }

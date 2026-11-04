@@ -3,32 +3,26 @@ import { useTranslation } from "react-i18next";
 import { Loader2, Plus, Edit2, Trash2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/api/client";
+import {
+  attachSkillsToDomain,
+  createSkill,
+  createSkillCategory,
+  deleteSkill,
+  deleteSkillCategory,
+  getDomainSkills,
+  listSkillCategories,
+  listSkills,
+  updateSkill,
+} from "@/api/skills";
+import { listDomains } from "@/api/domains";
+import { getErrorMessage } from "@/lib/notify";
+import { queryKeys } from "@/lib/query-keys";
+import type { Domain } from "@/types/domain";
+import type { Skill } from "@/types/skill";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
-
-interface Skill {
-  id: number;
-  name: string;
-  description: string;
-  status: string;
-  category_id: number;
-  category?: { id: number; name: string } | null;
-  created_at: string;
-}
-
-interface SkillCategory {
-  id: number;
-  name: string;
-  description?: string | null;
-}
-
-interface Domain {
-  id: number;
-  name: string;
-}
 
 export function AdminSkills() {
   const { t } = useTranslation();
@@ -52,62 +46,45 @@ export function AdminSkills() {
   });
 
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
-    queryKey: ["admin-skill-categories"],
-    queryFn: async () => {
-      const res = await apiClient.get("/skills/categories?limit=100");
-      const cData = res.data?.data ?? [];
-      return Array.isArray(cData) ? (cData as SkillCategory[]) : [];
-    },
+    queryKey: queryKeys.skills.categories,
+    queryFn: () => listSkillCategories({ limit: 100 }),
   });
 
   const { data: domains = [], isLoading: isLoadingDomains } = useQuery({
-    queryKey: ["admin-domains-list"],
-    queryFn: async () => {
-      const res = await apiClient.get("/domains?limit=100");
-      const dData = res.data?.data?.data || res.data?.data || [];
-      return Array.isArray(dData) ? (dData as Domain[]) : [];
-    },
+    queryKey: queryKeys.domains.list({ limit: 100 }),
+    queryFn: () => listDomains({ limit: 100 }),
   });
 
   const {
     data: skillsData,
     isLoading: isLoadingSkills,
-    error,
   } = useQuery({
-    queryKey: ["admin-skills"],
+    queryKey: queryKeys.skills.list({ scope: "admin" }),
     queryFn: async () => {
-      const skillsRes = await apiClient.get("/skills?limit=1000");
-      const sData = skillsRes.data?.data?.data || skillsRes.data?.data || [];
-      const skills = Array.isArray(sData) ? (sData as Skill[]) : [];
-
-      // Build Skill -> Domains map by fetching each domain's skills
-      // This is exactly how the legacy component did it
+      const skills = await listSkills({ limit: 1000 });
       const map: Record<number, Domain[]> = {};
-      const dData = queryClient.getQueryData<Domain[]>(["admin-domains-list"]) || [];
 
-      if (Array.isArray(dData)) {
-        await Promise.all(
-          dData.map(async (domain) => {
-            try {
-              const dsRes = await apiClient.get(`/domains/${domain.id}/skills`);
-              const domainSkills = dsRes.data?.data || [];
-              domainSkills.forEach((ds: { id: number }) => {
-                if (!map[ds.id]) map[ds.id] = [];
-                map[ds.id].push(domain);
-              });
-            } catch (e) {
-              console.error(`Failed to fetch skills for domain ${domain.id}`, e);
-            }
-          }),
-        );
-      }
+      await Promise.all(
+        domains.map(async (domain) => {
+          try {
+            const domainSkills = await getDomainSkills(domain.id);
+            domainSkills.forEach((skill) => {
+              if (!map[skill.id]) map[skill.id] = [];
+              map[skill.id].push(domain);
+            });
+          } catch {
+            return;
+          }
+        }),
+      );
+
       return { skills, skillDomainMap: map };
     },
-    enabled: !isLoadingDomains, // Wait for domains list to be cached
+    enabled: !isLoadingDomains,
   });
 
-  const skills = skillsData?.skills || [];
-  const skillDomainMap = skillsData?.skillDomainMap || {};
+  const skills = skillsData?.skills ?? [];
+  const skillDomainMap = skillsData?.skillDomainMap ?? {};
   const isLoading = isLoadingDomains || isLoadingSkills || isLoadingCategories;
 
   const handleDomainToggle = (domainId: number) => {
@@ -121,46 +98,39 @@ export function AdminSkills() {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const res = await apiClient.post("/skills", {
+      const created = await createSkill({
         name: data.name,
         description: data.description,
         status: data.status,
         category_id: Number(data.category_id),
       });
-      const newSkillId = res.data?.data?.id;
 
-      if (newSkillId && data.domain_ids.length > 0) {
-        for (const dId of data.domain_ids) {
-          await apiClient.post(`/domains/${dId}/skills`, { skill_ids: [newSkillId] });
-        }
+      for (const domainId of data.domain_ids) {
+        await attachSkillsToDomain(domainId, [created.id]);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-skills"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.domains.all });
       toast.success(t("admin.skillAdded", { defaultValue: "Skill created successfully" }));
       setIsAddModalOpen(false);
       setFormData({ name: "", description: "", status: "active", category_id: "", domain_ids: [] });
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.skillAddError", { defaultValue: "Failed to create skill" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.skillAddError"));
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async (data: typeof formData & { id: number }) => {
-      await apiClient.patch(`/skills/${data.id}`, {
+      await updateSkill(data.id, {
         name: data.name,
         description: data.description,
         status: data.status,
         category_id: Number(data.category_id),
       });
 
-      // Find which domains are newly assigned and which are removed
-      const oldDomains = skillDomainMap[data.id]?.map((d) => d.id) || [];
+      const oldDomains = skillDomainMap[data.id]?.map((d) => d.id) ?? [];
       const newDomainIds = data.domain_ids.filter((id) => !oldDomains.includes(id));
       const removedDomainIds = oldDomains.filter((id) => !data.domain_ids.includes(id));
 
@@ -173,92 +143,64 @@ export function AdminSkills() {
         );
       }
 
-      if (newDomainIds.length > 0) {
-        for (const dId of newDomainIds) {
-          try {
-            await apiClient.post(`/domains/${dId}/skills`, { skill_ids: [data.id] });
-          } catch (e) {} // ignore if fails
+      for (const domainId of newDomainIds) {
+        try {
+          await attachSkillsToDomain(domainId, [data.id]);
+        } catch {
+          continue;
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-skills"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.domains.all });
       toast.success(t("admin.skillUpdated", { defaultValue: "Skill updated successfully" }));
       setIsEditModalOpen(false);
       setSelectedSkill(null);
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.skillUpdateError", { defaultValue: "Failed to update skill" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.skillUpdateError"));
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/skills/${id}`);
-    },
+    mutationFn: (id: number) => deleteSkill(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-skills"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.domains.all });
       toast.success(t("admin.skillDeleted", { defaultValue: "Skill deleted successfully" }));
       setIsDeleteModalOpen(false);
       setSelectedSkill(null);
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
-      if (axiosErr.response?.status === 409 || axiosErr.response?.status === 400) {
-        toast.error(
-          axiosErr.response?.data?.message ||
-            t("admin.cannotDeleteSkill", {
-              defaultValue: "Cannot delete Skill: It is currently assigned to users or domains.",
-            }),
-        );
-      } else {
-        toast.error(
-          axiosErr.response?.data?.message ||
-            t("admin.skillDeleteError", { defaultValue: "Failed to delete skill" }),
-        );
-      }
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.skillDeleteError"));
     },
   });
 
   const createCategoryMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string }) => {
-      await apiClient.post("/skills/categories", {
+    mutationFn: (data: { name: string; description: string }) =>
+      createSkillCategory({
         name: data.name,
         description: data.description || undefined,
-      });
-    },
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-skill-categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.categories });
       toast.success(t("admin.categoryAdded", { defaultValue: "Category created successfully" }));
       setCategoryForm({ name: "", description: "" });
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.categoryAddError", { defaultValue: "Failed to create category" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.categoryAddError"));
     },
   });
 
   const deleteCategoryMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/skills/categories/${id}`);
-    },
+    mutationFn: (id: number) => deleteSkillCategory(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-skill-categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.categories });
       toast.success(t("admin.categoryDeleted", { defaultValue: "Category deleted successfully" }));
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.categoryDeleteError", { defaultValue: "Failed to delete category" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.categoryDeleteError"));
     },
   });
 
@@ -340,11 +282,6 @@ export function AdminSkills() {
         {isLoading ? (
           <div className="flex h-64 items-center justify-center rounded-2xl border bg-card">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border bg-card text-muted-foreground">
-            <BookOpen className="mb-4 h-12 w-12 opacity-20" />
-            <p>{t("common.error", { defaultValue: "An error occurred." })}</p>
           </div>
         ) : skills.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center rounded-2xl border bg-card text-muted-foreground">

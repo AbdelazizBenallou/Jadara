@@ -14,10 +14,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const { t, i18n } = useTranslation();
 
   return (
-    <div className="flex flex-col rounded-2xl border bg-card p-5 shadow-soft transition-shadow hover:shadow-md sm:flex-row sm:items-start sm:justify-between gap-5">
+    <div className="flex flex-col rounded-xl border border-[#E9ECEF] bg-white p-5 shadow-xs transition-colors hover:border-[#7135E8] sm:flex-row sm:items-start sm:justify-between gap-5">
       <div className="flex flex-1 gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-          <FolderGit2 className="h-6 w-6 text-primary" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#E9ECEF] bg-white text-[#7135E8]">
+          <FolderGit2 className="h-5 w-5" />
         </div>
 
         <div className="space-y-2 flex-1">

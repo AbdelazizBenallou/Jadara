@@ -1,0 +1,16 @@
+{
+  "full_name": {
+    "en": "Benallou Abdelaziz",
+    "fr": "Benallou Abdelaziz",
+    "ar": "بن علو عبد العزيز"
+  },
+  "description": {
+    "en": "Computer Science graduate specialized in networking, telecommunications, and security, with experience in Linux systems administration and backend/mobile development. Skilled in designing, securing, and maintaining reliable IT infrastructures as well as developing high-performance software solutions.",
+    "fr": "Diplômé en Informatique spécialisé en Réseaux, Télécommunications et Sécurité, avec de l'expérience en administration Linux et en développement backend/mobile. Expert dans la conception, la sécurisation et la maintenance d'infrastructures informatiques fiables ainsi que dans le développement de solutions logicielles performantes.",
+    "ar": "خريج في الإعلام الآلي متخصص في الشبكات، الاتصالات السلكية واللاسلكية وأمن الشبكات، مع خبرة في إدارة أنظمة لينكس وتطوير البرمجيات. خبير في تصميم وتأمين وصيانة البنية التحتية الرقمية، وتطوير الحلول البرمجية والتطبيقات عالية الكفاءة."
+  },
+  "links": [
+    "https://benallou-abdelaziz.vercel.app/"
+  ],
+  "image": "member_info/6/photo_2026-10-26_21-03-01.jpg"
+}

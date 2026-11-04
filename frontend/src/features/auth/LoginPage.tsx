@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordField } from "@/components/common/PasswordField";
 import { useAuth } from "@/context/AuthContext";
 import { ROLE_HOME, type Role } from "@/constants/roles";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 import { AuthShell } from "./AuthShell";
 
@@ -16,18 +17,19 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg("");
     setIsSubmitting(true);
 
     try {
       // The role state is just for UI/demo convenience to auto-fill (optional),
       // but the real login only takes email/password.
       const loggedInUser = await login({ email, password });
+      notifySuccess(
+        t("auth.loginSuccess", { defaultValue: "Signed in successfully" }),
+      );
 
       if (loggedInUser && loggedInUser.role) {
         // Map backend role (e.g. 'Admin', 'Beneficiary') to frontend route constants
@@ -36,13 +38,8 @@ export function LoginPage() {
       } else {
         navigate({ to: "/dashboard" });
       }
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      if (err.response?.data?.message) {
-        setErrorMsg(err.response.data.message);
-      } else {
-        setErrorMsg(t("auth.invalidCredentials"));
-      }
+    } catch (error) {
+      notifyError(error, "auth.invalidCredentials");
     } finally {
       setIsSubmitting(false);
     }
@@ -56,13 +53,13 @@ export function LoginPage() {
           <Label htmlFor="login-email">{t("common.email")}</Label>
           <Input
             id="login-email"
+            icon="mail"
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             dir="ltr"
-            placeholder="you@example.com"
           />
         </div>
 
@@ -80,23 +77,13 @@ export function LoginPage() {
           </div>
           <PasswordField
             id="login-password"
+            icon="lock"
             required
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-
-
-        {/* Error */}
-        {errorMsg && (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            {errorMsg}
-          </div>
-        )}
 
         {/* Submit */}
         <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -106,7 +93,10 @@ export function LoginPage() {
         {/* Register link */}
         <p className="text-center text-sm text-muted-foreground">
           {t("auth.noAccount")}{" "}
-          <Link to="/register" className="font-semibold text-primary hover:underline">
+          <Link
+            to="/register"
+            className="font-semibold text-primary hover:underline"
+          >
             {t("auth.createAccount")}
           </Link>
         </p>

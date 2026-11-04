@@ -25,7 +25,7 @@ import {
   userSkillsWriteRateLimit,
 } from "../../../framework/middleware/rateLimiter.js";
 
-import { avatarUpload } from "../../../framework/middleware/upload.js";
+import { avatarUpload, profileUpload } from "../../../framework/middleware/upload.js";
 
 import { uploadErrorHandler } from "../../../framework/middleware/uploadErrorHandler.js";
 
@@ -35,13 +35,16 @@ import cvPdfRoutes from "../cv-pdf/cv-pdf.routes.js";
 
 const router = Router();
 
-// ─── /me/profile (GET includes socials, PATCH with avatar) ──
+// ─── /me/profile (GET includes socials, PATCH with avatar/cover) ──
 router.get("/me/profile", verifyAccessToken, getMyProfileRateLimit, usersController.getMyProfile);
 router.patch(
   "/me/profile",
   verifyAccessToken,
   updateMyProfileRateLimit,
-  avatarUpload.single("avatar"),
+  profileUpload.fields([
+    { name: "avatar", maxCount: 1 },
+    { name: "cover", maxCount: 1 },
+  ]),
   uploadErrorHandler,
   zodValidate(updateProfileSchema),
   usersController.updateMyProfile,
@@ -107,6 +110,7 @@ router.get("/:id/profile", verifyAccessToken, getUserRateLimit, usersController.
 // ─── Admin-only routes ───────────────────────────────────────
 router.use(verifyAccessToken, checkPermission("manage_users"));
 
+router.get("/analytics", listUsersRateLimit, usersController.getUserAnalytics);
 router.get("/", listUsersRateLimit, zodValidateQuery(listUsersSchema), usersController.getAll);
 router.get("/:id", getUserRateLimit, usersController.getById);
 router.patch("/:id", updateUserRateLimit, zodValidate(updateUserSchema), usersController.update);

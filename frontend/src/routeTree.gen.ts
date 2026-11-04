@@ -17,36 +17,51 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ReviewerRouteImport } from './routes/reviewer'
+import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as UnsupportedRouteImport } from './routes/unsupported'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminActivitiesRouteImport } from './routes/admin.activities'
+import { Route as AdminActivityCategoriesRouteImport } from './routes/admin.activity-categories'
 import { Route as AdminDomainsRouteImport } from './routes/admin.domains'
+import { Route as AdminLanguagesRouteImport } from './routes/admin.languages'
+import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
+import { Route as AdminPermissionsRouteImport } from './routes/admin.permissions'
+import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminProjectsRouteImport } from './routes/admin.projects'
 import { Route as AdminRequestsRouteImport } from './routes/admin.requests'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSkillsRouteImport } from './routes/admin.skills'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminSubDomainsRouteImport } from './routes/admin.sub-domains'
 import { Route as CompanyIndexRouteImport } from './routes/company.index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
+import { Route as DashboardApplicationsRouteImport } from './routes/dashboard.applications'
 import { Route as DashboardCvBuilderRouteImport } from './routes/dashboard.cv-builder'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard.profile'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
 import { Route as DashboardSkillsRouteImport } from './routes/dashboard.skills'
+import { Route as OrganizationsIndexRouteImport } from './routes/organizations.index'
+import { Route as OrganizationsOrganizationIdRouteImport } from './routes/organizations.$organizationId'
 import { Route as RegisterIndexRouteImport } from './routes/register.index'
 import { Route as RegisterBeneficiaryRouteImport } from './routes/register.beneficiary'
 import { Route as RegisterCompanyRouteImport } from './routes/register.company'
+import { Route as RegisterOrganizationRouteImport } from './routes/register.organization'
 import { Route as RegisterReviewerRouteImport } from './routes/register.reviewer'
 import { Route as ReviewerIndexRouteImport } from './routes/reviewer.index'
 import { Route as ReviewerDetailsRouteImport } from './routes/reviewer.details'
 import { Route as ReviewerDomainsRouteImport } from './routes/reviewer.domains'
 import { Route as ReviewerQueueRouteImport } from './routes/reviewer.queue'
 import { Route as ReviewerReviewedRouteImport } from './routes/reviewer.reviewed'
+import { Route as AdminUsersIndexRouteImport } from './routes/admin.users.index'
+import { Route as AdminUsersIdRouteImport } from './routes/admin.users.$id'
 import { Route as CompanyTalentIdRouteImport } from './routes/company.talent.$id'
 import { Route as DashboardProjectsIndexRouteImport } from './routes/dashboard.projects.index'
 import { Route as DashboardProjectsNewRouteImport } from './routes/dashboard.projects.new'
 import { Route as ReviewerProjectIdRouteImport } from './routes/reviewer.project.$id'
 import { Route as ReviewerReviewDetailsReviewIdRouteImport } from './routes/reviewer.review-details.$reviewId'
 import { Route as ReviewerTalentIdRouteImport } from './routes/reviewer.talent.$id'
+import { Route as VolunteeringActivitiesActivityIdRouteImport } from './routes/volunteering.activities.$activityId'
 import { Route as DashboardProjectsIdIndexRouteImport } from './routes/dashboard.projects.$id.index'
 import { Route as DashboardProjectsIdEditRouteImport } from './routes/dashboard.projects.$id.edit'
 import { Route as DashboardProjectsIdEvidenceRouteImport } from './routes/dashboard.projects.$id.evidence'
@@ -91,6 +106,11 @@ const ReviewerRoute = ReviewerRouteImport.update({
   path: '/reviewer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SavedRoute = SavedRouteImport.update({
+  id: '/saved',
+  path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -106,9 +126,39 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminActivitiesRoute = AdminActivitiesRouteImport.update({
+  id: '/activities',
+  path: '/activities',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminActivityCategoriesRoute = AdminActivityCategoriesRouteImport.update({
+  id: '/activity-categories',
+  path: '/activity-categories',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminDomainsRoute = AdminDomainsRouteImport.update({
   id: '/domains',
   path: '/domains',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLanguagesRoute = AdminLanguagesRouteImport.update({
+  id: '/languages',
+  path: '/languages',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
+  id: '/organizations',
+  path: '/organizations',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPermissionsRoute = AdminPermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminProjectsRoute = AdminProjectsRouteImport.update({
@@ -126,14 +176,19 @@ const AdminRolesRoute = AdminRolesRouteImport.update({
   path: '/roles',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSkillsRoute = AdminSkillsRouteImport.update({
   id: '/skills',
   path: '/skills',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
+const AdminSubDomainsRoute = AdminSubDomainsRouteImport.update({
+  id: '/sub-domains',
+  path: '/sub-domains',
   getParentRoute: () => AdminRoute,
 } as any)
 const CompanyIndexRoute = CompanyIndexRouteImport.update({
@@ -144,6 +199,11 @@ const CompanyIndexRoute = CompanyIndexRouteImport.update({
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardApplicationsRoute = DashboardApplicationsRouteImport.update({
+  id: '/applications',
+  path: '/applications',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardCvBuilderRoute = DashboardCvBuilderRouteImport.update({
@@ -166,6 +226,17 @@ const DashboardSkillsRoute = DashboardSkillsRouteImport.update({
   path: '/skills',
   getParentRoute: () => DashboardRoute,
 } as any)
+const OrganizationsIndexRoute = OrganizationsIndexRouteImport.update({
+  id: '/organizations/',
+  path: '/organizations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizationsOrganizationIdRoute =
+  OrganizationsOrganizationIdRouteImport.update({
+    id: '/organizations/$organizationId',
+    path: '/organizations/$organizationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const RegisterIndexRoute = RegisterIndexRouteImport.update({
   id: '/register/',
   path: '/register/',
@@ -179,6 +250,11 @@ const RegisterBeneficiaryRoute = RegisterBeneficiaryRouteImport.update({
 const RegisterCompanyRoute = RegisterCompanyRouteImport.update({
   id: '/register/company',
   path: '/register/company',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterOrganizationRoute = RegisterOrganizationRouteImport.update({
+  id: '/register/organization',
+  path: '/register/organization',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterReviewerRoute = RegisterReviewerRouteImport.update({
@@ -211,6 +287,16 @@ const ReviewerReviewedRoute = ReviewerReviewedRouteImport.update({
   path: '/reviewed',
   getParentRoute: () => ReviewerRoute,
 } as any)
+const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersIdRoute = AdminUsersIdRouteImport.update({
+  id: '/users/$id',
+  path: '/users/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 const CompanyTalentIdRoute = CompanyTalentIdRouteImport.update({
   id: '/talent/$id',
   path: '/talent/$id',
@@ -242,6 +328,12 @@ const ReviewerTalentIdRoute = ReviewerTalentIdRouteImport.update({
   path: '/talent/$id',
   getParentRoute: () => ReviewerRoute,
 } as any)
+const VolunteeringActivitiesActivityIdRoute =
+  VolunteeringActivitiesActivityIdRouteImport.update({
+    id: '/volunteering/activities/$activityId',
+    path: '/volunteering/activities/$activityId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DashboardProjectsIdIndexRoute =
   DashboardProjectsIdIndexRouteImport.update({
     id: '/projects/$id/',
@@ -269,20 +361,31 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/reviewer': typeof ReviewerRouteWithChildren
+  '/saved': typeof SavedRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unsupported': typeof UnsupportedRoute
+  '/admin/activities': typeof AdminActivitiesRoute
+  '/admin/activity-categories': typeof AdminActivityCategoriesRoute
   '/admin/domains': typeof AdminDomainsRoute
+  '/admin/languages': typeof AdminLanguagesRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
+  '/admin/permissions': typeof AdminPermissionsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/projects': typeof AdminProjectsRoute
   '/admin/requests': typeof AdminRequestsRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/skills': typeof AdminSkillsRoute
-  '/admin/users': typeof AdminUsersRoute
+  '/admin/sub-domains': typeof AdminSubDomainsRoute
+  '/dashboard/applications': typeof DashboardApplicationsRoute
   '/dashboard/cv-builder': typeof DashboardCvBuilderRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/skills': typeof DashboardSkillsRoute
+  '/organizations/$organizationId': typeof OrganizationsOrganizationIdRoute
   '/register/beneficiary': typeof RegisterBeneficiaryRoute
   '/register/company': typeof RegisterCompanyRoute
+  '/register/organization': typeof RegisterOrganizationRoute
   '/register/reviewer': typeof RegisterReviewerRoute
   '/reviewer/details': typeof ReviewerDetailsRoute
   '/reviewer/domains': typeof ReviewerDomainsRoute
@@ -291,13 +394,17 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/company/': typeof CompanyIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/organizations/': typeof OrganizationsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/reviewer/': typeof ReviewerIndexRoute
+  '/admin/users/$id': typeof AdminUsersIdRoute
   '/company/talent/$id': typeof CompanyTalentIdRoute
   '/dashboard/projects/new': typeof DashboardProjectsNewRoute
   '/reviewer/project/$id': typeof ReviewerProjectIdRoute
   '/reviewer/review-details/$reviewId': typeof ReviewerReviewDetailsReviewIdRoute
   '/reviewer/talent/$id': typeof ReviewerTalentIdRoute
+  '/volunteering/activities/$activityId': typeof VolunteeringActivitiesActivityIdRoute
+  '/admin/users/': typeof AdminUsersIndexRoute
   '/dashboard/projects/': typeof DashboardProjectsIndexRoute
   '/dashboard/projects/$id/edit': typeof DashboardProjectsIdEditRoute
   '/dashboard/projects/$id/evidence': typeof DashboardProjectsIdEvidenceRoute
@@ -308,20 +415,31 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unsupported': typeof UnsupportedRoute
+  '/admin/activities': typeof AdminActivitiesRoute
+  '/admin/activity-categories': typeof AdminActivityCategoriesRoute
   '/admin/domains': typeof AdminDomainsRoute
+  '/admin/languages': typeof AdminLanguagesRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
+  '/admin/permissions': typeof AdminPermissionsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/projects': typeof AdminProjectsRoute
   '/admin/requests': typeof AdminRequestsRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/skills': typeof AdminSkillsRoute
-  '/admin/users': typeof AdminUsersRoute
+  '/admin/sub-domains': typeof AdminSubDomainsRoute
+  '/dashboard/applications': typeof DashboardApplicationsRoute
   '/dashboard/cv-builder': typeof DashboardCvBuilderRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/skills': typeof DashboardSkillsRoute
+  '/organizations/$organizationId': typeof OrganizationsOrganizationIdRoute
   '/register/beneficiary': typeof RegisterBeneficiaryRoute
   '/register/company': typeof RegisterCompanyRoute
+  '/register/organization': typeof RegisterOrganizationRoute
   '/register/reviewer': typeof RegisterReviewerRoute
   '/reviewer/details': typeof ReviewerDetailsRoute
   '/reviewer/domains': typeof ReviewerDomainsRoute
@@ -330,13 +448,17 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/company': typeof CompanyIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/organizations': typeof OrganizationsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/reviewer': typeof ReviewerIndexRoute
+  '/admin/users/$id': typeof AdminUsersIdRoute
   '/company/talent/$id': typeof CompanyTalentIdRoute
   '/dashboard/projects/new': typeof DashboardProjectsNewRoute
   '/reviewer/project/$id': typeof ReviewerProjectIdRoute
   '/reviewer/review-details/$reviewId': typeof ReviewerReviewDetailsReviewIdRoute
   '/reviewer/talent/$id': typeof ReviewerTalentIdRoute
+  '/volunteering/activities/$activityId': typeof VolunteeringActivitiesActivityIdRoute
+  '/admin/users': typeof AdminUsersIndexRoute
   '/dashboard/projects': typeof DashboardProjectsIndexRoute
   '/dashboard/projects/$id/edit': typeof DashboardProjectsIdEditRoute
   '/dashboard/projects/$id/evidence': typeof DashboardProjectsIdEvidenceRoute
@@ -352,20 +474,31 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/reviewer': typeof ReviewerRouteWithChildren
+  '/saved': typeof SavedRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unsupported': typeof UnsupportedRoute
+  '/admin/activities': typeof AdminActivitiesRoute
+  '/admin/activity-categories': typeof AdminActivityCategoriesRoute
   '/admin/domains': typeof AdminDomainsRoute
+  '/admin/languages': typeof AdminLanguagesRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
+  '/admin/permissions': typeof AdminPermissionsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/projects': typeof AdminProjectsRoute
   '/admin/requests': typeof AdminRequestsRoute
   '/admin/roles': typeof AdminRolesRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/skills': typeof AdminSkillsRoute
-  '/admin/users': typeof AdminUsersRoute
+  '/admin/sub-domains': typeof AdminSubDomainsRoute
+  '/dashboard/applications': typeof DashboardApplicationsRoute
   '/dashboard/cv-builder': typeof DashboardCvBuilderRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/skills': typeof DashboardSkillsRoute
+  '/organizations/$organizationId': typeof OrganizationsOrganizationIdRoute
   '/register/beneficiary': typeof RegisterBeneficiaryRoute
   '/register/company': typeof RegisterCompanyRoute
+  '/register/organization': typeof RegisterOrganizationRoute
   '/register/reviewer': typeof RegisterReviewerRoute
   '/reviewer/details': typeof ReviewerDetailsRoute
   '/reviewer/domains': typeof ReviewerDomainsRoute
@@ -374,13 +507,17 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/company/': typeof CompanyIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/organizations/': typeof OrganizationsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/reviewer/': typeof ReviewerIndexRoute
+  '/admin/users/$id': typeof AdminUsersIdRoute
   '/company/talent/$id': typeof CompanyTalentIdRoute
   '/dashboard/projects/new': typeof DashboardProjectsNewRoute
   '/reviewer/project/$id': typeof ReviewerProjectIdRoute
   '/reviewer/review-details/$reviewId': typeof ReviewerReviewDetailsReviewIdRoute
   '/reviewer/talent/$id': typeof ReviewerTalentIdRoute
+  '/volunteering/activities/$activityId': typeof VolunteeringActivitiesActivityIdRoute
+  '/admin/users/': typeof AdminUsersIndexRoute
   '/dashboard/projects/': typeof DashboardProjectsIndexRoute
   '/dashboard/projects/$id/edit': typeof DashboardProjectsIdEditRoute
   '/dashboard/projects/$id/evidence': typeof DashboardProjectsIdEvidenceRoute
@@ -397,20 +534,31 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/reviewer'
+    | '/saved'
     | '/sitemap.xml'
     | '/unsupported'
+    | '/admin/activities'
+    | '/admin/activity-categories'
     | '/admin/domains'
+    | '/admin/languages'
+    | '/admin/organizations'
+    | '/admin/permissions'
+    | '/admin/profile'
     | '/admin/projects'
     | '/admin/requests'
     | '/admin/roles'
+    | '/admin/settings'
     | '/admin/skills'
-    | '/admin/users'
+    | '/admin/sub-domains'
+    | '/dashboard/applications'
     | '/dashboard/cv-builder'
     | '/dashboard/profile'
     | '/dashboard/settings'
     | '/dashboard/skills'
+    | '/organizations/$organizationId'
     | '/register/beneficiary'
     | '/register/company'
+    | '/register/organization'
     | '/register/reviewer'
     | '/reviewer/details'
     | '/reviewer/domains'
@@ -419,13 +567,17 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/company/'
     | '/dashboard/'
+    | '/organizations/'
     | '/register/'
     | '/reviewer/'
+    | '/admin/users/$id'
     | '/company/talent/$id'
     | '/dashboard/projects/new'
     | '/reviewer/project/$id'
     | '/reviewer/review-details/$reviewId'
     | '/reviewer/talent/$id'
+    | '/volunteering/activities/$activityId'
+    | '/admin/users/'
     | '/dashboard/projects/'
     | '/dashboard/projects/$id/edit'
     | '/dashboard/projects/$id/evidence'
@@ -436,20 +588,31 @@ export interface FileRouteTypes {
     | '/about'
     | '/faq'
     | '/login'
+    | '/saved'
     | '/sitemap.xml'
     | '/unsupported'
+    | '/admin/activities'
+    | '/admin/activity-categories'
     | '/admin/domains'
+    | '/admin/languages'
+    | '/admin/organizations'
+    | '/admin/permissions'
+    | '/admin/profile'
     | '/admin/projects'
     | '/admin/requests'
     | '/admin/roles'
+    | '/admin/settings'
     | '/admin/skills'
-    | '/admin/users'
+    | '/admin/sub-domains'
+    | '/dashboard/applications'
     | '/dashboard/cv-builder'
     | '/dashboard/profile'
     | '/dashboard/settings'
     | '/dashboard/skills'
+    | '/organizations/$organizationId'
     | '/register/beneficiary'
     | '/register/company'
+    | '/register/organization'
     | '/register/reviewer'
     | '/reviewer/details'
     | '/reviewer/domains'
@@ -458,13 +621,17 @@ export interface FileRouteTypes {
     | '/admin'
     | '/company'
     | '/dashboard'
+    | '/organizations'
     | '/register'
     | '/reviewer'
+    | '/admin/users/$id'
     | '/company/talent/$id'
     | '/dashboard/projects/new'
     | '/reviewer/project/$id'
     | '/reviewer/review-details/$reviewId'
     | '/reviewer/talent/$id'
+    | '/volunteering/activities/$activityId'
+    | '/admin/users'
     | '/dashboard/projects'
     | '/dashboard/projects/$id/edit'
     | '/dashboard/projects/$id/evidence'
@@ -479,20 +646,31 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/reviewer'
+    | '/saved'
     | '/sitemap.xml'
     | '/unsupported'
+    | '/admin/activities'
+    | '/admin/activity-categories'
     | '/admin/domains'
+    | '/admin/languages'
+    | '/admin/organizations'
+    | '/admin/permissions'
+    | '/admin/profile'
     | '/admin/projects'
     | '/admin/requests'
     | '/admin/roles'
+    | '/admin/settings'
     | '/admin/skills'
-    | '/admin/users'
+    | '/admin/sub-domains'
+    | '/dashboard/applications'
     | '/dashboard/cv-builder'
     | '/dashboard/profile'
     | '/dashboard/settings'
     | '/dashboard/skills'
+    | '/organizations/$organizationId'
     | '/register/beneficiary'
     | '/register/company'
+    | '/register/organization'
     | '/register/reviewer'
     | '/reviewer/details'
     | '/reviewer/domains'
@@ -501,13 +679,17 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/company/'
     | '/dashboard/'
+    | '/organizations/'
     | '/register/'
     | '/reviewer/'
+    | '/admin/users/$id'
     | '/company/talent/$id'
     | '/dashboard/projects/new'
     | '/reviewer/project/$id'
     | '/reviewer/review-details/$reviewId'
     | '/reviewer/talent/$id'
+    | '/volunteering/activities/$activityId'
+    | '/admin/users/'
     | '/dashboard/projects/'
     | '/dashboard/projects/$id/edit'
     | '/dashboard/projects/$id/evidence'
@@ -523,12 +705,17 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   LoginRoute: typeof LoginRoute
   ReviewerRoute: typeof ReviewerRouteWithChildren
+  SavedRoute: typeof SavedRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UnsupportedRoute: typeof UnsupportedRoute
+  OrganizationsOrganizationIdRoute: typeof OrganizationsOrganizationIdRoute
   RegisterBeneficiaryRoute: typeof RegisterBeneficiaryRoute
   RegisterCompanyRoute: typeof RegisterCompanyRoute
+  RegisterOrganizationRoute: typeof RegisterOrganizationRoute
   RegisterReviewerRoute: typeof RegisterReviewerRoute
+  OrganizationsIndexRoute: typeof OrganizationsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  VolunteeringActivitiesActivityIdRoute: typeof VolunteeringActivitiesActivityIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -589,6 +776,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/saved': {
+      id: '/saved'
+      path: '/saved'
+      fullPath: '/saved'
+      preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -610,11 +804,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/activities': {
+      id: '/admin/activities'
+      path: '/activities'
+      fullPath: '/admin/activities'
+      preLoaderRoute: typeof AdminActivitiesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/activity-categories': {
+      id: '/admin/activity-categories'
+      path: '/activity-categories'
+      fullPath: '/admin/activity-categories'
+      preLoaderRoute: typeof AdminActivityCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/domains': {
       id: '/admin/domains'
       path: '/domains'
       fullPath: '/admin/domains'
       preLoaderRoute: typeof AdminDomainsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/languages': {
+      id: '/admin/languages'
+      path: '/languages'
+      fullPath: '/admin/languages'
+      preLoaderRoute: typeof AdminLanguagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/organizations': {
+      id: '/admin/organizations'
+      path: '/organizations'
+      fullPath: '/admin/organizations'
+      preLoaderRoute: typeof AdminOrganizationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/permissions': {
+      id: '/admin/permissions'
+      path: '/permissions'
+      fullPath: '/admin/permissions'
+      preLoaderRoute: typeof AdminPermissionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/projects': {
@@ -638,6 +874,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRolesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/skills': {
       id: '/admin/skills'
       path: '/skills'
@@ -645,11 +888,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSkillsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
+    '/admin/sub-domains': {
+      id: '/admin/sub-domains'
+      path: '/sub-domains'
+      fullPath: '/admin/sub-domains'
+      preLoaderRoute: typeof AdminSubDomainsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/company/': {
@@ -664,6 +907,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/applications': {
+      id: '/dashboard/applications'
+      path: '/applications'
+      fullPath: '/dashboard/applications'
+      preLoaderRoute: typeof DashboardApplicationsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/cv-builder': {
@@ -694,6 +944,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSkillsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/organizations/': {
+      id: '/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof OrganizationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organizations/$organizationId': {
+      id: '/organizations/$organizationId'
+      path: '/organizations/$organizationId'
+      fullPath: '/organizations/$organizationId'
+      preLoaderRoute: typeof OrganizationsOrganizationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register/': {
       id: '/register/'
       path: '/register'
@@ -713,6 +977,13 @@ declare module '@tanstack/react-router' {
       path: '/register/company'
       fullPath: '/register/company'
       preLoaderRoute: typeof RegisterCompanyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/organization': {
+      id: '/register/organization'
+      path: '/register/organization'
+      fullPath: '/register/organization'
+      preLoaderRoute: typeof RegisterOrganizationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register/reviewer': {
@@ -757,6 +1028,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewerReviewedRouteImport
       parentRoute: typeof ReviewerRoute
     }
+    '/admin/users/': {
+      id: '/admin/users/'
+      path: '/users'
+      fullPath: '/admin/users/'
+      preLoaderRoute: typeof AdminUsersIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users/$id': {
+      id: '/admin/users/$id'
+      path: '/users/$id'
+      fullPath: '/admin/users/$id'
+      preLoaderRoute: typeof AdminUsersIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/company/talent/$id': {
       id: '/company/talent/$id'
       path: '/talent/$id'
@@ -799,6 +1084,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewerTalentIdRouteImport
       parentRoute: typeof ReviewerRoute
     }
+    '/volunteering/activities/$activityId': {
+      id: '/volunteering/activities/$activityId'
+      path: '/volunteering/activities/$activityId'
+      fullPath: '/volunteering/activities/$activityId'
+      preLoaderRoute: typeof VolunteeringActivitiesActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/projects/$id/': {
       id: '/dashboard/projects/$id/'
       path: '/projects/$id'
@@ -824,23 +1116,41 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminActivitiesRoute: typeof AdminActivitiesRoute
+  AdminActivityCategoriesRoute: typeof AdminActivityCategoriesRoute
   AdminDomainsRoute: typeof AdminDomainsRoute
+  AdminLanguagesRoute: typeof AdminLanguagesRoute
+  AdminOrganizationsRoute: typeof AdminOrganizationsRoute
+  AdminPermissionsRoute: typeof AdminPermissionsRoute
+  AdminProfileRoute: typeof AdminProfileRoute
   AdminProjectsRoute: typeof AdminProjectsRoute
   AdminRequestsRoute: typeof AdminRequestsRoute
   AdminRolesRoute: typeof AdminRolesRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSkillsRoute: typeof AdminSkillsRoute
-  AdminUsersRoute: typeof AdminUsersRoute
+  AdminSubDomainsRoute: typeof AdminSubDomainsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminUsersIdRoute: typeof AdminUsersIdRoute
+  AdminUsersIndexRoute: typeof AdminUsersIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminActivitiesRoute: AdminActivitiesRoute,
+  AdminActivityCategoriesRoute: AdminActivityCategoriesRoute,
   AdminDomainsRoute: AdminDomainsRoute,
+  AdminLanguagesRoute: AdminLanguagesRoute,
+  AdminOrganizationsRoute: AdminOrganizationsRoute,
+  AdminPermissionsRoute: AdminPermissionsRoute,
+  AdminProfileRoute: AdminProfileRoute,
   AdminProjectsRoute: AdminProjectsRoute,
   AdminRequestsRoute: AdminRequestsRoute,
   AdminRolesRoute: AdminRolesRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminSkillsRoute: AdminSkillsRoute,
-  AdminUsersRoute: AdminUsersRoute,
+  AdminSubDomainsRoute: AdminSubDomainsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminUsersIdRoute: AdminUsersIdRoute,
+  AdminUsersIndexRoute: AdminUsersIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -859,6 +1169,7 @@ const CompanyRouteWithChildren =
   CompanyRoute._addFileChildren(CompanyRouteChildren)
 
 interface DashboardRouteChildren {
+  DashboardApplicationsRoute: typeof DashboardApplicationsRoute
   DashboardCvBuilderRoute: typeof DashboardCvBuilderRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -872,6 +1183,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardApplicationsRoute: DashboardApplicationsRoute,
   DashboardCvBuilderRoute: DashboardCvBuilderRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
@@ -923,12 +1235,17 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   LoginRoute: LoginRoute,
   ReviewerRoute: ReviewerRouteWithChildren,
+  SavedRoute: SavedRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UnsupportedRoute: UnsupportedRoute,
+  OrganizationsOrganizationIdRoute: OrganizationsOrganizationIdRoute,
   RegisterBeneficiaryRoute: RegisterBeneficiaryRoute,
   RegisterCompanyRoute: RegisterCompanyRoute,
+  RegisterOrganizationRoute: RegisterOrganizationRoute,
   RegisterReviewerRoute: RegisterReviewerRoute,
+  OrganizationsIndexRoute: OrganizationsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  VolunteeringActivitiesActivityIdRoute: VolunteeringActivitiesActivityIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

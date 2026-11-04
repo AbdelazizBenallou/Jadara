@@ -1,18 +1,26 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 
-// The browser talks to the API host directly; the client appends /v1.
-// Dev and production both use http://localhost:3001 (see README → frontend/.env).
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+const REQUEST_TIMEOUT_MS = 20_000;
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  _networkRetry?: boolean;
+}
 
 export const apiClient = axios.create({
   baseURL: `${API_URL}/v1`,
-  withCredentials: true, // Crucial for sending/receiving HttpOnly cookies
+  withCredentials: true,
+  timeout: REQUEST_TIMEOUT_MS,
+  headers: { Accept: "application/json" },
 });
 
-// Flag to prevent multiple concurrent refresh requests
 let isRefreshing = false;
-// Queue for requests that were intercepted while refreshing
-let failedQueue: { resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }[] = [];
+let failedQueue: {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}[] = [];
 
 const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -25,25 +33,33 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
+const isAuthRequest = (url?: string) => Boolean(url?.startsWith("/auth/"));
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function emitSessionExpired() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("auth-refresh-failed"));
+  window.dispatchEvent(new Event("auth:session-expired"));
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as RetryableRequestConfig | undefined;
 
-    // If error is 401 and it's not already a retry, and it's not the refresh endpoint itself
     if (
       error.response?.status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
-      originalRequest.url !== "/auth/refresh-token"
+      !isAuthRequest(originalRequest.url)
     ) {
       if (isRefreshing) {
-        // If already refreshing, wait in the queue
         try {
           await new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           });
-          return apiClient(originalRequest); // Retry original request once refresh resolves
+          return apiClient(originalRequest);
         } catch (err) {
           return Promise.reject(err);
         }
@@ -55,15 +71,26 @@ apiClient.interceptors.response.use(
       try {
         await apiClient.post("/auth/refresh-token");
         processQueue(null);
-        return apiClient(originalRequest); // Retry original request
+        return apiClient(originalRequest);
       } catch (refreshError: unknown) {
         processQueue(refreshError);
-        // Clear local auth state (e.g., dispatch an event or rely on AuthContext polling/initialization to fail)
-        window.dispatchEvent(new Event("auth-refresh-failed"));
+        emitSessionExpired();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
+    }
+
+    const method = (originalRequest?.method ?? "get").toLowerCase();
+    if (
+      !error.response &&
+      originalRequest &&
+      !originalRequest._networkRetry &&
+      (method === "get" || method === "head")
+    ) {
+      originalRequest._networkRetry = true;
+      await delay(300);
+      return apiClient(originalRequest);
     }
 
     return Promise.reject(error);

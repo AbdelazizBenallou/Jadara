@@ -1,10 +1,20 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { FilePlus, Link as LinkIcon, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  FilePlus,
+  Link as LinkIcon,
+  FileText,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { FileUpload } from "@/components/common/FileUpload";
-import { apiClient } from "@/api/client";
+import { getProject, linkEvidence, uploadEvidence } from "@/api/projects";
+import { listDocuments } from "@/api/documents";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { STATUS } from "@/constants/statusTypes";
@@ -20,29 +30,70 @@ export function AddEvidencePage() {
   const { id } = useParams({ strict: false });
   const projectId = Number(id);
 
-  const [project, setProject] = useState<any>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [linkUrl, setLinkUrl] = useState("");
-  const [linkName, setLinkName] = useState("");
+  const queryClient = useQueryClient();
+
+  const {
+    data: project = null,
+    isLoading: projectLoading,
+    error: projectError,
+  } = useQuery({
+    queryKey: queryKeys.projects.detail(projectId),
+    queryFn: () => getProject(projectId),
+    enabled: Number.isFinite(projectId),
+  });
+
+  const {
+    data: documentsResult,
+    isLoading: documentsLoading,
+    error: documentsError,
+  } = useQuery({
+    queryKey: queryKeys.documents.list({ limit: 100 }),
+    queryFn: () => listDocuments({ limit: 100 }),
+    enabled: Number.isFinite(projectId),
+  });
+
+  const documents = documentsResult?.items ?? [];
+  const loading = projectLoading || documentsLoading;
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [projRes, docsRes] = await Promise.all([
-          apiClient.get(`/projects/${projectId}`),
-          apiClient.get("/documents"),
-        ]);
-        setProject(projRes.data.data);
-        setDocuments(docsRes.data.data || []);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || "Failed to fetch data");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [projectId]);
+    const queryError = projectError ?? documentsError;
+    if (queryError) notifyError(queryError);
+  }, [projectError, documentsError]);
+
+  const linkMutation = useMutation({
+    mutationFn: (docId: number) => linkEvidence(projectId, docId),
+    onSuccess: () => {
+      toast.success(
+        t("evidence.attachedSuccess", "Evidence linked successfully"),
+      );
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.detail(projectId),
+      });
+      navigate({
+        to: "/dashboard/projects/$id",
+        params: { id: String(projectId) },
+      });
+    },
+    onError: (err) => notifyError(err),
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ file, type }: { file: File; type: string }) =>
+      uploadEvidence(projectId, file, { type, title: file.name }),
+    onSuccess: () => {
+      toast.success(
+        t("evidence.attachedSuccess", "File uploaded successfully"),
+      );
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.detail(projectId),
+      });
+      navigate({
+        to: "/dashboard/projects/$id",
+        params: { id: String(projectId) },
+      });
+    },
+    onError: (err) => notifyError(err),
+  });
 
   if (loading) {
     return (
@@ -66,7 +117,10 @@ export function AddEvidencePage() {
     );
   }
 
-  if (project.status === STATUS.UNDER_REVIEW || project.status === STATUS.VERIFIED) {
+  if (
+    project.status === STATUS.UNDER_REVIEW ||
+    project.status === STATUS.VERIFIED
+  ) {
     return (
       <DashboardLayout
         role="beneficiary"
@@ -82,14 +136,8 @@ export function AddEvidencePage() {
     );
   }
 
-  const handleChooseExisting = async (docId: number) => {
-    try {
-      await apiClient.post(`/projects/${projectId}/evidence/link`, { document_id: docId });
-      toast.success(t("evidence.attachedSuccess", "Evidence linked successfully"));
-      navigate({ to: "/dashboard/projects/$id", params: { id: String(project.id) } });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to link evidence");
-    }
+  const handleChooseExisting = (docId: number) => {
+    if (!linkMutation.isPending) linkMutation.mutate(docId);
   };
 
   return (
@@ -115,43 +163,38 @@ export function AddEvidencePage() {
 
             <TabsContent value="upload" className="space-y-4">
               <div className="mb-4">
-                <h3 className="text-sm font-semibold mb-1">{t("evidence.uploadDocTitle")}</h3>
-                <p className="text-sm text-muted-foreground">{t("evidence.uploadDocDesc")}</p>
+                <h3 className="text-sm font-semibold mb-1">
+                  {t("evidence.uploadDocTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("evidence.uploadDocDesc")}
+                </p>
               </div>
               <FileUpload
                 entityType="project_domain"
                 entityId={project.id}
-                onAttach={async (type, entityId, file) => {
-                  try {
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    formData.append("type", type);
-                    formData.append("title", file.name);
-
-                    // Override default application/json to let Axios/browser set the multipart boundary automatically
-                    await apiClient.post(`/projects/${projectId}/evidence`, formData, {
-                      headers: { "Content-Type": undefined },
-                    });
-                    toast.success(t("evidence.attachedSuccess", "File uploaded successfully"));
-                    navigate({ to: "/dashboard/projects/$id", params: { id: String(project.id) } });
-                  } catch (err: any) {
-                    toast.error(err.response?.data?.message || "Failed to upload file");
-                  }
+                onAttach={async (type, _entityId, file) => {
+                  await uploadMutation.mutateAsync({ file, type });
                 }}
               />
             </TabsContent>
 
             <TabsContent value="existing" className="space-y-4">
               <div className="mb-4">
-                <h3 className="text-sm font-semibold mb-1">{t("evidence.chooseExistingTitle")}</h3>
-                <p className="text-sm text-muted-foreground">{t("evidence.chooseExistingDesc")}</p>
+                <h3 className="text-sm font-semibold mb-1">
+                  {t("evidence.chooseExistingTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("evidence.chooseExistingDesc")}
+                </p>
               </div>
 
               {documents.length > 0 ? (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
                   {documents.map((doc) => {
                     const isAlreadyAttached = project.evidence?.some(
-                      (e: any) => e.external_url === "document:" + doc.id,
+                      (evidence) =>
+                        evidence.external_url === "document:" + doc.id,
                     );
                     return (
                       <div
@@ -161,7 +204,9 @@ export function AddEvidencePage() {
                         <div className="flex min-w-0 items-start gap-3">
                           <FileText className="h-5 w-5 shrink-0 text-primary" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{doc.name}</p>
+                            <p className="truncate text-sm font-medium">
+                              {doc.name}
+                            </p>
                             <div className="mt-1">
                               <StatusBadge status={doc.status} />
                             </div>
@@ -187,7 +232,9 @@ export function AddEvidencePage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground">{t("evidence.noUploadedDocs")}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("evidence.noUploadedDocs")}
+                  </p>
                 </div>
               )}
             </TabsContent>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PasswordField } from "@/components/common/PasswordField";
@@ -12,16 +12,22 @@ export function ResetPasswordPage() {
   const { t } = useTranslation();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
   if (done) {
     return (
-      <AuthShell title={t("auth.resetSuccess", { defaultValue: "تمت إعادة التعيين بنجاح" })}>
+      <AuthShell
+        title={t("auth.resetSuccess", {
+          defaultValue: "تمت إعادة التعيين بنجاح",
+        })}
+      >
         <div className="space-y-5 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
-            <CheckCircle2 className="h-8 w-8 text-success" />
-          </div>
+          <span
+            aria-hidden="true"
+            className="material-icons-round mx-auto text-[56px] leading-none text-success"
+          >
+            check_circle
+          </span>
           <p className="text-sm text-muted-foreground">{t("auth.resetDone")}</p>
           <Button asChild className="w-full">
             <Link to="/login">{t("auth.backToLogin")}</Link>
@@ -42,19 +48,25 @@ export function ResetPasswordPage() {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          setError("");
           if (newPassword !== confirmPassword) {
-            setError(t("auth.passwordMismatch", { defaultValue: "كلمتا المرور غير متطابقتين" }));
+            toast.error(
+              t("auth.passwordMismatch", {
+                defaultValue: "كلمتا المرور غير متطابقتين",
+              }),
+            );
             return;
           }
           if (newPassword.length < 6) {
-            setError(
+            toast.error(
               t("auth.passwordTooShort", {
                 defaultValue: "كلمة المرور قصيرة جدا (6 أحرف على الأقل)",
               }),
             );
             return;
           }
+          toast.success(
+            t("auth.resetSuccess", { defaultValue: "تمت إعادة التعيين بنجاح" }),
+          );
           setDone(true);
         }}
       >
@@ -62,6 +74,7 @@ export function ResetPasswordPage() {
           <Label htmlFor="rp-new">{t("auth.newPassword")}</Label>
           <PasswordField
             id="rp-new"
+            icon="lock"
             required
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -73,25 +86,21 @@ export function ResetPasswordPage() {
           <Label htmlFor="rp-confirm">{t("auth.confirmPassword")}</Label>
           <PasswordField
             id="rp-confirm"
+            icon="lock"
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             autoComplete="new-password"
           />
         </div>
-        {error && (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        )}
         <Button type="submit" className="w-full">
           {t("auth.resetBtn")}
         </Button>
         <p className="text-center text-sm">
-          <Link to="/login" className="text-muted-foreground hover:text-primary">
+          <Link
+            to="/login"
+            className="text-muted-foreground hover:text-primary"
+          >
             {t("auth.backToLogin")}
           </Link>
         </p>

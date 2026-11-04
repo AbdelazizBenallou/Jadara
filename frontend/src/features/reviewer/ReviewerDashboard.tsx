@@ -12,87 +12,16 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiClient } from "@/api/client";
+import { getAvailableReviews, getReviewHistory } from "@/api/reviews";
+import { queryKeys } from "@/lib/query-keys";
+import type { AvailableReview, HistoryReview, ReviewProject } from "@/types/review";
 
-interface ReviewProject {
-  id: number;
-  title: string;
-  description?: string | null;
-  status?: string;
-  created_at?: string | null;
-  user?: {
-    id: number;
-    email?: string;
-    profile?: {
-      first_name?: string;
-      last_name?: string;
-      headline?: string | null;
-      avatar_url?: string | null;
-    } | null;
-  } | null;
-}
+type ReviewHistoryItem = HistoryReview;
 
-interface AvailableReview {
-  id: number;
-  project_id: number;
-  status: string;
-  submitted_at: string;
-  rating?: {
-    average: number | null;
-    count: number;
-  };
-  project: ReviewProject;
-}
-
-interface ReviewHistoryItem {
-  id: number;
-  project_id: number;
-  rating: number;
-  feedback?: string | null;
-  created_at: string;
-  project_average?: number | null;
-  project_rating_count?: number;
-  project: ReviewProject;
-}
-
-interface ReviewResponse {
-  data?: unknown;
-  reviews?: unknown;
-  items?: unknown;
-  results?: unknown;
-  total?: number;
-  count?: number;
-}
-
-function extractArray<T>(response: ReviewResponse | T[] | undefined): T[] {
-  if (!response) return [];
-
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  if (Array.isArray(response.data)) {
-    return response.data as T[];
-  }
-
-  if (Array.isArray(response.reviews)) {
-    return response.reviews as T[];
-  }
-
-  if (Array.isArray(response.items)) {
-    return response.items as T[];
-  }
-
-  if (Array.isArray(response.results)) {
-    return response.results as T[];
-  }
-
-  return [];
-}
-
-function getPersonName(project?: ReviewProject | null, t?: any) {
+function getPersonName(project?: ReviewProject | null, t?: TFunction) {
   const profile = project?.user?.profile;
 
   if (!profile) {
@@ -104,7 +33,7 @@ function getPersonName(project?: ReviewProject | null, t?: any) {
   return fullName || project?.user?.email || (t ? t("reviewer.unknownTalent", { defaultValue: "Unknown talent" }) : "Unknown talent");
 }
 
-function getInitials(project?: ReviewProject | null, t?: any) {
+function getInitials(project?: ReviewProject | null, t?: TFunction) {
   const profile = project?.user?.profile;
 
   const defaultInitials = t ? t("reviewer.initials", { defaultValue: "JT" }) : "JT";
@@ -133,7 +62,7 @@ function formatDate(value?: string | null, lng?: string) {
   }).format(date);
 }
 
-function normalizeStatus(status?: string, t?: any) {
+function normalizeStatus(status?: string, t?: TFunction) {
   if (!status) return t ? t("status.pending", { defaultValue: "Pending" }) : "Pending";
 
   if (t) {
@@ -153,28 +82,21 @@ export default function ReviewerDashboard() {
   const { t, i18n } = useTranslation();
 
   const availableReviewsQuery = useQuery({
-    queryKey: ["reviewer", "available-reviews"],
-    queryFn: async () => {
-      const response = await apiClient.get("/reviews/available");
-      return response.data as ReviewResponse | AvailableReview[];
-    },
+    queryKey: queryKeys.reviews.queue,
+    queryFn: getAvailableReviews,
   });
 
   const historyQuery = useQuery({
-    queryKey: ["reviewer", "review-history"],
-    queryFn: async () => {
-      const response = await apiClient.get("/reviews/history");
-      return response.data as ReviewResponse | ReviewHistoryItem[];
-    },
+    queryKey: queryKeys.reviews.history,
+    queryFn: getReviewHistory,
   });
 
   const availableReviews = useMemo(
-    () => extractArray<AvailableReview>(availableReviewsQuery.data),
+    () => availableReviewsQuery.data ?? [],
     [availableReviewsQuery.data],
   );
-
   const reviewHistory = useMemo(
-    () => extractArray<ReviewHistoryItem>(historyQuery.data),
+    () => historyQuery.data ?? [],
     [historyQuery.data],
   );
 

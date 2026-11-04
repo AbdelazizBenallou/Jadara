@@ -12,50 +12,13 @@ import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiClient } from "@/api/client";
-
-type Domain = {
-  id: string | number;
-  name: string;
-};
-
-type Skill = {
-  id?: string | number;
-  skill_id?: string | number;
-  name?: string;
-  skills?: {
-    id: string | number;
-    name: string;
-  };
-};
-
-type Talent = {
-  id: string | number;
-  profiles?: {
-    first_name?: string;
-    last_name?: string;
-    headline?: string;
-    bio?: string;
-    location?: string;
-    avatar_url?: string;
-  };
-  user_skills?: Array<{
-    id: number;
-    skills?: {
-      id?: number;
-      name?: string;
-    };
-  }>;
-  projects?: Array<{
-    id: number;
-    title: string;
-    description?: string;
-    status?: string;
-  }>;
-  work_experiences?: Array<{
-    job_title?: string;
-  }>;
-};
+import { getPublicProfile, listUsers } from "@/api/users";
+import { getDomainSkills, listSkills } from "@/api/skills";
+import { listDomains } from "@/api/domains";
+import { queryKeys } from "@/lib/query-keys";
+import type { Domain } from "@/types/domain";
+import type { Skill } from "@/types/skill";
+import type { PublicUserProfile } from "@/types/user";
 
 export function CompanyDashboard() {
   const { t } = useTranslation();
@@ -64,98 +27,74 @@ export function CompanyDashboard() {
   const [skillFilter, setSkillFilter] = useState("");
   const [search, setSearch] = useState("");
 
-  const { data: domainsRes, isLoading: domainsLoading } = useQuery({
-    queryKey: ["company-domains"],
+  const { data: domains = [], isLoading: domainsLoading } = useQuery({
+    queryKey: queryKeys.domains.list({ limit: 100 }),
+    queryFn: () => listDomains({ limit: 100 }),
+  });
+
+  const { data: skills = [], isLoading: skillsLoading } = useQuery({
+    queryKey: domainFilter
+      ? queryKeys.domains.skills(domainFilter)
+      : queryKeys.skills.list({ limit: 1000 }),
     queryFn: () =>
-      apiClient.get("/domains").then((res) => res.data),
+      domainFilter
+        ? getDomainSkills(domainFilter)
+        : listSkills({ limit: 1000 }),
   });
 
-  const { data: skillsRes, isLoading: skillsLoading } = useQuery({
-    queryKey: ["company-skills", domainFilter],
-    queryFn: () => {
-      if (domainFilter) {
-        return apiClient
-          .get(`/domains/${domainFilter}/skills`)
-          .then((res) => res.data);
-      }
-
-      return apiClient
-        .get("/skills?limit=1000")
-        .then((res) => res.data);
-    },
-  });
-
-  /*
-   * We try the common talent endpoints used by the JADARA backend.
-   * The response is normalized below so the screen can handle
-   * either a direct array or { data: [...] }.
-   */
   const {
-    data: talentRes,
+    data: talents = [],
     isLoading: talentLoading,
     isError: talentError,
   } = useQuery({
-    queryKey: ["company-talent", domainFilter, skillFilter],
+    queryKey: queryKeys.users.list({ scope: "talent" }),
     queryFn: async () => {
-      const params = new URLSearchParams();
-
-      if (domainFilter) {
-        params.set("domain_id", domainFilter);
-      }
-
-      if (skillFilter) {
-        params.set("skill_id", skillFilter);
-      }
-
-      const query = params.toString();
-
-      const response = await apiClient.get(
-        `/users/talent${query ? `?${query}` : ""}`,
+      const users = (await listUsers({ limit: 50 })).items.filter(
+        (user) => user.role === "beneficiary",
       );
-
-      return response.data;
+      const profiles = await Promise.all(
+        users.map((user) => getPublicProfile(user.id).catch(() => null)),
+      );
+      return profiles.filter(
+        (profile): profile is PublicUserProfile => profile !== null,
+      );
     },
   });
 
-  const domains: Domain[] = domainsRes?.data || domainsRes || [];
-
-  const skills: Skill[] = skillsRes?.data || skillsRes || [];
-
-  const talents: Talent[] =
-    talentRes?.data ||
-    talentRes?.users ||
-    talentRes?.talent ||
-    talentRes ||
-    [];
-
   const filteredTalents = useMemo(() => {
     const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return talents;
-    }
+    const domainSkillIds = new Set(skills.map((skill) => skill.id));
 
     return talents.filter((talent) => {
       const profile = talent.profiles;
-
       const name =
         `${profile?.first_name || ""} ${profile?.last_name || ""}`.toLowerCase();
-
       const headline = (profile?.headline || "").toLowerCase();
+      const talentSkills = talent.user_skills ?? [];
+      const skillNames = talentSkills
+        .map((item) => item.skills?.name || "")
+        .join(" ")
+        .toLowerCase();
 
-      const talentSkills =
-        talent.user_skills
-          ?.map((item) => item.skills?.name || "")
-          .join(" ")
-          .toLowerCase() || "";
-
-      return (
+      const matchesSearch =
+        !query ||
         name.includes(query) ||
         headline.includes(query) ||
-        talentSkills.includes(query)
-      );
+        skillNames.includes(query);
+      const matchesDomain =
+        !domainFilter ||
+        talentSkills.some(
+          (item) => item.skills?.id && domainSkillIds.has(item.skills.id),
+        );
+      const matchesSkill =
+        !skillFilter ||
+        talentSkills.some(
+          (item) => item.skills?.id === Number(skillFilter),
+        );
+
+      return matchesSearch && matchesDomain && matchesSkill;
     });
-  }, [talents, search]);
+  }, [domainFilter, talents, search, skillFilter, skills]);
 
   return (
     <DashboardLayout
@@ -259,23 +198,11 @@ export function CompanyDashboard() {
                 {skillsLoading ? "Loading skills..." : "All skills"}
               </option>
 
-              {skills.map((skill) => {
-                const id =
-                  skill.id ||
-                  skill.skill_id ||
-                  skill.skills?.id;
-
-                const name =
-                  skill.name ||
-                  skill.skills?.name ||
-                  "Skill";
-
-                return (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                );
-              })}
+              {skills.map((skill) => (
+                <option key={skill.id} value={skill.id}>
+                  {skill.name}
+                </option>
+              ))}
             </select>
           </div>
         </section>
@@ -317,7 +244,7 @@ export function CompanyDashboard() {
   );
 }
 
-function TalentCard({ talent }: { talent: Talent }) {
+function TalentCard({ talent }: { talent: PublicUserProfile }) {
   const profile = talent.profiles;
 
   const firstName = profile?.first_name || "";

@@ -1,16 +1,33 @@
-import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { FolderPlus } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ProjectForm } from "./components/ProjectForm";
-import { apiClient } from "@/api/client";
+import { createProject } from "@/api/projects";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 
 export function CreateProjectPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: (project) => {
+      toast.success(
+        t("projects.createdSuccess", "Project created successfully"),
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      navigate({
+        to: "/dashboard/projects/$id",
+        params: { id: String(project.id) },
+      });
+    },
+    onError: (err) => notifyError(err),
+  });
 
   return (
     <DashboardLayout
@@ -29,19 +46,8 @@ export function CreateProjectPage() {
 
         <ProjectForm
           submitLabel={t("common.createProject")}
-          isSubmitting={isSubmitting}
-          onSubmit={async (data) => {
-            setIsSubmitting(true);
-            try {
-              const res = await apiClient.post("/projects", data);
-              toast.success(t("projects.createdSuccess", "Project created successfully"));
-              navigate({ to: "/dashboard/projects/$id", params: { id: String(res.data.data.id) } });
-            } catch (err: any) {
-              toast.error(err.response?.data?.message || "Failed to create project");
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
+          isSubmitting={createMutation.isPending}
+          onSubmit={(data) => createMutation.mutate(data)}
         />
       </div>
     </DashboardLayout>

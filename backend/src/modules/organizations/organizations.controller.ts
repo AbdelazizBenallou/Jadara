@@ -10,6 +10,21 @@ export const organizationController = {
     response.success(res, organization, "Organization fetched successfully");
   }),
 
+  getById: asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const organization = await organizationService.getById(id);
+    response.success(res, organization, "Organization profile fetched successfully");
+  }),
+
+  list: asyncHandler(async (req: Request, res: Response) => {
+    const page = req.query.page ? Number(req.query.page) : 1;
+    const limit = req.query.limit ? Number(req.query.limit) : 10;
+    const q = req.query.q as string | undefined;
+
+    const result = await organizationService.list({ page, limit, q });
+    response.success(res, result.items, "Organizations fetched successfully", 200, result.meta);
+  }),
+
   updateMine: asyncHandler(async (req: Request, res: Response) => {
     const organization = await organizationService.updateMine(
       req.user!.userId,

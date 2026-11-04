@@ -8,7 +8,10 @@ import { PasswordField } from "@/components/common/PasswordField";
 import { PasswordStrength } from "@/components/common/PasswordStrength";
 import { useAuth } from "@/context/AuthContext";
 import { AuthShell } from "./AuthShell";
-import { apiClient } from "@/api/client";
+import { register } from "@/api/auth";
+import { listRoles } from "@/api/roles";
+import { getErrorMessage } from "@/lib/notify";
+import { toast } from "sonner";
 import { isStrongPassword } from "@/lib/utils";
 
 export function BeneficiaryRegisterPage() {
@@ -20,24 +23,28 @@ export function BeneficiaryRegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     if (password !== confirm) {
-      setError(t("auth.passwordMismatch", { defaultValue: "كلمتا المرور غير متطابقتين" }));
+      toast.error(
+        t("auth.passwordMismatch", {
+          defaultValue: "كلمتا المرور غير متطابقتين",
+        }),
+      );
       return;
     }
     if (password.length < 8) {
-      setError(
-        t("auth.passwordTooShort8", { defaultValue: "Password must be at least 8 characters" }),
+      toast.error(
+        t("auth.passwordTooShort8", {
+          defaultValue: "Password must be at least 8 characters",
+        }),
       );
       return;
     }
     if (!isStrongPassword(password)) {
-      setError(
+      toast.error(
         t("auth.passwordWeak", {
           defaultValue:
             "Password must contain an uppercase letter, a lowercase letter and a number",
@@ -47,8 +54,7 @@ export function BeneficiaryRegisterPage() {
     }
     setIsSubmitting(true);
     try {
-      const rolesRes = await apiClient.get("/roles");
-      const roles = rolesRes.data.data as { id: number; name: string }[];
+      const roles = await listRoles();
       const benRole = roles.find((r) => r.name.toLowerCase() === "beneficiary");
 
       if (!benRole) throw new Error("Beneficiary role not found on server");
@@ -57,7 +63,7 @@ export function BeneficiaryRegisterPage() {
       const first_name = names[0] || "Unknown";
       const last_name = names.slice(1).join(" ") || "Unknown";
 
-      await apiClient.post("/auth/register", {
+      await register({
         email,
         password,
         first_name,
@@ -66,14 +72,14 @@ export function BeneficiaryRegisterPage() {
       });
 
       await login({ email, password });
-      navigate({ to: "/dashboard" }); // Wait, onboarding is removed, go to dashboard
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } }; message?: string };
-      if (error.response?.data?.message) {
-        setError(error.response.data.message);
-      } else {
-        setError(error.message || t("auth.invalidCredentials"));
-      }
+      toast.success(
+        t("auth.beneficiaryCreated", {
+          defaultValue: "Account created successfully",
+        }),
+      );
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(getErrorMessage(err, "auth.invalidCredentials"));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,7 +87,10 @@ export function BeneficiaryRegisterPage() {
 
   return (
     <AuthShell
-      title={t("auth.beneficiaryRegTitle", { defaultValue: "حساب مستفيد جديد" })}
+      backToRoleSelection
+      title={t("auth.beneficiaryRegTitle", {
+        defaultValue: "حساب مستفيد جديد",
+      })}
       subtitle={t("auth.beneficiaryRegSubtitle", {
         defaultValue: "أنشئ حسابك لتبدأ توثيق مهاراتك",
       })}
@@ -91,28 +100,29 @@ export function BeneficiaryRegisterPage() {
           <Label htmlFor="ben-name">{t("auth.fullName")}</Label>
           <Input
             id="ben-name"
+            icon="person"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Amina Benyoucef"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ben-email">{t("common.email")}</Label>
           <Input
             id="ben-email"
+            icon="mail"
             type="email"
             required
             dir="ltr"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ben-password">{t("auth.password")}</Label>
           <PasswordField
             id="ben-password"
+            icon="lock"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -124,6 +134,7 @@ export function BeneficiaryRegisterPage() {
           <Label htmlFor="ben-confirm">{t("auth.confirmPassword")}</Label>
           <PasswordField
             id="ben-confirm"
+            icon="lock"
             required
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
@@ -131,23 +142,19 @@ export function BeneficiaryRegisterPage() {
           />
         </div>
 
-        {error && (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        )}
-
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting
             ? t("common.loading")
-            : t("auth.createBeneficiary", { defaultValue: "إنشاء حساب مستفيد" })}
+            : t("auth.createBeneficiary", {
+                defaultValue: "إنشاء حساب مستفيد",
+              })}
         </Button>
         <p className="text-center text-sm text-muted-foreground pt-4">
           {t("auth.haveAccount")}{" "}
-          <Link to="/login" className="font-semibold text-primary hover:underline">
+          <Link
+            to="/login"
+            className="font-semibold text-primary hover:underline"
+          >
             {t("auth.loginBtn")}
           </Link>
         </p>

@@ -1,0 +1,289 @@
+{
+  "spotlight": {
+    "id": "benallou-abdelaziz",
+    "num": "006",
+    "category": "technology",
+    "image": "/member_info/6/photo_2026-10-26_21-03-01.jpg",
+    "full_name": {
+      "en": "Benallou Abdelaziz",
+      "fr": "Benallou Abdelaziz",
+      "ar": "بن علو عبد العزيز"
+    },
+    "description": {
+      "en": "Computer Science graduate specialized in networking, telecommunications, and security, with experience in Linux systems administration and backend/mobile development. Skilled in designing, securing, and maintaining reliable IT infrastructures as well as developing high-performance software solutions.",
+      "fr": "Diplômé en Informatique spécialisé en Réseaux, Télécommunications et Sécurité, avec de l'expérience en administration Linux et en développement backend/mobile. Expert dans la conception, la sécurisation et la maintenance d'infrastructures informatiques fiables ainsi que dans le développement de solutions logicielles performantes.",
+      "ar": "خريج في الإعلام الآلي متخصص في الشبكات، الاتصالات السلكية واللاسلكية وأمن الشبكات، مع خبرة في إدارة أنظمة لينكس وتطوير البرمجيات. خبير في تصميم وتأمين وصيانة البنية التحتية الرقمية، وتطوير الحلول البرمجية والتطبيقات عالية الكفاءة."
+    },
+    "links": [
+      "https://benallou-abdelaziz.vercel.app/"
+    ]
+  },
+  "members": [
+    {
+      "id": "saouab-karima-nada",
+      "folder": "1",
+      "num": "001",
+      "category": "environment",
+      "image": "/member_info/1/IMG-20261003-WA0003.jpg.jpeg",
+      "full_name": {
+        "en": "SAOUAB KARIMA NADA",
+        "fr": "SAOUAB KARIMA NADA",
+        "ar": "صواب كريمة ندى"
+      },
+      "description": {
+        "en": "Bachelor's graduate in Biology, specializing in Ecology and Environment, passionate about biodiversity conservation, ecosystems, and sustainable development. Experienced in volunteering, event organization, environmental awareness, scientific communication, teamwork, organization, logistics coordination, and workshop facilitation. Initiative-driven with a love for learning and contributing to positive-impact projects.",
+        "fr": "Diplômée en Licence Biologie, spécialisation Écologie et Environnement, passionnée par la protection de la biodiversité, des écosystèmes et du développement durable. Expérimentée dans le bénévolat, l'organisation d'événements, la sensibilisation environnementale, avec des compétences en communication scientifique, travail d'équipe, organisation, coordination logistique et animation d'ateliers. Dotée d'un esprit d'initiative et d'une volonté d'apprendre et de contribuer à des projets à impact positif.",
+        "ar": "خريجة ليسانس في البيولوجيا، تخصص الإيكولوجيا والبيئة، شغوفة بحماية التنوع البيولوجي والنظم البيئية والتنمية المستدامة. لدي خبرة في العمل التطوعي وتنظيم الفعاليات والتوعية البيئية، مع مهارات في التواصل العلمي، العمل الجماعي، التنظيم والتنسيق اللوجستي. أتميز بروح المبادرة وحب التعلم والمساهمة في مشاريع ذات أثر إيجابي."
+      },
+      "links": [
+        "https://www.linkedin.com/in/karima-nada-saouab-9396a1280"
+      ],
+      "role": {
+        "en": "Logistics Team Lead",
+        "fr": "Responsable Équipe Logistique",
+        "ar": "مسؤولة عن فريق اللوجستيك"
+      },
+      "specs": {
+        "en": [
+          "Ecology & Environment",
+          "Biodiversity",
+          "Sustainable Development",
+          "Event Organization",
+          "Scientific Communication"
+        ],
+        "fr": [
+          "Écologie & Environnement",
+          "Biodiversité",
+          "Développement Durable",
+          "Organisation d'Événements",
+          "Communication Scientifique"
+        ],
+        "ar": [
+          "الإيكولوجيا والبيئة",
+          "التنوع البيولوجي",
+          "التنمية المستدامة",
+          "تنظيم الفعاليات",
+          "التواصل العلمي"
+        ]
+      }
+    },
+    {
+      "id": "nadjoua-nour-elhouda",
+      "folder": "2",
+      "num": "002",
+      "category": "media",
+      "image": "/member_info/2/IMG-20261004-WA0003(1).jpg.jpeg",
+      "full_name": {
+        "en": "Nadjoua Nour elhouda",
+        "fr": "Nadjoua Nour elhouda",
+        "ar": "نجوى نور الهدى"
+      },
+      "description": {
+        "en": "Digital Systems student, specializing in Computer Science and Networks. Member of Media Face group. Focused on digital content creation.",
+        "fr": "Étudiante en Systèmes Numériques, option Informatique et Réseaux. Membre du groupe Media Face. Spécialisée dans la création de contenu digital.",
+        "ar": "طالبة في الأنظمة الرقمية، خيار الإعلام الآلي والشبكات. عضوة في مجموعة ميديا فايس. متخصصة في إنشاء المحتوى الرقمي."
+      },
+      "links": [
+        "https://www.instagram.com/nuur_lifestyle?stkn=MWM2bnBibDZmMGNtYg%3D%3D&utm_source=qr"
+      ],
+      "role": {
+        "en": "Media & Content Creator",
+        "fr": "Média & Créatrice de Contenu",
+        "ar": "إعلام وصانعة محتوى"
+      },
+      "specs": {
+        "en": [
+          "Digital Systems",
+          "Networks",
+          "Content Creation"
+        ],
+        "fr": [
+          "Systèmes Numériques",
+          "Réseaux",
+          "Création de Contenu"
+        ],
+        "ar": [
+          "الأنظمة الرقمية",
+          "الشبكات",
+          "إنشاء المحتوى"
+        ]
+      }
+    },
+    {
+      "id": "sahraoui-taous",
+      "folder": "3.",
+      "num": "003",
+      "category": "education",
+      "image": "/member_info/3./IMG-20261009-WA0001(1).jpg.jpeg",
+      "full_name": {
+        "en": "SAHRAOUI Taous",
+        "fr": "SAHRAOUI Taous",
+        "ar": "صحراوي طاوس"
+      },
+      "description": {
+        "en": "Third-year Physiotherapy and Rehabilitation student, passionate about volunteering and impactful social initiatives. Skills: Communication, teamwork, organization, and administrative follow-up. Role at Jadara: Monitoring team tasks, preparing meeting minutes, managing the page and responding to messages and comments.",
+        "fr": "Étudiante en troisième année de Kinésithérapie et Rééducation, passionnée par le bénévolat et les initiatives sociales à impact. Compétences: Communication, travail d'équipe, organisation et suivi administratif. Rôle au sein de Jadara: Suivi des tâches de l'équipe, rédaction des comptes-rendus de réunion, gestion de la page et réponse aux messages et commentaires.",
+        "ar": "طالبة سنة ثالثة تخصص العلاج الفيزيائي وإعادة التأهيل، مهتمة بالعمل التطوعي والمبادرات الاجتماعية الهادفة. المهارات: التواصل، العمل الجماعي، التنظيم والمتابعة الإدارية. الدور في جدارة: متابعة مهام الفريق، إعداد محاضر الاجتماعات، وإدارة الصفحة والرد على الرسائل والتعليقات."
+      },
+      "links": [
+        "https://www.instagram.com/soumiia_shr?xtok=ZG8zc2ljZDFldXhi"
+      ],
+      "role": {
+        "en": "Secretary & Page Manager",
+        "fr": "Secrétaire & Gestionnaire de Page",
+        "ar": "أمينة سر ومديرة الصفحة"
+      },
+      "specs": {
+        "en": [
+          "Physiotherapy & Rehabilitation",
+          "Communication",
+          "Administration",
+          "Team Coordination"
+        ],
+        "fr": [
+          "Kinésithérapie & Rééducation",
+          "Communication",
+          "Administration",
+          "Coordination d'Équipe"
+        ],
+        "ar": [
+          "العلاج الفيزيائي وإعادة التأهيل",
+          "التواصل",
+          "الإدارة",
+          "تنسيق الفريق"
+        ]
+      }
+    },
+    {
+      "id": "kadi-tarik",
+      "folder": "4",
+      "num": "004",
+      "category": "design",
+      "image": "/member_info/4/PNG.jpg.jpeg",
+      "full_name": {
+        "en": "Kadi Tarik",
+        "fr": "Kadi Tarik",
+        "ar": "قاضي طارق"
+      },
+      "description": {
+        "en": "Graphic designer and short form video editor born on 10/10/2000.",
+        "fr": "Graphiste et monteur vidéo short-form né le 10/10/2000.",
+        "ar": "مصمم جرافيك ومحرر فيديو قصير، مواليد 10/10/2000."
+      },
+      "links": [],
+      "role": {
+        "en": "Graphic Designer & Video Editor",
+        "fr": "Graphiste & Monteur Vidéo",
+        "ar": "مصمم جرافيك ومحرر فيديو"
+      },
+      "specs": {
+        "en": [
+          "Graphic Design",
+          "Short Form Video Editing"
+        ],
+        "fr": [
+          "Graphisme",
+          "Montage Vidéo Court Format"
+        ],
+        "ar": [
+          "التصميم الجرافيكي",
+          "تحرير الفيديو القصير"
+        ]
+      }
+    },
+    {
+      "id": "araria-mohamed-amine",
+      "folder": "5",
+      "num": "005",
+      "category": "media",
+      "image": "/member_info/5/WhatsApp Image 2026-10-26 at 21.47.15.jpeg",
+      "full_name": {
+        "en": "Araria Mohamed Amine",
+        "fr": "Araria Mohamed Amine",
+        "ar": "عرارية محمد أمين"
+      },
+      "description": {
+        "en": "Young multi-talented individual passionate about arts, media and communication. Skilled in photography, acting, voice-over, writing, and event hosting. Member of Smart Academy - Tiaret and active member of Jadara community - Tiaret, official photographer for Jadara activities. Languages: Arabic (native), French, English (B2). Participated in HIPPO International English Language Olympiad and Oxford S.I.L. Olympiad.",
+        "fr": "Jeune talent polyvalent passionné par les arts, les médias et la communication. Compétences en photographie, théâtre, voix off, écriture et animation d'événements. Membre de Smart Academy - Tiaret et membre actif de la communauté Jadara - Tiaret, photographe officiel des activités Jadara. Langues: Arabe (langue maternelle), Français, Anglais (B2). Participation aux Olympiades HIPPO et Oxford S.I.L.",
+        "ar": "موهبة شابة متعددة المواهب، شغوف بالفنون والإعلام والتواصل، أمتلك مهارات في التصوير الفوتوغرافي، التمثيل، الأداء الصوتي، الكتابة والتنشيط. عضو في Smart Academy – تيارت، وعضو فعّال في مجتمع Jadara – تيارت، ومصوّر رسمي ضمن أنشطة مجتمع Jadara. اللغات: العربية، الفرنسية، الإنجليزية بمستوى B2."
+      },
+      "links": [],
+      "role": {
+        "en": "Photographer & Media Artist",
+        "fr": "Photographe & Artiste Média",
+        "ar": "مصور فني ومبدع إعلامي"
+      },
+      "specs": {
+        "en": [
+          "Photography",
+          "Acting",
+          "Voice Over",
+          "Writing",
+          "Event Hosting"
+        ],
+        "fr": [
+          "Photographie",
+          "Théâtre",
+          "Voix Off",
+          "Écriture",
+          "Animation d'Événements"
+        ],
+        "ar": [
+          "التصوير الفوتوغرافي",
+          "التمثيل",
+          "الأداء الصوتي",
+          "الكتابة",
+          "تنشيط الفعاليات"
+        ]
+      }
+    },
+    {
+      "id": "benallou-abdelaziz",
+      "folder": "6",
+      "num": "006",
+      "category": "technology",
+      "image": "/member_info/6/photo_2026-10-26_21-03-01.jpg",
+      "full_name": {
+        "en": "Benallou Abdelaziz",
+        "fr": "Benallou Abdelaziz",
+        "ar": "بن علو عبد العزيز"
+      },
+      "description": {
+        "en": "Computer Science graduate specialized in networking, telecommunications, and security, with experience in Linux systems administration and backend/mobile development. Skilled in designing, securing, and maintaining reliable IT infrastructures as well as developing high-performance software solutions.",
+        "fr": "Diplômé en Informatique spécialisé en Réseaux, Télécommunications et Sécurité, avec de l'expérience en administration Linux et en développement backend/mobile. Expert dans la conception, la sécurisation et la maintenance d'infrastructures informatiques fiables ainsi que dans le développement de solutions logicielles performantes.",
+        "ar": "خريج في الإعلام الآلي متخصص في الشبكات، الاتصالات السلكية واللاسلكية وأمن الشبكات، مع خبرة في إدارة أنظمة لينكس وتطوير البرمجيات. خبير في تصميم وتأمين وصيانة البنية التحتية الرقمية، وتطوير الحلول البرمجية والتطبيقات عالية الكفاءة."
+      },
+      "links": [
+        "https://benallou-abdelaziz.vercel.app/"
+      ],
+      "role": {
+        "en": "Backend & DevOps Engineer",
+        "fr": "Ingénieur Backend & DevOps",
+        "ar": "مهندس خلفية وأنظمة"
+      },
+      "specs": {
+        "en": [
+          "Linux Administration",
+          "Backend Development",
+          "Networking",
+          "Security",
+          "Mobile Development"
+        ],
+        "fr": [
+          "Administration Linux",
+          "Développement Backend",
+          "Réseaux",
+          "Sécurité",
+          "Développement Mobile"
+        ],
+        "ar": [
+          "إدارة لينكس",
+          "تطوير خلفية",
+          "الشبكات",
+          "الأمن السيبراني",
+          "تطوير تطبيقات"
+        ]
+      }
+    }
+  ]
+}

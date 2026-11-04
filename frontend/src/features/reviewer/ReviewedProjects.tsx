@@ -1,6 +1,6 @@
-import { useMemo, useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import type { AxiosError } from "axios";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Clock3, Eye, FileText, Search, XCircle, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -10,38 +10,32 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-import { apiClient } from "@/api/client";
-import { toast } from "sonner";
+import { getReviewHistory } from "@/api/reviews";
+import { queryKeys } from "@/lib/query-keys";
+import { getErrorMessage, notifyError } from "@/lib/notify";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatDate } from "@/utils/formatDate";
 import { STATUS } from "@/constants/statusTypes";
-
-import type { HistoryReview } from "./types";
 
 export function ReviewedProjectsPage() {
   const { t } = useTranslation();
   const { language } = useLanguage();
 
-  const [reviews, setReviews] = useState<HistoryReview[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const historyQuery = useQuery({
+    queryKey: queryKeys.reviews.history,
+    queryFn: getReviewHistory,
+  });
+  const reviews = historyQuery.data ?? [];
+  const loading = historyQuery.isLoading;
+  const error = historyQuery.isError
+    ? getErrorMessage(historyQuery.error, "reviewer.fetchHistoryError")
+    : null;
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await apiClient.get("/reviews/history");
-        setReviews(res.data.data || []);
-      } catch (err: unknown) {
-        const error = err as AxiosError<{ message: string }>;
-        const msg = error.response?.data?.message || t("reviewer.fetchHistoryError", { defaultValue: "Failed to fetch review history" });
-        toast.error(msg);
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHistory();
-  }, []);
+    if (historyQuery.error) {
+      notifyError(historyQuery.error, "reviewer.fetchHistoryError");
+    }
+  }, [historyQuery.error]);
 
   return (
     <DashboardLayout

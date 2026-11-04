@@ -1,21 +1,28 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Plus, Edit2, Trash2, Eye, LayoutGrid } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Loader2, Plus, Edit2, Trash2, Eye, LayoutGrid, Network, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/api/client";
+import {
+  createDomain,
+  createSubDomain,
+  deleteDomain,
+  deleteSubDomain,
+  getDomainReviewers,
+  getDomainSkills,
+  getSubDomains,
+  listDomains,
+  updateDomain,
+  updateSubDomain,
+} from "@/api/domains";
+import { getErrorMessage } from "@/lib/notify";
+import { queryKeys } from "@/lib/query-keys";
+import type { Domain } from "@/types/domain";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/utils/formatDate";
 import { Modal } from "@/components/ui/Modal";
-
-interface Domain {
-  id: number;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export function AdminDomains() {
   const { t, i18n } = useTranslation();
@@ -26,171 +33,131 @@ export function AdminDomains() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  const [search, setSearch] = useState("");
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [subDomainForm, setSubDomainForm] = useState({ name: "", description: "" });
   const [editingSubDomainId, setEditingSubDomainId] = useState<number | null>(null);
 
-  const {
-    data: domains = [],
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["admin-domains"],
-    queryFn: async () => {
-      const res = await apiClient.get("/domains?limit=100");
-      const data = res.data?.data?.data || res.data?.data || [];
-      return Array.isArray(data) ? (data as Domain[]) : [];
-    },
+  const { data: domains = [], isLoading } = useQuery({
+    queryKey: queryKeys.domains.list({ limit: 100 }),
+    queryFn: () => listDomains({ limit: 100 }),
   });
 
+  const filteredDomains = useMemo(() => {
+    if (!search.trim()) return domains;
+    const q = search.toLowerCase();
+    return domains.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        (d.description && d.description.toLowerCase().includes(q)),
+    );
+  }, [domains, search]);
+
   const { data: domainDetails, isLoading: loadingDetails } = useQuery({
-    queryKey: ["domain-details", selectedDomain?.id],
+    queryKey: queryKeys.domains.detail(selectedDomain?.id ?? "none"),
     queryFn: async () => {
       if (!selectedDomain) return null;
-      const [skillsRes, revRes] = await Promise.all([
-        apiClient.get(`/domains/${selectedDomain.id}/skills`),
-        apiClient.get(`/domains/${selectedDomain.id}/reviewers`),
+      const [skills, reviewers] = await Promise.all([
+        getDomainSkills(selectedDomain.id),
+        getDomainReviewers(selectedDomain.id),
       ]);
-      return {
-        skills: skillsRes.data?.data || [],
-        reviewers: revRes.data?.data?.reviewers || [],
-      };
+      return { skills, reviewers: reviewers.reviewers };
     },
     enabled: isViewModalOpen && !!selectedDomain,
   });
 
   const { data: subDomains = [], isLoading: loadingSubDomains } = useQuery({
-    queryKey: ["domain-sub-domains", selectedDomain?.id],
-    queryFn: async () => {
-      if (!selectedDomain) return [];
-      const res = await apiClient.get(
-        `/domains/sub-domains?domain_id=${selectedDomain.id}&limit=100`,
-      );
-      const data = res.data?.data?.data || res.data?.data || [];
-      return Array.isArray(data) ? data : [];
-    },
+    queryKey: queryKeys.domains.subDomains(selectedDomain?.id ?? "none"),
+    queryFn: () => getSubDomains(selectedDomain!.id),
     enabled: isViewModalOpen && !!selectedDomain,
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string }) => {
-      await apiClient.post("/domains", data);
-    },
+    mutationFn: (data: { name: string; description: string }) =>
+      createDomain(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-domains"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.domains.all });
       toast.success(t("admin.domainAdded", { defaultValue: "Domain created successfully" }));
       setIsAddModalOpen(false);
       setFormData({ name: "", description: "" });
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.domainAddError", { defaultValue: "Failed to create domain" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.domainAddError"));
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; name: string; description: string }) => {
-      await apiClient.patch(`/domains/${data.id}`, {
+    mutationFn: (data: { id: number; name: string; description: string }) =>
+      updateDomain(data.id, {
         name: data.name,
         description: data.description,
-      });
-    },
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-domains"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.domains.all });
       toast.success(t("admin.domainUpdated", { defaultValue: "Domain updated successfully" }));
       setIsEditModalOpen(false);
       setSelectedDomain(null);
       setFormData({ name: "", description: "" });
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.domainUpdateError", { defaultValue: "Failed to update domain" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.domainUpdateError"));
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/domains/${id}`);
-    },
+    mutationFn: (id: number) => deleteDomain(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-domains"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.domains.all });
       toast.success(t("admin.domainDeleted", { defaultValue: "Domain deleted successfully" }));
       setIsDeleteModalOpen(false);
       setSelectedDomain(null);
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
-      if (axiosErr.response?.status === 409 || axiosErr.response?.status === 400) {
-        toast.error(
-          axiosErr.response?.data?.message ||
-            t("admin.cannotDeleteDomain", {
-              defaultValue:
-                "Cannot delete Domain: It is currently assigned to active skills or reviewers.",
-            }),
-        );
-      } else {
-        toast.error(
-          axiosErr.response?.data?.message ||
-            t("admin.domainDeleteError", { defaultValue: "Failed to delete domain" }),
-        );
-      }
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.domainDeleteError"));
     },
   });
 
   const saveSubDomainMutation = useMutation({
-    mutationFn: async (payload: { id?: number; name: string; description: string }) => {
+    mutationFn: (payload: { id?: number; name: string; description: string }) => {
       if (payload.id) {
-        await apiClient.patch(`/domains/sub-domains/${payload.id}`, {
+        return updateSubDomain(payload.id, {
           name: payload.name,
-          description: payload.description || null,
-        });
-      } else {
-        if (!selectedDomain) throw new Error("No domain selected");
-        await apiClient.post("/domains/sub-domains", {
-          name: payload.name,
-          description: payload.description || undefined,
-          domain_id: selectedDomain.id,
+          description: payload.description || "",
         });
       }
+      if (!selectedDomain) throw new Error("No domain selected");
+      return createSubDomain({
+        name: payload.name,
+        description: payload.description || undefined,
+        domain_id: selectedDomain.id,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["domain-sub-domains", selectedDomain?.id] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.domains.subDomains(selectedDomain?.id ?? "none"),
+      });
       toast.success(t("admin.subDomainSaved", { defaultValue: "Sub-domain saved successfully" }));
       setSubDomainForm({ name: "", description: "" });
       setEditingSubDomainId(null);
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.subDomainSaveError", { defaultValue: "Failed to save sub-domain" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.subDomainSaveError"));
     },
   });
 
   const deleteSubDomainMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/domains/sub-domains/${id}`);
-    },
+    mutationFn: (id: number) => deleteSubDomain(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["domain-sub-domains", selectedDomain?.id] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.domains.subDomains(selectedDomain?.id ?? "none"),
+      });
       toast.success(
         t("admin.subDomainDeleted", { defaultValue: "Sub-domain deleted successfully" }),
       );
     },
-    onError: (err: unknown) => {
-      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
-      toast.error(
-        axiosErr.response?.data?.message ||
-          t("admin.subDomainDeleteError", { defaultValue: "Failed to delete sub-domain" }),
-      );
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "admin.subDomainDeleteError"));
     },
   });
 
@@ -248,58 +215,76 @@ export function AdminDomains() {
     >
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex w-full sm:max-w-md items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/20">
-            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+          <div className="flex w-full sm:max-w-md items-center gap-2 rounded-xl border border-[#DEE2E6] bg-white px-3 py-2 shadow-sm focus-within:border-[#7135E8] focus-within:ring-1 focus-within:ring-[#7135E8]">
+            <Search className="h-4 w-4 text-[#6C757D]" />
             <input
               type="text"
-              placeholder={t("common.search", { defaultValue: "Search..." })}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              placeholder={t("admin.searchDomains", { defaultValue: "Search domains by title or description..." })}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-transparent text-sm text-[#212529] outline-none placeholder-[#ADB5BD]"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-xs text-[#DC3545] hover:underline"
+              >
+                Clear
+              </button>
+            )}
           </div>
-          <Button
-            onClick={() => {
-              setFormData({ name: "", description: "" });
-              setIsAddModalOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
-            {t("admin.addDomain", { defaultValue: "Add Domain" })}
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Link to="/admin/sub-domains">
+              <Button
+                variant="outline"
+                className="border-[#DEE2E6] text-[#212529] hover:bg-[#F8F9FA] font-semibold gap-1.5 shadow-xs"
+              >
+                <Network className="h-4 w-4 text-[#7135E8]" />
+                <span>{t("admin.subDomainsTitle", { defaultValue: "Sub-Domains" })}</span>
+              </Button>
+            </Link>
+            <Button
+              onClick={() => {
+                setFormData({ name: "", description: "" });
+                setIsAddModalOpen(true);
+              }}
+              className="bg-[#7135E8] text-white hover:bg-[#5e26cb] font-semibold gap-1.5 shadow-xs"
+            >
+              <Plus className="h-4 w-4" />
+              <span>{t("admin.addDomain", { defaultValue: "Add Domain" })}</span>
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center rounded-2xl border bg-card">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="flex h-64 items-center justify-center rounded-xl border border-[#E9ECEF] bg-white shadow-sm">
+            <Loader2 className="h-8 w-8 animate-spin text-[#7135E8]" />
           </div>
-        ) : error ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border bg-card text-muted-foreground">
-            <LayoutGrid className="mb-4 h-12 w-12 opacity-20" />
-            <p>{t("common.error", { defaultValue: "An error occurred." })}</p>
-          </div>
-        ) : domains.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border bg-card text-muted-foreground">
-            <LayoutGrid className="mb-4 h-12 w-12 opacity-20" />
+        ) : filteredDomains.length === 0 ? (
+          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-[#E9ECEF] bg-white text-[#6C757D] shadow-sm">
+            <LayoutGrid className="mb-4 h-12 w-12 text-[#ADB5BD]" />
             <p>{t("common.noResults", { defaultValue: "No domains found." })}</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-[#E9ECEF] bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead className="border-b border-[#E9ECEF] bg-[#F8F9FA] text-[11px] font-bold uppercase tracking-wider text-[#6C757D]">
                   <tr>
-                    <th className="px-6 py-4 font-medium">
+                    <th className="px-6 py-3 font-bold">
                       {t("common.title", { defaultValue: "Title" })}
                     </th>
-                    <th className="px-6 py-4 font-medium">
+                    <th className="px-6 py-3 font-bold">
                       {t("common.date", { defaultValue: "Date" })}
                     </th>
-                    <th className="px-6 py-4 font-medium text-right rtl:text-left">
+                    <th className="px-6 py-3 font-bold text-right rtl:text-left">
                       {t("common.actions", { defaultValue: "Actions" })}
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
-                  {domains.map((domain) => (
+                <tbody className="divide-y divide-[#E9ECEF]">
+                  {filteredDomains.map((domain) => (
                     <tr key={domain.id} className="transition-colors hover:bg-muted/50">
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
@@ -310,24 +295,34 @@ export function AdminDomains() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {formatDate(domain.created_at, i18n.language)}
+                        {domain.created_at ? formatDate(domain.created_at, i18n.language) : "—"}
                       </td>
                       <td className="px-6 py-4 text-right rtl:text-left">
-                        <div className="flex items-center justify-end rtl:justify-start gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openViewModal(domain)}>
+                        <div className="flex items-center justify-end rtl:justify-start gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openViewModal(domain)}
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-[#6C757D] hover:bg-[#F4F6F9] hover:text-[#0D6EFD] transition-colors"
+                            title={t("common.view", { defaultValue: "View" })}
+                          >
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditModal(domain)}>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(domain)}
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-[#6C757D] hover:bg-[#F4F6F9] hover:text-[#7135E8] transition-colors"
+                            title={t("common.edit", { defaultValue: "Edit" })}
+                          >
                             <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openDeleteModal(domain)}
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-[#6C757D] hover:bg-[#F4F6F9] hover:text-[#DC3545] transition-colors"
+                            title={t("common.delete", { defaultValue: "Delete" })}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -518,21 +513,14 @@ export function AdminDomains() {
               </h3>
               {(domainDetails?.reviewers?.length || 0) > 0 ? (
                 <ul className="mt-2 space-y-1">
-                  {domainDetails!.reviewers.map(
-                    (r: {
-                      id: number;
-                      email: string;
-                      name?: string;
-                      profile?: { first_name?: string; last_name?: string };
-                    }) => (
+                  {domainDetails!.reviewers.map((r) => (
                       <li key={r.id} className="text-sm">
                         {r.profile?.first_name || r.profile?.last_name
                           ? `${r.profile.first_name || ""} ${r.profile.last_name || ""}`
-                          : r.name || "Unnamed"}{" "}
+                          : "Unnamed"}{" "}
                         - {r.email}
                       </li>
-                    ),
-                  )}
+                  ))}
                 </ul>
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">-</p>
@@ -576,7 +564,7 @@ export function AdminDomains() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            className="text-[#DC3545] hover:bg-[#F4F6F9] hover:text-[#bd2130]"
                             onClick={() => deleteSubDomainMutation.mutate(sd.id)}
                             disabled={deleteSubDomainMutation.isPending}
                           >
