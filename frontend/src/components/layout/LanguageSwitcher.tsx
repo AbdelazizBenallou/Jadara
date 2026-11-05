@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/context/LanguageContext";
 import { LANGUAGES } from "@/i18n";
-import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,7 @@ const languageNames: Record<string, string> = {
   fr: "Français",
 };
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ inverted = false }: { inverted?: boolean }) {
   const { language, setLanguage } = useLanguage();
 
   return (
@@ -24,15 +23,28 @@ export function LanguageSwitcher() {
         <Button
           variant="ghost"
           size="sm"
-          className="gap-2 text-sm font-medium text-home-muted-text transition-colors hover:text-home-brand hover:bg-transparent focus-visible:ring-1 focus-visible:ring-home-muted-text/30 focus-visible:ring-offset-0 outline-none border-none ring-0"
+          className={`h-10 gap-1.5 rounded-full border-none px-4 text-sm font-semibold outline-none ring-0 transition-colors focus-visible:ring-1 focus-visible:ring-offset-0 ${
+            inverted
+              ? "text-white/70 hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
+              : "text-home-muted-text hover:bg-home-soft-purple hover:text-home-brand focus-visible:ring-home-muted-text/30"
+          }`}
         >
           {language.toUpperCase()}
-          <ChevronDown className="h-4 w-4" />
+          <span
+            aria-hidden="true"
+            className="material-icons-round text-[18px] leading-none"
+          >
+            expand_more
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {LANGUAGES.map((lang) => (
-          <DropdownMenuItem key={lang} onClick={() => setLanguage(lang)} className="cursor-pointer">
+          <DropdownMenuItem
+            key={lang}
+            onClick={() => setLanguage(lang)}
+            className="cursor-pointer"
+          >
             {languageNames[lang]}
           </DropdownMenuItem>
         ))}

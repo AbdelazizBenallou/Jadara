@@ -1,21 +1,40 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Download,
   Edit,
   ChevronRight,
   CheckCircle2,
-  AlertCircle,
+  Circle,
   Loader2,
   FileText,
+  User,
+  Sparkles,
+  FolderOpen,
+  ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { apiClient } from "@/api/client";
+import { generatePdf, getPdfStatus } from "@/api/cv";
+import { listProjects } from "@/api/projects";
+import { getMySkills } from "@/api/skills";
+import {
+  getMyProfile,
+  listCertifications,
+  listEducation,
+  listMyLanguages,
+  listWorkExperience,
+} from "@/api/users";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
+import type { PdfStatus } from "@/types/cv";
+import type { UserProfile } from "@/types/user";
 
 import { WorkExperienceSection } from "./components/WorkExperienceSection";
 import { EducationSection } from "./components/EducationSection";
@@ -25,92 +44,100 @@ import { LanguagesSection } from "./components/LanguagesSection";
 export function CvBuilderPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [generating, setGenerating] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [pdfStatus, setPdfStatus] = useState<PdfStatus | null>(null);
 
-  // States for data & readiness
-  const [profile, setProfile] = useState<any>(null);
-  const [skills, setSkills] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [workExperience, setWorkExperience] = useState<any[]>([]);
-  const [education, setEducation] = useState<any[]>([]);
-  const [certifications, setCertifications] = useState<any[]>([]);
-  const [languages, setLanguages] = useState<any[]>([]);
-  const [pdfStatus, setPdfStatus] = useState<any>(null);
-
-  const fetchCvData = useCallback(async () => {
-    try {
-      const [profileRes, skillsRes, projectsRes, workRes, eduRes, certRes, langRes, pdfRes] =
+  const cvQuery = useQuery({
+    queryKey: queryKeys.cv.data,
+    queryFn: async () => {
+      const [profile, skills, projects, workExperience, education, certifications, languages] =
         await Promise.all([
-          apiClient.get("/users/me/profile"),
-          apiClient.get("/users/me/skills"),
-          apiClient.get("/projects"),
-          apiClient.get("/users/me/work-experience"),
-          apiClient.get("/users/me/education"),
-          apiClient.get("/users/me/certifications"),
-          apiClient.get("/users/me/languages"),
-          apiClient
-            .get("/users/me/pdf-status?all=true")
-            .catch(() => ({ data: { data: { languages: [] } } })),
+          getMyProfile(),
+          getMySkills(),
+          listProjects(),
+          listWorkExperience(),
+          listEducation(),
+          listCertifications(),
+          listMyLanguages(),
         ]);
+      return {
+        profile: profile.profile as UserProfile | null,
+        skills,
+        projects,
+        workExperience,
+        education,
+        certifications,
+        languages,
+      };
+    },
+  });
 
-      setProfile(profileRes.data.data?.profiles || profileRes.data.data?.profile || {});
-      setSkills(skillsRes.data.data || []);
-      setProjects(projectsRes.data.data || []);
-      setWorkExperience(workRes.data.data || []);
-      setEducation(eduRes.data.data || []);
-      setCertifications(certRes.data.data || []);
-      setLanguages(langRes.data.data || []);
-      const statusList: any[] = pdfRes.data?.data?.languages ?? [];
-      setPdfStatus(statusList.find((s) => s.language === "EN") || statusList[0] || null);
-    } catch (err) {
-      toast.error(t("error.title"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const pdfQuery = useQuery({
+    queryKey: queryKeys.cv.pdfStatus,
+    queryFn: () => getPdfStatus(true),
+  });
 
   useEffect(() => {
-    fetchCvData();
-  }, [fetchCvData]);
+    const statusList = pdfQuery.data?.languages ?? [];
+    setPdfStatus(statusList.find((item) => item.language === "EN") ?? statusList[0] ?? null);
+  }, [pdfQuery.data]);
+
+  useEffect(() => {
+    const error = cvQuery.error ?? pdfQuery.error;
+    if (error) notifyError(error, "common.error");
+  }, [cvQuery.error, pdfQuery.error]);
+
+  const profile = cvQuery.data?.profile ?? null;
+  const skills = cvQuery.data?.skills ?? [];
+  const projects = cvQuery.data?.projects ?? [];
+  const workExperience = cvQuery.data?.workExperience ?? [];
+  const education = cvQuery.data?.education ?? [];
+  const certifications = cvQuery.data?.certifications ?? [];
+  const languages = cvQuery.data?.languages ?? [];
+  const loading = cvQuery.isLoading;
+
+  const refreshCvData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.data });
+  }, [queryClient]);
 
   const pollPdfStatus = useCallback(
     async (remaining = 15) => {
       for (let i = 0; i < remaining; i++) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         try {
-          const res = await apiClient.get("/users/me/pdf-status?all=true");
-          const list: any[] = res.data?.data?.languages ?? [];
-          const status = list.find((s) => s.language === "EN") || list[0];
+          const data = await getPdfStatus(true);
+          const status =
+            data.languages.find((item) => item.language === "EN") ??
+            data.languages[0];
           if (!status) continue;
 
+          setPdfStatus(status);
+
           if (status.status === "completed" && status.download_url) {
-            setPdfStatus(status);
-            toast.success(t("cv.generated"));
+            toast.success(t("cv.generated", { defaultValue: "Your CV PDF is ready for download!" }));
+            refreshCvData();
             return;
           }
           if (status.status === "failed") {
-            setPdfStatus(status);
-            toast.error(status.error_message || t("error.desc"));
+            toast.error(status.error_message || t("error.desc", { defaultValue: "Failed to generate CV." }));
             return;
           }
-          // queued / processing / superseded -> reflect live status and keep polling
-          setPdfStatus(status);
         } catch {
-          // ignore transient polling errors and keep trying
+          // Ignore transient polling errors.
         }
       }
     },
-    [t],
+    [refreshCvData, t],
   );
 
   const handleGeneratePdf = async () => {
     setGenerating(true);
     try {
-      const res = await apiClient.post("/users/me/pdf-generate");
-      const jobs: { status: string; download_url: string | null; language: string }[] =
-        res.data.data?.jobs ?? [];
-      const ready = jobs.find((job) => job.status === "completed" && job.download_url);
+      const data = await generatePdf();
+      const ready = data.jobs.find(
+        (job) => job.status === "completed" && job.download_url,
+      );
 
       if (ready) {
         setPdfStatus({
@@ -118,42 +145,47 @@ export function CvBuilderPage() {
           download_url: ready.download_url,
           language: ready.language,
         });
-        toast.success(t("cv.generated"));
-        fetchCvData();
+        toast.success(t("cv.generated", { defaultValue: "Your CV PDF is ready for download!" }));
+        refreshCvData();
       } else {
         setPdfStatus({ status: "queued" });
-        toast.success(t("cv.generating", "Generating your CV…"));
+        toast.success(t("cv.generating", { defaultValue: "Generating your CV PDF..." }));
         await pollPdfStatus();
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || t("error.desc"));
+    } catch (error) {
+      notifyError(error, "error.desc");
     } finally {
       setGenerating(false);
     }
   };
 
-
-
   if (loading) {
     return (
-      <DashboardLayout role="beneficiary" title={t("cv.title")}>
-        <div className="flex justify-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <DashboardLayout
+        role="beneficiary"
+        title={t("cv.title", { defaultValue: "CV Builder" })}
+        subtitle="Manage sections and generate your professional JADARA resume."
+      >
+        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-[#E9ECEF] bg-white p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-[#7135E8]" />
+          <p className="mt-3 text-xs font-semibold text-[#6C757D]">
+            Loading your dossier sections...
+          </p>
         </div>
       </DashboardLayout>
     );
   }
 
-  // --- Completeness (informational only — the backend treats every section as optional) ---
+  // Completeness checks
   const readinessChecks = [
-    { label: t("cv.personalInfo"), complete: !!profile?.first_name && !!profile?.location },
-    { label: t("cv.profSummary"), complete: !!profile?.bio },
-    { label: t("sidebar.skills"), complete: skills.length > 0 },
-    { label: t("exp.work"), complete: workExperience.length > 0 },
-    { label: t("profile.educationLevel"), complete: education.length > 0 },
-    { label: t("domain.language"), complete: languages.length > 0 },
-    { label: t("exp.projects"), complete: projects.length > 0 },
-    { label: t("docs.certificate"), complete: certifications.length > 0 },
+    { label: t("cv.personalInfo", { defaultValue: "Personal & Contact Details" }), complete: !!profile?.first_name && !!profile?.location },
+    { label: t("cv.profSummary", { defaultValue: "Professional Summary" }), complete: !!profile?.bio },
+    { label: t("sidebar.skills", { defaultValue: "Registered Skills" }), complete: skills.length > 0 },
+    { label: t("exp.work", { defaultValue: "Work Experience" }), complete: workExperience.length > 0 },
+    { label: t("profile.educationLevel", { defaultValue: "Education History" }), complete: education.length > 0 },
+    { label: t("domain.language", { defaultValue: "Languages Spoken" }), complete: languages.length > 0 },
+    { label: t("exp.projects", { defaultValue: "Verified Projects" }), complete: projects.length > 0 },
+    { label: t("docs.certificate", { defaultValue: "Certifications" }), complete: certifications.length > 0 },
   ];
 
   const score = Math.round(
@@ -166,207 +198,270 @@ export function CvBuilderPage() {
   const isFailed = status === "failed";
 
   return (
-    <DashboardLayout role="beneficiary" title={t("cv.title")} subtitle={t("cv.subtitle")}>
+    <DashboardLayout
+      role="beneficiary"
+      title={t("cv.title", { defaultValue: "CV Builder" })}
+      subtitle={t("cv.subtitle", { defaultValue: "Curate your professional experience, qualifications, and export your official JADARA resume." })}
+    >
       <div className="mx-auto max-w-4xl space-y-6">
-        {/* CV Actions Header Card */}
-        <div className="rounded-2xl border bg-card p-6 shadow-soft flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* ── CV Actions & Readiness Header Card ─── */}
+        <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="relative h-16 w-16 shrink-0 flex items-center justify-center rounded-full bg-card shadow-inner border border-muted/50">
+            {/* Circular Gauge */}
+            <div className="relative h-16 w-16 shrink-0 flex items-center justify-center rounded-full bg-[#F8F9FA] border border-[#E9ECEF]">
               <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 64 64">
                 <circle
                   cx="32"
                   cy="32"
                   r="28"
                   fill="none"
-                  stroke="currentColor"
+                  stroke="#E9ECEF"
                   strokeWidth="4"
-                  className="text-muted/30"
                 />
                 <circle
                   cx="32"
                   cy="32"
                   r="28"
                   fill="none"
-                  stroke="currentColor"
+                  stroke="#7135E8"
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeDasharray="175.9"
                   strokeDashoffset={175.9 - (175.9 * score) / 100}
-                  className={cn("transition-all duration-1000 ease-out", score >= 100 ? "text-emerald-500" : "text-primary")}
+                  className="transition-all duration-1000 ease-out"
                 />
               </svg>
-              <span
-                className={cn("text-sm font-bold z-10", score >= 100 ? "text-emerald-600 dark:text-emerald-500" : "text-primary")}
-              >
+              <span className="text-sm font-black text-[#212529] z-10">
                 {score}%
               </span>
             </div>
+
             <div>
-              <h3 className="font-bold text-lg">{t("cv.cvReadiness")}</h3>
+              <h3 className="text-base font-bold text-[#212529]">
+                {t("cv.cvReadiness", { defaultValue: "CV Readiness Score" })}
+              </h3>
               {isInProgress ? (
-                <p className="text-sm text-muted-foreground">
-                  {t("cv.generating", "Generating your CV…")}
+                <p className="text-xs text-[#7135E8] font-semibold mt-0.5 flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>{t("cv.generating", { defaultValue: "Compiling your PDF..." })}</span>
                 </p>
               ) : isFailed ? (
-                <p className="text-sm text-destructive">
-                  {pdfStatus?.error_message || t("error.desc")}
+                <p className="text-xs text-[#DC3545] font-semibold mt-0.5">
+                  {pdfStatus?.error_message || "Generation error. Please retry."}
+                </p>
+              ) : isGenerated ? (
+                <p className="text-xs text-[#16A34A] font-semibold mt-0.5 flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Your resume is ready for download</span>
                 </p>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("cv.allSectionsOptional", {
-                    defaultValue: "All sections are optional — you can generate your CV anytime.",
-                  })}
+                <p className="text-xs text-[#6C757D] mt-0.5">
+                  Complete your sections to build an impressive profile. All fields are optional.
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
             {isGenerated && (
-              <Button asChild variant="outline" className="gap-2">
-                <a href={pdfStatus.download_url} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4" />
-                  {t("cv.downloadPdf")}
+              <Button asChild variant="outline" className="border-[#E9ECEF] text-xs font-semibold gap-2 text-[#212529] hover:bg-[#F8F9FA]">
+                <a
+                  href={pdfStatus.download_url ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Download className="h-4 w-4 text-[#7135E8]" />
+                  <span>{t("cv.downloadPdf", { defaultValue: "Download PDF" })}</span>
                 </a>
               </Button>
             )}
             <Button
               onClick={handleGeneratePdf}
               disabled={generating || isInProgress}
-              className="gap-2"
+              className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold gap-2 shadow-xs"
             >
               {generating || isInProgress ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isGenerated ? (
+                <RefreshCw className="h-4 w-4" />
               ) : (
                 <FileText className="h-4 w-4" />
               )}
-              {isInProgress
-                ? t("cv.generating", "Generating…")
-                : isFailed
-                  ? t("cv.retry", { defaultValue: "Retry" })
+              <span>
+                {isInProgress
+                  ? "Generating…"
+                  : isFailed
+                  ? "Retry Generation"
                   : isGenerated
-                    ? t("cv.regenerate", { defaultValue: "Regenerate" })
-                    : t("cv.generateCv")}
+                  ? "Regenerate PDF"
+                  : "Generate CV PDF"}
+              </span>
             </Button>
           </div>
         </div>
 
-        {/* Completeness Breakdown (informational) */}
-        <div className="rounded-2xl border bg-card p-5 shadow-soft">
-          <ul className="grid sm:grid-cols-2 gap-4 text-sm">
+        {/* ── Completeness Criteria Checklist ── */}
+        <div className="rounded-2xl border border-[#E9ECEF] bg-white p-5 shadow-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             {readinessChecks.map((check, i) => (
-              <li key={i} className="flex items-center gap-2">
+              <div key={i} className="flex items-center gap-2">
                 {check.complete ? (
-                  <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-[#16A34A] shrink-0" />
                 ) : (
-                  <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Circle className="h-4 w-4 text-[#ADB5BD] shrink-0" />
                 )}
-                <span className={cn(!check.complete && "text-muted-foreground")}>
+                <span className={cn(check.complete ? "font-semibold text-[#212529]" : "text-[#6C757D]")}>
                   {check.label}
                 </span>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
-        {/* Personal Info & Bio (Read-Only) */}
-        <div className="rounded-2xl border bg-card p-5 shadow-soft">
+        {/* ── Personal Info & Bio Preview Card ── */}
+        <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold">{t("cv.personalInfo")}</h3>
-            <Button asChild variant="ghost" size="sm" className="h-8 gap-1 px-2 text-primary">
-              <Link to="/dashboard/profile">
-                <Edit className="h-3 w-3" /> {t("cv.editProfile")}
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-[#7135E8]" />
+              <h3 className="text-base font-bold text-[#212529]">
+                {t("cv.personalInfo", { defaultValue: "Personal & Contact Information" })}
+              </h3>
+            </div>
+            <Link
+              to="/dashboard/profile"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#7135E8] hover:underline"
+            >
+              <Edit className="h-3 w-3" />
+              <span>{t("cv.editProfile", { defaultValue: "Edit in Profile" })}</span>
+            </Link>
           </div>
-          <div className="space-y-3 text-sm">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs border-b border-[#E9ECEF] pb-4">
             <div>
-              <span className="text-muted-foreground block text-xs">{t("cv.name")}</span>
-              <span className="font-medium">
+              <span className="text-[#6C757D] block mb-0.5">{t("cv.name", { defaultValue: "Full Name" })}</span>
+              <span className="font-bold text-[#212529]">
                 {profile?.first_name || profile?.last_name
                   ? `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()
-                  : "—"}
+                  : user?.name || "—"}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-muted-foreground block text-xs">{t("cv.phone")}</span>
-                <span className="font-medium" dir="ltr">
-                  {profile?.phone || "—"}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-xs">{t("cv.location")}</span>
-                <span className="font-medium">{profile?.location ? t(`wilayas.${profile.location}`) : "—"}</span>
-              </div>
+            <div>
+              <span className="text-[#6C757D] block mb-0.5">{t("cv.phone", { defaultValue: "Phone Number" })}</span>
+              <span className="font-medium text-[#212529]" dir="ltr">
+                {profile?.phone || "—"}
+              </span>
+            </div>
+            <div>
+              <span className="text-[#6C757D] block mb-0.5">{t("cv.location", { defaultValue: "Wilaya / Location" })}</span>
+              <span className="font-medium text-[#212529]">
+                {profile?.location || "—"}
+              </span>
             </div>
           </div>
 
-          <h3 className="font-bold mt-6 mb-2">{t("cv.profSummary")}</h3>
-          {profile?.bio ? (
-            <p className="text-sm leading-relaxed">{profile.bio}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">{t("cv.noSummary")}</p>
-          )}
+          <div className="pt-4">
+            <h4 className="text-xs font-bold text-[#212529] mb-1.5">
+              {t("cv.profSummary", { defaultValue: "Professional Summary" })}
+            </h4>
+            {profile?.bio ? (
+              <p className="text-xs text-[#6C757D] leading-relaxed whitespace-pre-line">
+                {profile.bio}
+              </p>
+            ) : (
+              <p className="text-xs text-[#6C757D] italic">
+                {t("cv.noSummary", { defaultValue: "No summary added yet. Introduce yourself in your profile." })}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Main Sections */}
-        <WorkExperienceSection onUpdate={fetchCvData} />
-        <EducationSection onUpdate={fetchCvData} />
-        <LanguagesSection onUpdate={fetchCvData} />
-        <CertificationsSection onUpdate={fetchCvData} />
+        {/* ── Main Subsections ── */}
+        <WorkExperienceSection onUpdate={refreshCvData} />
+        <EducationSection onUpdate={refreshCvData} />
+        <LanguagesSection onUpdate={refreshCvData} />
+        <CertificationsSection onUpdate={refreshCvData} />
 
-        {/* Skills (Read-Only) */}
-        <div className="rounded-2xl border bg-card p-5 shadow-soft">
+        {/* ── Registered Skills Preview Card ── */}
+        <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold">{t("sidebar.skills")}</h3>
-            <Button asChild variant="ghost" size="sm" className="h-8 gap-1 px-2 text-primary">
-              <Link to="/dashboard/skills">
-                <Edit className="h-3 w-3" /> {t("cv.editSkills")}
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-[#7135E8]" />
+              <h3 className="text-base font-bold text-[#212529]">
+                {t("sidebar.skills", { defaultValue: "Registered Skills" })}
+              </h3>
+            </div>
+            <Link
+              to="/dashboard/skills"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#7135E8] hover:underline"
+            >
+              <Edit className="h-3 w-3" />
+              <span>{t("cv.editSkills", { defaultValue: "Manage Skills" })}</span>
+            </Link>
           </div>
+
           <div className="flex flex-wrap gap-2">
             {skills.length > 0 ? (
               skills.map((s) => (
                 <span
                   key={s.skill_id}
-                  className="rounded-full bg-muted px-3 py-1 text-xs font-medium border"
+                  className="rounded-lg border border-[#E9ECEF] bg-white px-3 py-1.5 text-xs font-semibold text-[#212529]"
                 >
                   {s.name || s.skills?.name}{" "}
-                  <span className="text-muted-foreground font-normal ml-1 capitalize">
+                  <span className="text-[#6C757D] font-normal ml-1 uppercase text-[10px]">
                     ({s.level})
                   </span>
                 </span>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground italic">{t("cv.noSkills")}</p>
+              <p className="text-xs text-[#6C757D] italic">
+                {t("cv.noSkills", { defaultValue: "No skills registered yet." })}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Projects (Read-Only) */}
-        <div className="rounded-2xl border bg-card p-5 shadow-soft">
+        {/* ── Verified Projects Preview Card ── */}
+        <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold">{t("exp.projects")}</h3>
-            <Button asChild variant="ghost" size="sm" className="h-8 gap-1 px-2 text-primary">
-              <Link to="/dashboard/projects">
-                {t("cv.manage")} <ChevronRight className="h-3 w-3" />
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-[#7135E8]" />
+              <h3 className="text-base font-bold text-[#212529]">
+                {t("exp.projects", { defaultValue: "Projects & Portfolio" })}
+              </h3>
+            </div>
+            <Link
+              to="/dashboard/projects"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#7135E8] hover:underline"
+            >
+              <span>{t("cv.manage", { defaultValue: "View All Projects" })}</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
+
           <div className="space-y-3">
             {projects.length > 0 ? (
               projects.slice(0, 3).map((p) => (
-                <div key={p.id} className="text-sm border-l-2 border-primary pl-3">
-                  <p className="font-semibold">{p.title}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {p.status.replace("_", " ")}
-                  </p>
+                <div
+                  key={p.id}
+                  className="rounded-xl border border-[#E9ECEF] bg-white p-3.5 hover:border-[#7135E8] transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-[#212529]">{p.title}</p>
+                    <span className="rounded bg-[#F8F9FA] px-2 py-0.5 text-[10px] font-bold text-[#6C757D] uppercase">
+                      {p.status.replace("_", " ")}
+                    </span>
+                  </div>
+                  {p.description && (
+                    <p className="text-[11px] text-[#6C757D] mt-1 line-clamp-1">
+                      {p.description}
+                    </p>
+                  )}
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground italic">{t("cv.noProjects")}</p>
+              <p className="text-xs text-[#6C757D] italic">
+                {t("cv.noProjects", { defaultValue: "No projects in portfolio yet." })}
+              </p>
             )}
           </div>
         </div>

@@ -48,3 +48,31 @@ export const avatarUpload = multer({
     }
   },
 });
+
+export const coverUpload = multer({
+  storage,
+  limits: {
+    fileSize: env.UPLOAD_MAX_AVATAR_SIZE,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (AVATAR_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Cover must be an image (JPEG, PNG, WebP)`));
+    }
+  },
+});
+
+export const profileUpload = multer({
+  storage,
+  limits: {
+    fileSize: env.UPLOAD_MAX_AVATAR_SIZE,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (AVATAR_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Image must be JPEG, PNG, or WebP`));
+    }
+  },
+});

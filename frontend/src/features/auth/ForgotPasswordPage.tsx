@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { MailCheck, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,23 +17,30 @@ export function ForgotPasswordPage() {
   const [step, setStep] = useState<ForgotStep>(1);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
 
   const steps = [t("auth.step1"), t("auth.step2"), t("auth.step3")];
 
   const handleResetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     if (newPassword !== confirmPassword) {
-      setError(t("auth.passwordMismatch", { defaultValue: "كلمتا المرور غير متطابقتين" }));
-      return;
-    }
-    if (newPassword.length < 6) {
-      setError(
-        t("auth.passwordTooShort", { defaultValue: "كلمة المرور قصيرة جدا (6 أحرف على الأقل)" }),
+      toast.error(
+        t("auth.passwordMismatch", {
+          defaultValue: "كلمتا المرور غير متطابقتين",
+        }),
       );
       return;
     }
+    if (newPassword.length < 6) {
+      toast.error(
+        t("auth.passwordTooShort", {
+          defaultValue: "كلمة المرور قصيرة جدا (6 أحرف على الأقل)",
+        }),
+      );
+      return;
+    }
+    toast.success(
+      t("auth.resetSuccess", { defaultValue: "تمت إعادة التعيين بنجاح" }),
+    );
     setStep(4);
   };
 
@@ -42,7 +49,10 @@ export function ForgotPasswordPage() {
       {/* Step indicators */}
       <div className="mb-6 flex items-center gap-2">
         {steps.map((label, i) => (
-          <div key={label} className="flex flex-1 flex-col items-center gap-1.5">
+          <div
+            key={label}
+            className="flex flex-1 flex-col items-center gap-1.5"
+          >
             <span
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors",
@@ -68,6 +78,7 @@ export function ForgotPasswordPage() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
+            toast.success(t("auth.codeSent"));
             setStep(2);
           }}
         >
@@ -75,10 +86,10 @@ export function ForgotPasswordPage() {
             <Label htmlFor="forgot-email">{t("common.email")}</Label>
             <Input
               id="forgot-email"
+              icon="mail"
               type="email"
               required
               dir="ltr"
-              placeholder="you@example.com"
             />
           </div>
           <Button type="submit" className="w-full">
@@ -95,14 +106,21 @@ export function ForgotPasswordPage() {
       {/* Step 2: Check email */}
       {step === 2 && (
         <div className="space-y-5 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-info/15">
-            <MailCheck className="h-8 w-8 text-info" />
-          </div>
+          <span
+            aria-hidden="true"
+            className="material-icons-round mx-auto text-[56px] leading-none text-info"
+          >
+            mark_email_read
+          </span>
           <div>
             <p className="font-semibold">
-              {t("auth.codeSentTitle", { defaultValue: "تحقق من بريدك الإلكتروني" })}
+              {t("auth.codeSentTitle", {
+                defaultValue: "تحقق من بريدك الإلكتروني",
+              })}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{t("auth.codeSent")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("auth.codeSent")}
+            </p>
           </div>
           <Button className="w-full" onClick={() => setStep(3)}>
             {t("auth.continue")}
@@ -117,6 +135,7 @@ export function ForgotPasswordPage() {
             <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
             <PasswordField
               id="new-password"
+              icon="lock"
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -125,23 +144,18 @@ export function ForgotPasswordPage() {
             <PasswordStrength password={newPassword} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirm-password">{t("auth.confirmPassword")}</Label>
+            <Label htmlFor="confirm-password">
+              {t("auth.confirmPassword")}
+            </Label>
             <PasswordField
               id="confirm-password"
+              icon="lock"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"
             />
           </div>
-          {error && (
-            <div
-              role="alert"
-              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-            >
-              {error}
-            </div>
-          )}
           <Button type="submit" className="w-full">
             {t("auth.resetBtn")}
           </Button>
@@ -151,14 +165,21 @@ export function ForgotPasswordPage() {
       {/* Step 4: Success */}
       {step === 4 && (
         <div className="space-y-5 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
-            <CheckCircle2 className="h-8 w-8 text-success" />
-          </div>
+          <span
+            aria-hidden="true"
+            className="material-icons-round mx-auto text-[56px] leading-none text-success"
+          >
+            check_circle
+          </span>
           <div>
             <p className="font-semibold">
-              {t("auth.resetSuccess", { defaultValue: "تمت إعادة التعيين بنجاح" })}
+              {t("auth.resetSuccess", {
+                defaultValue: "تمت إعادة التعيين بنجاح",
+              })}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{t("auth.resetDone")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("auth.resetDone")}
+            </p>
           </div>
           <Button asChild className="w-full">
             <Link to="/login">{t("auth.backToLogin")}</Link>

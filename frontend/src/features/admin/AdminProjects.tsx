@@ -1,9 +1,25 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderKanban, Search, Loader2, Eye, Trash2, Download, ExternalLink } from "lucide-react";
+import {
+  FolderKanban,
+  Search,
+  Loader2,
+  Eye,
+  Trash2,
+  Download,
+  ExternalLink,
+} from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiClient } from "@/api/client";
+import {
+  deleteAdminProject,
+  forceProjectStatus,
+  getAdminProject,
+  listAdminProjects,
+} from "@/api/projects";
+import { getErrorMessage } from "@/lib/notify";
+import { queryKeys } from "@/lib/query-keys";
+import type { Project, ProjectUser } from "@/types/project";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -11,42 +27,18 @@ import { formatDate } from "@/utils/formatDate";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/Modal";
 
-type ProjectType = {
-  id: number;
-  title: string;
-  status: string;
-  created_at: string;
-  domain?: { id: number; name: string } | null;
-  sub_domain?: { id: number; name: string } | null;
-  sub_domains?: { id: number; name: string } | null;
-  users?: {
-    first_name?: string;
-    last_name?: string;
-    email: string;
-    profiles?: {
-      first_name?: string | null;
-      last_name?: string | null;
-    } | null;
-  } | null;
-  skills?: { name: string }[];
-};
-
 export function AdminProjects() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
-  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["adminProjects"],
-    queryFn: async () => {
-      const res = await apiClient.get("/projects/all?limit=100");
-      const list = res.data.data?.data || res.data.data || [];
-      return Array.isArray(list) ? list : [];
-    },
+    queryKey: queryKeys.projects.list({ scope: "admin" }),
+    queryFn: () => listAdminProjects({ limit: 100 }),
   });
 
   const {
@@ -54,58 +46,51 @@ export function AdminProjects() {
     isLoading: loadingDetails,
     refetch: refetchDetails,
   } = useQuery({
-    queryKey: ["adminProjectDetails", selectedProject?.id],
-    queryFn: async () => {
-      if (!selectedProject) return null;
-      const res = await apiClient.get(`/projects/${selectedProject.id}/admin`);
-      return res.data.data || null;
-    },
+    queryKey: queryKeys.projects.adminDetail(selectedProject?.id ?? "none"),
+    queryFn: () => getAdminProject(selectedProject!.id),
     enabled: !!selectedProject && isViewModalOpen,
   });
 
   const forceStatusMutation = useMutation({
-    mutationFn: async (status: string) => {
-      await apiClient.patch(`/projects/${selectedProject?.id}/status`, { status });
-    },
+    mutationFn: (status: Project["status"]) =>
+      forceProjectStatus(selectedProject!.id, status),
     onSuccess: () => {
       toast.success("Status updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["adminProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["adminDashboardStats"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.admin });
       refetchDetails();
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to update status");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to update status"));
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.delete(`/projects/${selectedProject?.id}/admin`);
-    },
+    mutationFn: () => deleteAdminProject(selectedProject!.id),
     onSuccess: () => {
       toast.success("Project deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["adminProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["adminDashboardStats"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.admin });
       setIsDeleteModalOpen(false);
       setIsViewModalOpen(false);
       setSelectedProject(null);
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to delete project");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to delete project"));
     },
   });
 
-  const openViewModal = (p: ProjectType) => {
+  const openViewModal = (p: Project) => {
     setSelectedProject(p);
     setIsViewModalOpen(true);
   };
 
-  const openDeleteModal = (p: ProjectType) => {
+  const openDeleteModal = (p: Project) => {
     setSelectedProject(p);
     setIsDeleteModalOpen(true);
   };
 
-  const filteredProjects = projects.filter((project: ProjectType) => {
+  const filteredProjects = projects.filter((project) => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -116,11 +101,10 @@ export function AdminProjects() {
   });
 
   // Safe names
-  const getProjectUserName = (u: any) => {
+  const getProjectUserName = (u?: ProjectUser | null) => {
     if (!u) return "Unknown";
-    const prof = u.profiles || u.profile;
-    const fname = u.first_name || prof?.first_name || "";
-    const lname = u.last_name || prof?.last_name || "";
+    const fname = u.first_name || u.profiles?.first_name || "";
+    const lname = u.last_name || u.profiles?.last_name || "";
     if (!fname && !lname) return "Unnamed User";
     return `${fname} ${lname}`.trim();
   };
@@ -136,7 +120,7 @@ export function AdminProjects() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 ltr:left-3 rtl:right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -182,18 +166,24 @@ export function AdminProjects() {
                   </tr>
                 ) : filteredProjects.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                      {t("admin.noProjectsFound", { defaultValue: "No projects found." })}
+                    <td
+                      colSpan={6}
+                      className="p-8 text-center text-muted-foreground"
+                    >
+                      {t("admin.noProjectsFound", {
+                        defaultValue: "No projects found.",
+                      })}
                     </td>
                   </tr>
                 ) : (
-                  filteredProjects.map((project: ProjectType) => (
-                    <tr key={project.id} className="transition-colors hover:bg-muted/50">
+                  filteredProjects.map((project) => (
+                    <tr
+                      key={project.id}
+                      className="transition-colors hover:bg-muted/50"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 shrink-0">
-                            <FolderKanban className="h-4 w-4" />
-                          </div>
+                          <FolderKanban className="h-4 w-4 text-[#0D6EFD] shrink-0" />
                           <span className="font-medium text-foreground truncate max-w-[200px]">
                             {project.title}
                           </span>
@@ -215,7 +205,9 @@ export function AdminProjects() {
                             {project.domain?.name || "—"}
                           </span>
                           <span className="text-sm font-medium text-foreground">
-                            {project.sub_domain?.name || project.sub_domains?.name || "—"}
+                            {project.sub_domain?.name ||
+                              project.sub_domains?.name ||
+                              "—"}
                           </span>
                         </div>
                       </td>
@@ -256,7 +248,9 @@ export function AdminProjects() {
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
-        title={projectDetails?.title || selectedProject?.title || "Project Details"}
+        title={
+          projectDetails?.title || selectedProject?.title || "Project Details"
+        }
       >
         {loadingDetails ? (
           <div className="flex h-32 items-center justify-center">
@@ -266,7 +260,9 @@ export function AdminProjects() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="text-sm font-bold text-muted-foreground">{t("common.status")}</h3>
+                <h3 className="text-sm font-bold text-muted-foreground">
+                  {t("common.status")}
+                </h3>
                 <div className="mt-1 flex items-center gap-2">
                   <StatusBadge status={projectDetails.status} />
                 </div>
@@ -295,7 +291,9 @@ export function AdminProjects() {
                   {t("admin.subDomain", { defaultValue: "Sub-domain" })}
                 </h3>
                 <p className="mt-1 text-sm font-medium">
-                  {projectDetails.sub_domain?.name || projectDetails.sub_domains?.name || "—"}
+                  {projectDetails.sub_domain?.name ||
+                    projectDetails.sub_domains?.name ||
+                    "—"}
                 </p>
               </div>
             </div>
@@ -312,15 +310,25 @@ export function AdminProjects() {
             <div className="flex gap-4">
               {projectDetails.github_url && (
                 <Button variant="outline" size="sm" asChild>
-                  <a href={projectDetails.github_url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" /> GitHub
+                  <a
+                    href={projectDetails.github_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" />{" "}
+                    GitHub
                   </a>
                 </Button>
               )}
               {projectDetails.live_url && (
                 <Button variant="outline" size="sm" asChild>
-                  <a href={projectDetails.live_url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" /> Live Site
+                  <a
+                    href={projectDetails.live_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" />{" "}
+                    Live Site
                   </a>
                 </Button>
               )}
@@ -332,9 +340,10 @@ export function AdminProjects() {
                   Evidence / Documents
                 </h3>
                 <div className="space-y-2">
-                  {projectDetails.evidence.map((ev: any) => {
+                  {projectDetails.evidence.map((ev) => {
                     const external =
-                      typeof ev.external_url === "string" && ev.external_url.startsWith("http")
+                      typeof ev.external_url === "string" &&
+                      ev.external_url.startsWith("http")
                         ? ev.external_url
                         : null;
                     const url = ev.download_url || external;
@@ -355,8 +364,13 @@ export function AdminProjects() {
                         </div>
                         {url && (
                           <Button variant="ghost" size="sm" asChild>
-                            <a href={url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" /> Download
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Download className="h-4 w-4 mr-2 rtl:ml-2 rtl:mr-0" />{" "}
+                              Download
                             </a>
                           </Button>
                         )}
@@ -420,7 +434,8 @@ export function AdminProjects() {
       >
         <div className="space-y-4">
           <p className="text-sm">
-            Delete project "{selectedProject?.title}"? This action cannot be undone.
+            Delete project "{selectedProject?.title}"? This action cannot be
+            undone.
           </p>
           <div className="flex justify-end gap-2">
             <Button

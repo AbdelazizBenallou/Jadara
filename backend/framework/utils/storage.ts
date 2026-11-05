@@ -49,6 +49,23 @@ export const storage = {
     await storage.delete(BUCKETS.avatars, objectName);
   },
 
+  async uploadCover(file: Express.Multer.File, userId: number): Promise<string> {
+    await this.ensureBuckets();
+    const ext = file.originalname.split(".").pop();
+    const { randomUUID } = await import("crypto");
+    const objectName = `covers/${userId}/${Date.now()}-${randomUUID()}.${ext || "jpg"}`;
+
+    await minioClient.putObject(BUCKETS.covers, objectName, file.buffer, file.size, {
+      "Content-Type": file.mimetype,
+    });
+
+    return objectName;
+  },
+
+  async deleteCover(objectName: string): Promise<void> {
+    await storage.delete(BUCKETS.covers, objectName);
+  },
+
   async uploadBuffer(
     bucket: BucketName,
     folder: string,

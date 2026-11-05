@@ -11,7 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { apiClient } from "@/api/client";
+import { approveDemand, rejectDemand } from "@/api/demands";
+import { toApiError } from "@/lib/api-error";
+import { getErrorMessage } from "@/lib/notify";
+import { queryKeys } from "@/lib/query-keys";
+import type { Demand } from "@/types/demand";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -20,7 +24,7 @@ type RequestDetailsModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onStatusChange: () => void;
-  demandData?: any;
+  demandData?: Demand;
 };
 
 export function RequestDetailsModal({
@@ -36,43 +40,37 @@ export function RequestDetailsModal({
   const [note, setNote] = useState("");
 
   const approveMutation = useMutation({
-    mutationFn: async () => {
-      if (!demandId) return;
-      await apiClient.post(`/demands/${demandId}/approve`, { note });
-    },
+    mutationFn: () => approveDemand(demandId!, { note }),
     onSuccess: () => {
       toast.success(t("admin.requestApproved"));
-      queryClient.invalidateQueries({ queryKey: ["adminRequests"] });
-      queryClient.invalidateQueries({ queryKey: ["adminDashboardStats"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.demands.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.admin });
       onStatusChange();
       onClose();
     },
-    onError: (error: any) => {
-      if (error.response?.status === 409) {
+    onError: (error) => {
+      if (toApiError(error).status === 409) {
         toast.error(t("admin.requestAlreadyReviewed"));
       } else {
-        toast.error(error.response?.data?.message || "Failed to approve");
+        toast.error(getErrorMessage(error, "Failed to approve"));
       }
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async () => {
-      if (!demandId) return;
-      await apiClient.post(`/demands/${demandId}/reject`, { note });
-    },
+    mutationFn: () => rejectDemand(demandId!, { note }),
     onSuccess: () => {
       toast.success(t("admin.requestRejected"));
-      queryClient.invalidateQueries({ queryKey: ["adminRequests"] });
-      queryClient.invalidateQueries({ queryKey: ["adminDashboardStats"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.demands.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.admin });
       onStatusChange();
       onClose();
     },
-    onError: (error: any) => {
-      if (error.response?.status === 409) {
+    onError: (error) => {
+      if (toApiError(error).status === 409) {
         toast.error(t("admin.requestAlreadyReviewed"));
       } else {
-        toast.error(error.response?.data?.message || "Failed to reject");
+        toast.error(getErrorMessage(error, "Failed to reject"));
       }
       setRejecting(false);
     },
@@ -97,18 +95,14 @@ export function RequestDetailsModal({
             <div>
               <Label className="text-muted-foreground">{t("admin.applicant")}</Label>
               <p className="font-medium">
-                {demandData.applicant?.profiles?.first_name ||
-                  demandData.applicant?.profile?.first_name ||
-                  ""}{" "}
-                {demandData.applicant?.profiles?.last_name ||
-                  demandData.applicant?.profile?.last_name ||
-                  ""}
+                {demandData.applicant?.profiles?.first_name || ""}{" "}
+                {demandData.applicant?.profiles?.last_name || ""}
               </p>
               <p className="text-sm text-muted-foreground">{demandData.applicant?.email}</p>
             </div>
             <div>
               <Label className="text-muted-foreground">{t("admin.requestedRole")}</Label>
-              <p className="font-medium">{demandData.role?.name || demandData.requested_role}</p>
+              <p className="font-medium">{demandData.role?.name || "—"}</p>
             </div>
             <div>
               <Label className="text-muted-foreground">{t("common.status")}</Label>
@@ -128,7 +122,7 @@ export function RequestDetailsModal({
             <div>
               <Label className="text-muted-foreground">{t("admin.requestedDomains")}</Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {demandData.domains.map((domain: any) => (
+                {demandData.domains.map((domain) => (
                   <span
                     key={domain.id}
                     className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
@@ -144,7 +138,7 @@ export function RequestDetailsModal({
             <div>
               <Label className="text-muted-foreground">{t("admin.documents")}</Label>
               <div className="mt-2 space-y-2">
-                {demandData.documents.map((doc: any) => (
+                {demandData.documents.map((doc) => (
                   <div
                     key={doc.id}
                     className="flex items-center justify-between rounded-lg border p-3"
@@ -153,7 +147,7 @@ export function RequestDetailsModal({
                       {doc.name}
                     </span>
                     <Button variant="outline" size="sm" asChild>
-                      <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
+                      <a href={doc.download_url ?? undefined} target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4 rtl:ml-2 ltr:mr-2" />
                         {t("admin.download")}
                       </a>

@@ -1,3 +1,5 @@
+<mport { createFileRoute, Outlet } from "@tanstack/react-router";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import { createFileRoute, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 
@@ -5,9 +7,15 @@ import { useAuth } from "@/context/AuthContext";
 import { ROLE_HOME } from "@/constants/roles";
 
 export const Route = createFileRoute("/reviewer")({
-  component: ReviewerLayout,
+  component: ReviewerRoute,
 });
 
+function ReviewerRoute() {
+  return (
+    <RoleGuard role="reviewer">
+      <Outlet />
+    </RoleGuard>
+  );
 function ReviewerLayout() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -32,4 +40,5 @@ function ReviewerLayout() {
   }
 
   return <Outlet />;
+
 }

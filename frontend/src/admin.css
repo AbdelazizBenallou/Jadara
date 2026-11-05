@@ -1,0 +1,439 @@
+/* ==========================================================================
+   JADARA AdminLTE 4 — Modern Enterprise Administrative Theme
+   Palette:
+     - Primary Blue: #0D6EFD
+     - Dark Purple Sidebar: #26183D
+     - Sidebar Active Item: #7135E8
+     - Sidebar Hover: #382451
+     - Main Background: #F4F6F9
+     - Card Background: #FFFFFF
+     - Topbar Background: #FFFFFF
+     - Semantic: Success #28A745, Warning #FFC107, Danger #DC3545, Info #0D6EFD
+     - Text: Primary #212529, Secondary #6C757D, Muted #ADB5BD
+   ========================================================================== */
+
+:root {
+  --admin-blue: #0D6EFD;
+  --admin-blue-hover: #0b5ed7;
+  --admin-sidebar-bg: #26183D;
+  --admin-sidebar-active: #7135E8;
+  --admin-sidebar-hover: #382451;
+  --admin-sidebar-text: #c2c7d0;
+  --admin-page-bg: #F4F6F9;
+  --admin-card-bg: #FFFFFF;
+  --admin-card-border: #E9ECEF;
+  --admin-topbar-bg: #FFFFFF;
+  --admin-success: #28A745;
+  --admin-warning: #FFC107;
+  --admin-danger: #DC3545;
+  --admin-info: #0D6EFD;
+  --admin-text: #212529;
+  --admin-text-secondary: #6C757D;
+  --admin-text-muted: #ADB5BD;
+  --admin-line: #E9ECEF;
+}
+
+.admin-shell {
+  min-height: 100vh;
+  background-color: var(--admin-page-bg);
+  color: var(--admin-text);
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  font-size: 14px;
+}
+
+.admin-shell *,
+.admin-shell *::before,
+.admin-shell *::after {
+  box-sizing: border-box;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+
+.admin-sidebar {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 1001;
+  display: flex;
+  width: 250px;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--admin-sidebar-bg);
+  color: var(--admin-sidebar-text);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-body {
+  min-height: 100vh;
+  transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Collapsed Desktop Sidebar */
+@media (min-width: 1024px) {
+  .admin-sidebar-collapsed .admin-sidebar {
+    width: 64px;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar .admin-brand-text,
+  .admin-sidebar-collapsed .admin-sidebar .admin-sidebar-user-info,
+  .admin-sidebar-collapsed .admin-sidebar .admin-menu-section-title,
+  .admin-sidebar-collapsed .admin-sidebar .admin-nav-label,
+  .admin-sidebar-collapsed .admin-sidebar .admin-nav-tools,
+  .admin-sidebar-collapsed .admin-sidebar .admin-sub-menu,
+  .admin-sidebar-collapsed .admin-sidebar .admin-sidebar-version,
+  .admin-sidebar-collapsed .admin-sidebar .admin-nav-badge {
+    display: none !important;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar .admin-brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar .admin-sidebar-user {
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar .admin-menu a,
+  .admin-sidebar-collapsed .admin-sidebar .admin-menu button {
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .admin-sidebar-collapsed .admin-sidebar .admin-menu svg {
+    margin: 0;
+  }
+}
+
+/* Mobile Responsive Sidebar */
+@media (max-width: 1023px) {
+  .admin-sidebar {
+    transform: translateX(-100%);
+  }
+
+  [dir="rtl"] .admin-sidebar {
+    transform: translateX(100%);
+  }
+
+  .admin-mobile-open .admin-sidebar {
+    transform: translateX(0) !important;
+  }
+
+  .admin-body {
+    margin-inline-start: 0 !important;
+  }
+}
+
+/* ── Content Cards ───────────────────────────────────────────── */
+
+.admin-card {
+  border: 1px solid var(--admin-card-border);
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.125), 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.admin-card-header {
+  border-bottom: 1px solid var(--admin-card-border);
+}
+
+/* Ensure existing Tailwind bg-card inside admin gets AdminLTE 4 styling */
+.admin-shell .bg-card {
+  border: 1px solid var(--admin-card-border);
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.125), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.admin-shell .rounded-2xl,
+.admin-shell .rounded-3xl {
+  border-radius: 8px;
+}
+
+.admin-shell .shadow-soft,
+.admin-shell .shadow-sm {
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.125), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Tables ──────────────────────────────────────────────────── */
+
+.admin-shell table,
+.admin-table-wrap table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--admin-text);
+  font-size: 13.5px;
+  text-align: start;
+}
+
+.admin-shell table thead,
+.admin-table-wrap table thead {
+  background-color: #F8F9FA;
+  color: var(--admin-text-secondary);
+}
+
+.admin-shell table th,
+.admin-table-wrap table th {
+  border-bottom: 2px solid var(--admin-line);
+  padding: 12px 16px !important;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--admin-text-secondary);
+  white-space: nowrap;
+}
+
+.admin-shell table td,
+.admin-table-wrap table td {
+  border-bottom: 1px solid var(--admin-line);
+  padding: 12px 16px !important;
+  vertical-align: middle;
+  background-color: #fff;
+}
+
+.admin-shell table tbody tr,
+.admin-table-wrap table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.admin-shell table tbody tr:hover td,
+.admin-table-wrap table tbody tr:hover td {
+  background-color: #F8F9FA;
+}
+
+.admin-table-empty {
+  padding: 36px 16px !important;
+  text-align: center !important;
+  color: var(--admin-text-muted);
+  font-size: 13.5px;
+}
+
+.admin-table-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-table-user-name {
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.admin-table-user-sub {
+  font-size: 12px;
+  color: var(--admin-text-secondary);
+}
+
+.admin-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* ── Admin Toolbar & Controls ────────────────────────────────── */
+
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-input {
+  border-radius: 6px;
+  border: 1px solid var(--admin-card-border);
+  background: #fff;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-input:focus {
+  border-color: var(--admin-blue);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+  outline: none;
+}
+
+.admin-select {
+  border-radius: 6px;
+  border: 1px solid var(--admin-card-border);
+  background: #fff;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+/* ── Status Badges ───────────────────────────────────────────── */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.bg-success-bg {
+  background-color: rgba(40, 167, 69, 0.12) !important;
+  color: #28a745 !important;
+  border-color: rgba(40, 167, 69, 0.25) !important;
+}
+
+.bg-warning-bg {
+  background-color: rgba(255, 193, 7, 0.16) !important;
+  color: #b78103 !important;
+  border-color: rgba(255, 193, 7, 0.3) !important;
+}
+
+.bg-destructive-bg {
+  background-color: rgba(220, 53, 69, 0.12) !important;
+  color: #dc3545 !important;
+  border-color: rgba(220, 53, 69, 0.25) !important;
+}
+
+.bg-info-bg {
+  background-color: rgba(13, 110, 253, 0.12) !important;
+  color: #0d6efd !important;
+  border-color: rgba(13, 110, 253, 0.25) !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.admin-shell button {
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.admin-shell button.border-input {
+  border-color: var(--admin-card-border);
+  background: #fff;
+  color: var(--admin-text-secondary);
+}
+
+.admin-shell button.border-input:hover {
+  border-color: #c2c7d0;
+  background: #f8f9fa;
+  color: var(--admin-text);
+}
+
+/* ── Modals / Dialogs ────────────────────────────────────────── */
+
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  padding: 16px;
+}
+
+.admin-modal {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--admin-card-border);
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  color: var(--admin-text);
+}
+
+.admin-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--admin-line);
+  padding: 16px 20px;
+}
+
+.admin-modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.admin-modal-head button {
+  border: none;
+  background: transparent;
+  color: var(--admin-text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.admin-modal-head button:hover {
+  color: var(--admin-text);
+}
+
+.admin-modal-body {
+  padding: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--admin-line);
+  background: #F8F9FA;
+  padding: 14px 20px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+/* Global modal dialog override */
+body.admin-active [role="dialog"] {
+  border-radius: 8px !important;
+  border: 1px solid var(--admin-card-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────── */
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}

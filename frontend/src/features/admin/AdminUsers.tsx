@@ -1,108 +1,112 @@
 import { useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Search, Loader2, Edit2, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import {
+  Users,
+  Search,
+  Loader2,
+  Edit2,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Eye,
+} from "lucide-react";
 import { toast } from "sonner";
-import { apiClient } from "@/api/client";
+import {
+  addUserSkill,
+  getUserSkills,
+  listSkills,
+  removeUserSkill,
+} from "@/api/skills";
+import {
+  deleteUser,
+  getUserReviewDomains,
+  listUsers,
+  updateUser,
+} from "@/api/users";
+import {
+  listDomains,
+  removeReviewerDomain,
+  setReviewerDomains,
+} from "@/api/domains";
+import { getErrorMessage } from "@/lib/notify";
+import { queryKeys } from "@/lib/query-keys";
+import type { Domain } from "@/types/domain";
+import type { Skill, UserSkill } from "@/types/skill";
+import type { User } from "@/types/user";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 
-type UserType = {
-  id: number;
-  email: string;
-  role: string;
-  status: string;
-  created_at: string;
-  profiles?: {
-    first_name?: string | null;
-    last_name?: string | null;
-  } | null;
-};
-
 export function AdminUsers() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
-  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDomainsModalOpen, setIsDomainsModalOpen] = useState(false);
   const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false);
 
-  const [formData, setFormData] = useState({ status: "active", first_name: "", last_name: "" });
+  const [formData, setFormData] = useState({
+    status: "active",
+    first_name: "",
+    last_name: "",
+  });
   const [userDomains, setUserDomains] = useState<number[]>([]);
   const [originalDomainId, setOriginalDomainId] = useState<number | null>(null);
   const [newSkillId, setNewSkillId] = useState("");
   const [newSkillLevel, setNewSkillLevel] = useState("beginner");
 
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ["adminUsers"],
-    queryFn: async () => {
-      const res = await apiClient.get("/users?limit=100");
-      const list = res.data.data?.data || res.data.data || [];
-      return Array.isArray(list) ? list : [];
-    },
+    queryKey: queryKeys.users.list({ scope: "admin" }),
+    queryFn: () => listUsers({ limit: 100 }).then((result) => result.items),
   });
 
   const { data: allDomains = [] } = useQuery({
-    queryKey: ["adminDomains"],
-    queryFn: async () => {
-      const res = await apiClient.get("/domains?limit=100");
-      const list = res.data.data?.data || res.data.data || [];
-      return Array.isArray(list) ? list : [];
-    },
+    queryKey: queryKeys.domains.list({ limit: 100 }),
+    queryFn: () => listDomains({ limit: 100 }),
   });
 
   const { data: allSkills = [] } = useQuery({
-    queryKey: ["adminSkills"],
-    queryFn: async () => {
-      const res = await apiClient.get("/skills?limit=1000");
-      const list = res.data.data?.data || res.data.data || [];
-      return Array.isArray(list) ? list : [];
-    },
+    queryKey: queryKeys.skills.list({ limit: 1000 }),
+    queryFn: () => listSkills({ limit: 1000 }),
   });
 
   const { data: userSkills = [], refetch: refetchSkills } = useQuery({
-    queryKey: ["adminUserSkills", selectedUser?.id],
-    queryFn: async () => {
-      if (!selectedUser) return [];
-      const res = await apiClient.get(`/users/${selectedUser.id}/skills`);
-      return res.data.data || [];
-    },
+    queryKey: queryKeys.users.skills(selectedUser?.id ?? "none"),
+    queryFn: () => getUserSkills(selectedUser!.id),
     enabled: !!selectedUser && isSkillsModalOpen,
   });
 
   const editMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      await apiClient.patch(`/users/${selectedUser?.id}`, data);
-    },
+    mutationFn: (data: typeof formData) => updateUser(selectedUser!.id, data),
     onSuccess: () => {
       toast.success(t("common.saved", { defaultValue: "Saved successfully" }));
-      queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
-      queryClient.invalidateQueries({ queryKey: ["adminDashboardStats"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.admin });
       setIsEditModalOpen(false);
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to update user");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to update user"));
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.delete(`/users/${selectedUser?.id}`);
-    },
+    mutationFn: () => deleteUser(selectedUser!.id),
     onSuccess: () => {
       toast.success("User deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
-      queryClient.invalidateQueries({ queryKey: ["adminDashboardStats"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.admin });
       setIsDeleteModalOpen(false);
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to delete user");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to delete user"));
     },
   });
 
@@ -110,76 +114,73 @@ export function AdminUsers() {
     mutationFn: async (domains: number[]) => {
       const userId = selectedUser?.id;
       if (!userId) throw new Error("No user selected");
-      // The backend stores at most one domain per reviewer (unique on user_id).
       if (domains.length > 0) {
-        await apiClient.put(`/users/${userId}/review-domains`, { domain_id: domains[0] });
+        await setReviewerDomains(userId, domains[0]);
       } else if (originalDomainId != null) {
-        await apiClient.delete(`/users/${userId}/review-domains/${originalDomainId}`);
+        await removeReviewerDomain(userId, originalDomainId);
       }
     },
     onSuccess: () => {
       toast.success("Domains updated successfully");
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       setIsDomainsModalOpen(false);
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || "Failed to update domains");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to update domains"));
     },
   });
 
   const addSkillMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.post(`/users/${selectedUser?.id}/skills`, {
-        skills: [{ skill_id: Number(newSkillId), level: newSkillLevel }],
-      });
-    },
+    mutationFn: () =>
+      addUserSkill(selectedUser!.id, {
+        skill_id: Number(newSkillId),
+        level: newSkillLevel as UserSkill["level"],
+      }),
     onSuccess: () => {
       toast.success("Skill added successfully");
       refetchSkills();
       setNewSkillId("");
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to add skill");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to add skill"));
     },
   });
 
   const deleteSkillMutation = useMutation({
-    mutationFn: async (skillId: number) => {
-      await apiClient.delete(`/users/${selectedUser?.id}/skills/${skillId}`);
-    },
+    mutationFn: (skillId: number) => removeUserSkill(selectedUser!.id, skillId),
     onSuccess: () => {
       toast.success("Skill removed successfully");
       refetchSkills();
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to remove skill");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to remove skill"));
     },
   });
 
-  const openEditModal = (u: UserType) => {
+  const openEditModal = (u: User) => {
     setSelectedUser(u);
     setFormData({
       status: u.status,
-      first_name: u.profiles?.first_name || "",
-      last_name: u.profiles?.last_name || "",
+      first_name: u.profile?.first_name || "",
+      last_name: u.profile?.last_name || "",
     });
     setIsEditModalOpen(true);
   };
 
-  const openDeleteModal = (u: UserType) => {
+  const openDeleteModal = (u: User) => {
     setSelectedUser(u);
     setIsDeleteModalOpen(true);
   };
 
-  const openDomainsModal = async (u: UserType) => {
+  const openDomainsModal = async (u: User) => {
     setSelectedUser(u);
     setIsDomainsModalOpen(true);
     try {
-      const res = await apiClient.get(`/users/${u.id}/review-domains`);
-      const domain = res.data.data;
+      const domain = await getUserReviewDomains(u.id);
       setOriginalDomainId(domain?.id ?? null);
       setUserDomains(domain?.id ? [domain.id] : []);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to load domains");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to load domains"));
     }
   };
 
@@ -187,15 +188,16 @@ export function AdminUsers() {
     setUserDomains((prev) => (prev.includes(id) ? [] : [id]));
   };
 
-  const openSkillsModal = (u: UserType) => {
+  const openSkillsModal = (u: User) => {
     setSelectedUser(u);
     setIsSkillsModalOpen(true);
   };
 
-  const filteredUsers = users.filter((user: UserType) => {
+  const filteredUsers = users.filter((user) => {
     if (!search) return true;
     const s = search.toLowerCase();
-    const name = `${user.profiles?.first_name || ""} ${user.profiles?.last_name || ""}`.toLowerCase();
+    const name =
+      `${user.profile?.first_name || ""} ${user.profile?.last_name || ""}`.toLowerCase();
     return (
       user.email.toLowerCase().includes(s) ||
       name.includes(s) ||
@@ -207,12 +209,14 @@ export function AdminUsers() {
     <DashboardLayout
       role="admin"
       title={t("admin.usersTitle", { defaultValue: "Manage Users" })}
-      subtitle={t("admin.usersSubtitle", { defaultValue: "View and filter all registered users." })}
+      subtitle={t("admin.usersSubtitle", {
+        defaultValue: "View and filter all registered users.",
+      })}
     >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 ltr:left-3 rtl:right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -221,6 +225,9 @@ export function AdminUsers() {
               })}
               className="pl-9 rtl:pr-9 rtl:pl-3"
             />
+          </div>
+          <div className="text-xs font-semibold text-[#6C757D]">
+            Showing <span className="text-[#212529] font-bold">{filteredUsers.length}</span> registered accounts
           </div>
         </div>
 
@@ -255,32 +262,87 @@ export function AdminUsers() {
                   </tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                      {t("admin.noUsersFound", { defaultValue: "No users found." })}
+                    <td
+                      colSpan={5}
+                      className="p-8 text-center text-muted-foreground"
+                    >
+                      {t("admin.noUsersFound", {
+                        defaultValue: "No users found.",
+                      })}
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user: UserType) => (
-                    <tr key={user.id} className="transition-colors hover:bg-muted/50">
+                  filteredUsers.map((user) => (
+                    <tr
+                      key={user.id}
+                      className="transition-colors hover:bg-muted/50"
+                    >
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-                            <Users className="h-4 w-4" />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate({
+                              to: "/admin/users/$id",
+                              params: { id: String(user.id) },
+                            })
+                          }
+                          className="flex items-center gap-3 text-left group cursor-pointer"
+                          title="View Profile Dossier"
+                        >
+                          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#E9ECEF] bg-[#26183D] text-white shadow-xs">
+                            {user.profile?.avatar_url ? (
+                              <img
+                                src={user.profile.avatar_url}
+                                alt={user.name || user.email}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center font-bold text-xs uppercase group-hover:bg-[#7135E8] transition-colors">
+                                {user.profile?.first_name?.charAt(0) || user.email.charAt(0)}
+                              </div>
+                            )}
                           </div>
-                          <span className="font-medium text-foreground truncate max-w-[150px]">
-                            {user.profiles?.first_name || user.profiles?.last_name
-                              ? `${user.profiles.first_name || ""} ${user.profiles.last_name || ""}`
-                              : "Unnamed User"}
-                          </span>
-                        </div>
+                          <div className="truncate max-w-[150px]">
+                            <span className="font-semibold text-foreground group-hover:text-[#7135E8] transition-colors block truncate">
+                              {user.profile?.first_name || user.profile?.last_name
+                                ? `${user.profile.first_name || ""} ${user.profile.last_name || ""}`.trim()
+                                : "Unnamed User"}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground block truncate">
+                              ID #{user.id}
+                            </span>
+                          </div>
+                        </button>
                       </td>
-                      <td className="px-6 py-4 truncate max-w-[200px]">{user.email}</td>
-                      <td className="px-6 py-4 capitalize">{user.role}</td>
+                      <td className="px-6 py-4 truncate max-w-[200px]">
+                        {user.email}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="capitalize font-medium text-xs rounded-md bg-[#F4F6F9] px-2 py-0.5 border border-[#E9ECEF]">
+                          {user.role}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <StatusBadge status={user.status} />
                       </td>
                       <td className="px-6 py-4 text-right rtl:text-left">
                         <div className="flex items-center justify-end rtl:justify-start gap-1">
+                          {/* Move to normal profile page */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="View Profile Dossier"
+                            onClick={() =>
+                              navigate({
+                                to: "/admin/users/$id",
+                                params: { id: String(user.id) },
+                              })
+                            }
+                            className="text-[#7135E8] hover:text-[#5a2ab8]"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+
                           {user.role?.toLowerCase() === "reviewer" && (
                             <Button
                               variant="ghost"
@@ -301,12 +363,18 @@ export function AdminUsers() {
                               <Sparkles className="h-4 w-4 text-emerald-500" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" onClick={() => openEditModal(user)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Edit User"
+                            onClick={() => openEditModal(user)}
+                          >
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Delete User"
                             onClick={() => openDeleteModal(user)}
                             className="text-destructive hover:bg-destructive/10"
                           >
@@ -337,21 +405,29 @@ export function AdminUsers() {
         >
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">First Name</label>
+              <label className="mb-1 block text-sm font-medium">
+                First Name
+              </label>
               <input
                 type="text"
                 className="w-full rounded-xl border p-2"
                 value={formData.first_name}
-                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, first_name: e.target.value })
+                }
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Last Name</label>
+              <label className="mb-1 block text-sm font-medium">
+                Last Name
+              </label>
               <input
                 type="text"
                 className="w-full rounded-xl border p-2"
                 value={formData.last_name}
-                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, last_name: e.target.value })
+                }
               />
             </div>
           </div>
@@ -362,7 +438,9 @@ export function AdminUsers() {
             <select
               className="w-full rounded-xl border p-2"
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -386,7 +464,10 @@ export function AdminUsers() {
         <div className="space-y-4">
           <p>Delete user {selectedUser?.email}?</p>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteModalOpen(false)}
+            >
               {t("common.cancel")}
             </Button>
             <Button
@@ -407,8 +488,11 @@ export function AdminUsers() {
       >
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2 rounded-xl border p-3">
-            {allDomains.map((d: any) => (
-              <label key={d.id} className="flex items-center gap-2 text-sm cursor-pointer">
+            {allDomains.map((d) => (
+              <label
+                key={d.id}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   checked={userDomains.includes(d.id)}
@@ -443,7 +527,7 @@ export function AdminUsers() {
               onChange={(e) => setNewSkillId(e.target.value)}
             >
               <option value="">Select a skill...</option>
-              {allSkills.map((s: any) => (
+              {allSkills.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -468,11 +552,16 @@ export function AdminUsers() {
           </div>
 
           <div className="border rounded-xl divide-y">
-            {userSkills.map((s: any) => (
-              <div key={s.skill_id} className="flex items-center justify-between p-3 text-sm">
+            {userSkills.map((s) => (
+              <div
+                key={s.skill_id}
+                className="flex items-center justify-between p-3 text-sm"
+              >
                 <div>
                   <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{s.level}</p>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {s.level}
+                  </p>
                 </div>
                 <Button
                   variant="ghost"
@@ -486,7 +575,9 @@ export function AdminUsers() {
               </div>
             ))}
             {userSkills.length === 0 && (
-              <p className="p-4 text-center text-muted-foreground text-sm">No skills found.</p>
+              <p className="p-4 text-center text-muted-foreground text-sm">
+                No skills found.
+              </p>
             )}
           </div>
         </div>

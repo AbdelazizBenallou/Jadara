@@ -1,34 +1,27 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiClient } from "@/api/client";
+import { getMyReviewDomains } from "@/api/reviews";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { Briefcase, Loader2, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
-import type { AxiosError } from "axios";
-import type { ReviewerDomain } from "./types";
 
 export default function AssignedDomains() {
   const { t } = useTranslation();
-  const [domains, setDomains] = useState<ReviewerDomain[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const domainsQuery = useQuery({
+    queryKey: queryKeys.reviews.domains,
+    queryFn: getMyReviewDomains,
+  });
+  const domains = domainsQuery.data ?? [];
+  const loading = domainsQuery.isLoading;
 
   useEffect(() => {
-    const fetchDomains = async () => {
-      try {
-        const res = await apiClient.get("/reviews/domains");
-        setDomains(res.data.data || []);
-      } catch (err: unknown) {
-        const error = err as AxiosError<{ message: string }>;
-        toast.error(
-          error.response?.data?.message ||
-            t("reviewer.fetchDomainsError", { defaultValue: "Failed to fetch assigned domains" }),
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDomains();
-  }, [t]);
+    if (domainsQuery.error) {
+      notifyError(domainsQuery.error, "reviewer.fetchDomainsError");
+    }
+  }, [domainsQuery.error]);
 
   return (
     <DashboardLayout

@@ -1,42 +1,58 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Edit, Loader2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ProjectForm } from "./components/ProjectForm";
-import { apiClient } from "@/api/client";
+import {
+  getProject,
+  updateProject,
+  type ProjectUpdateInput,
+} from "@/api/projects";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
-import type { Project } from "@/types/project";
 import { EmptyState } from "@/components/common/EmptyState";
-import { STATUS } from "@/constants/statusTypes";
 
 export function EditProjectPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  // We'll mock the useParams since TanStack Router parses it from the route definition
-  // But we need to make sure the route actually exists. For now, we assume it's passed via route params.
+  const queryClient = useQueryClient();
   const { id } = useParams({ strict: false });
   const projectId = Number(id);
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    data: project = null,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.projects.detail(projectId),
+    queryFn: () => getProject(projectId),
+    enabled: Number.isFinite(projectId),
+  });
 
   useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const res = await apiClient.get(`/projects/${projectId}`);
-        setProject(res.data.data);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || "Failed to fetch project");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProject();
-  }, [projectId]);
+    if (error) notifyError(error);
+  }, [error]);
 
-  if (loading) {
+  const updateMutation = useMutation({
+    mutationFn: (data: ProjectUpdateInput) => updateProject(projectId, data),
+    onSuccess: (updated) => {
+      toast.success(
+        t("projects.updatedSuccess", "Project updated successfully"),
+      );
+      queryClient.setQueryData(queryKeys.projects.detail(projectId), updated);
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.list() });
+      navigate({
+        to: "/dashboard/projects/$id",
+        params: { id: String(updated.id) },
+      });
+    },
+    onError: (err) => notifyError(err),
+  });
+
+  if (isLoading) {
     return (
       <DashboardLayout role="beneficiary" title={t("projects.editTitle")}>
         <div className="flex justify-center p-8">
@@ -91,19 +107,8 @@ export function EditProjectPage() {
 
         <ProjectForm
           initialData={project}
-          isSubmitting={isSubmitting}
-          onSubmit={async (data) => {
-            setIsSubmitting(true);
-            try {
-              await apiClient.patch(`/projects/${projectId}`, data);
-              toast.success(t("projects.updatedSuccess", "Project updated successfully"));
-              navigate({ to: "/dashboard/projects/$id", params: { id: String(project.id) } });
-            } catch (err: any) {
-              toast.error(err.response?.data?.message || "Failed to update project");
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
+          isSubmitting={updateMutation.isPending}
+          onSubmit={(data) => updateMutation.mutate(data)}
         />
       </div>
     </DashboardLayout>

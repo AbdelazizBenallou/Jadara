@@ -17,6 +17,7 @@ const userSelect = {
       date_of_birth: true,
       gender: true,
       avatar: true,
+      cover: true,
       bio: true,
       location: true,
       created_at: true,
@@ -70,6 +71,7 @@ const profileSelect = {
       date_of_birth: true,
       gender: true,
       avatar: true,
+      cover: true,
       bio: true,
       location: true,
       created_at: true,
@@ -110,7 +112,20 @@ export const userRepository = {
       prisma.users.count(),
     ]);
 
-    const users = rawUsers.map(({ roles, ...rest }) => ({ ...rest, role: roles.name }));
+    const users = await Promise.all(
+      rawUsers.map(async ({ roles, ...rest }) => {
+        const avatarUrl = rest.profiles?.avatar
+          ? await storage.getPresignedUrl(BUCKETS.avatars, rest.profiles.avatar)
+          : null;
+        return {
+          ...rest,
+          role: roles.name,
+          profiles: rest.profiles
+            ? { ...rest.profiles, avatar_url: avatarUrl }
+            : null,
+        };
+      })
+    );
 
     return { users, total };
   },
@@ -121,8 +136,17 @@ export const userRepository = {
       select: userSelect,
     });
     if (!user) return null;
+    const avatarUrl = user.profiles?.avatar
+      ? await storage.getPresignedUrl(BUCKETS.avatars, user.profiles.avatar)
+      : null;
     const { roles, ...rest } = user;
-    return { ...rest, role: roles.name };
+    return {
+      ...rest,
+      role: roles.name,
+      profiles: user.profiles
+        ? { ...user.profiles, avatar_url: avatarUrl }
+        : null,
+    };
   },
 
   async findByEmail(email: string) {
@@ -219,6 +243,7 @@ export const userRepository = {
       where: { id },
       select: {
         id: true,
+        email: true,
         status: true,
         created_at: true,
         profiles: {
@@ -229,6 +254,7 @@ export const userRepository = {
             phone: true,
             date_of_birth: true,
             avatar: true,
+            cover: true,
             bio: true,
             location: true,
             gender: true,
@@ -320,6 +346,85 @@ export const userRepository = {
           },
           orderBy: { created_at: "desc" as const },
         },
+        volunteer_applications: {
+          select: {
+            id: true,
+            status: true,
+            application_date: true,
+            activity: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                location: true,
+                start_date: true,
+                end_date: true,
+                status: true,
+                organization: {
+                  select: { id: true, name: true, location: true },
+                },
+                category: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+          orderBy: { application_date: "desc" as const },
+        },
+        completed_volunteering: {
+          select: {
+            id: true,
+            completed_at: true,
+            activity: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                location: true,
+                start_date: true,
+                end_date: true,
+              },
+            },
+            organization: {
+              select: { id: true, name: true },
+            },
+          },
+          orderBy: { completed_at: "desc" as const },
+        },
+        organizations: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            website: true,
+            email: true,
+            phone: true,
+            location: true,
+            activities: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                location: true,
+                start_date: true,
+                end_date: true,
+                status: true,
+                is_active: true,
+                required_volunteers: true,
+                category: {
+                  select: { id: true, name: true },
+                },
+                _count: {
+                  select: {
+                    applications: true,
+                    completed: true,
+                  },
+                },
+              },
+              orderBy: { created_at: "desc" as const },
+            },
+          },
+        },
       },
     });
 
@@ -328,13 +433,16 @@ export const userRepository = {
     const avatarUrl = user.profiles?.avatar
       ? await storage.getPresignedUrl(BUCKETS.avatars, user.profiles.avatar)
       : null;
+    const coverUrl = (user.profiles as any)?.cover
+      ? await storage.getPresignedUrl(BUCKETS.covers, (user.profiles as any).cover)
+      : null;
 
     const { roles, user_socials, ...rest } = user;
     return {
       ...rest,
       role: roles.name,
       user_socials: user_socials.map(mapUserSocial),
-      profiles: user.profiles ? { ...user.profiles, avatar_url: avatarUrl } : null,
+      profiles: user.profiles ? { ...(user.profiles as any), avatar_url: avatarUrl, cover_url: coverUrl } : null,
     };
   },
 
@@ -350,6 +458,9 @@ export const userRepository = {
     const avatarUrl = user.profiles?.avatar
       ? await storage.getPresignedUrl(BUCKETS.avatars, user.profiles.avatar)
       : null;
+    const coverUrl = (user.profiles as any)?.cover
+      ? await storage.getPresignedUrl(BUCKETS.covers, (user.profiles as any).cover)
+      : null;
 
     const { roles, user_socials, ...rest } = user;
     return {
@@ -357,8 +468,9 @@ export const userRepository = {
       role: roles.name,
       user_socials: user_socials.map(mapUserSocial),
       profiles: {
-        ...user.profiles,
+        ...(user.profiles as any),
         avatar_url: avatarUrl,
+        cover_url: coverUrl,
       },
     };
   },
@@ -464,5 +576,134 @@ export const userRepository = {
       where: { id: socialId, user_id: userId },
     });
     return result.count;
+  },
+
+  async getUserAnalytics() {
+    const [
+      totalUsers,
+      totalSocialLinks,
+      usersWithSocial,
+      usersWithoutSocial,
+      platforms,
+      usersWithAvatar,
+      usersWithBio,
+      usersWithPhone,
+      usersWithEducation,
+      usersWithSkills,
+      usersWithLanguages,
+      allUsersForCompleteness,
+    ] = await Promise.all([
+      prisma.users.count(),
+      prisma.user_socials.count(),
+      prisma.users.count({ where: { user_socials: { some: {} } } }),
+      prisma.users.count({ where: { user_socials: { none: {} } } }),
+      prisma.social_platforms.findMany({
+        select: {
+          id: true,
+          name: true,
+          _count: {
+            select: { user_socials: true },
+          },
+        },
+        orderBy: {
+          user_socials: {
+            _count: "desc",
+          },
+        },
+      }),
+      prisma.profiles.count({ where: { avatar: { not: null } } }),
+      prisma.profiles.count({ where: { AND: [{ bio: { not: null } }, { bio: { not: "" } }] } }),
+      prisma.profiles.count({ where: { AND: [{ phone: { not: null } }, { phone: { not: "" } }] } }),
+      prisma.users.count({ where: { educations: { some: {} } } }),
+      prisma.users.count({ where: { user_skills: { some: {} } } }),
+      prisma.users.count({ where: { user_languages: { some: {} } } }),
+      prisma.users.findMany({
+        select: {
+          id: true,
+          roles: { select: { name: true } },
+          profiles: { select: { avatar: true, bio: true, phone: true } },
+          _count: {
+            select: {
+              educations: true,
+              user_skills: true,
+              user_languages: true,
+              user_socials: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const distribution = platforms.map((p) => ({
+      id: p.id,
+      platform: p.name,
+      count: p._count.user_socials,
+      percentage: totalSocialLinks > 0 ? Math.round((p._count.user_socials / totalSocialLinks) * 100) : 0,
+    }));
+
+    const mostUsedPlatforms = distribution
+      .filter((p) => p.count > 0)
+      .slice(0, 5);
+
+    const calcUserPercentage = (u: (typeof allUsersForCompleteness)[0]) => {
+      let score = 0;
+      const maxScore = 7;
+      if (u.profiles?.avatar) score++;
+      if (u.profiles?.bio && u.profiles.bio.trim().length > 0) score++;
+      if (u.profiles?.phone && u.profiles.phone.trim().length > 0) score++;
+      if (u._count.educations > 0) score++;
+      if (u._count.user_skills > 0) score++;
+      if (u._count.user_languages > 0) score++;
+      if (u._count.user_socials > 0) score++;
+      return Math.round((score / maxScore) * 100);
+    };
+
+    let totalScore = 0;
+    let beneficiaryScore = 0;
+    let beneficiaryCount = 0;
+
+    for (const u of allUsersForCompleteness) {
+      const pct = calcUserPercentage(u);
+      totalScore += pct;
+      if (u.roles.name?.toLowerCase() === "beneficiary") {
+        beneficiaryCount++;
+        beneficiaryScore += pct;
+      }
+    }
+
+    const averagePercentage =
+      allUsersForCompleteness.length > 0
+        ? Math.round(totalScore / allUsersForCompleteness.length)
+        : 0;
+
+    const beneficiaryAveragePercentage =
+      beneficiaryCount > 0
+        ? Math.round(beneficiaryScore / beneficiaryCount)
+        : 0;
+
+    return {
+      socialMedia: {
+        totalLinks: totalSocialLinks,
+        usersWithSocial,
+        usersWithoutSocial,
+        distribution,
+        mostUsedPlatforms,
+      },
+      profileCompleteness: {
+        totalUsers,
+        withProfilePicture: usersWithAvatar,
+        withBio: usersWithBio,
+        withContactInfo: usersWithPhone,
+        withEducation: usersWithEducation,
+        withSkills: usersWithSkills,
+        withLanguages: usersWithLanguages,
+        withSocialLinks: usersWithSocial,
+        averagePercentage,
+        beneficiaryCompleteness: {
+          totalBeneficiaries: beneficiaryCount,
+          averagePercentage: beneficiaryAveragePercentage,
+        },
+      },
+    };
   },
 };

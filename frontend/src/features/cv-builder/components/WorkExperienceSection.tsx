@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit2, Loader2, Calendar } from "lucide-react";
-import { apiClient } from "@/api/client";
+import { Plus, Trash2, Edit2, Loader2, Calendar, Briefcase } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createWorkExperience,
+  listWorkExperience,
+  removeWorkExperience,
+  updateWorkExperience,
+} from "@/api/users";
+import { queryKeys } from "@/lib/query-keys";
+import { notifyError } from "@/lib/notify";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,29 +20,18 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { formatDate } from "@/utils/formatDate";
 import { useTranslation } from "react-i18next";
-
-type WorkExperience = {
-  id: number;
-  company: string;
-  job_title: string;
-  description?: string;
-  start_date: string;
-  end_date?: string | null;
-  is_current: boolean;
-};
+import type { WorkExperience, WorkExperienceInput } from "@/types/cv";
 
 type WorkExperienceSectionProps = {
   onUpdate?: () => void;
 };
 
 export function WorkExperienceSection({ onUpdate }: WorkExperienceSectionProps) {
-  const { t, i18n } = useTranslation();
-  const [experiences, setExperiences] = useState<WorkExperience[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
@@ -45,23 +42,46 @@ export function WorkExperienceSection({ onUpdate }: WorkExperienceSectionProps) 
     end_date: "",
     is_current: false,
   });
-  const [submitting, setSubmitting] = useState(false);
+
+  const experiencesQuery = useQuery({
+    queryKey: queryKeys.cv.workExperience,
+    queryFn: listWorkExperience,
+  });
+  const experiences = experiencesQuery.data ?? [];
+  const loading = experiencesQuery.isLoading;
 
   useEffect(() => {
-    fetchExperiences();
-  }, []);
-
-  const fetchExperiences = async () => {
-    try {
-      const res = await apiClient.get("/users/me/work-experience");
-      setExperiences(res.data.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error(t("error.title")); // Generic or specific error
-    } finally {
-      setLoading(false);
+    if (experiencesQuery.error) {
+      notifyError(experiencesQuery.error, "error.title");
     }
+  }, [experiencesQuery.error]);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.workExperience });
+    queryClient.invalidateQueries({ queryKey: queryKeys.cv.data });
   };
+
+  const saveMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number | null; input: WorkExperienceInput }) =>
+      id ? updateWorkExperience(id, input) : createWorkExperience(input),
+    onSuccess: () => {
+      toast.success(t("common.saved", { defaultValue: "Saved successfully!" }));
+      setIsDialogOpen(false);
+      invalidate();
+      onUpdate?.();
+    },
+    onError: (error) => notifyError(error, "error.title"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: removeWorkExperience,
+    onSuccess: () => {
+      toast.success(t("common.deleted", { defaultValue: "Deleted successfully!" }));
+      invalidate();
+      onUpdate?.();
+    },
+    onError: (error) => notifyError(error, "error.title"),
+  });
 
   const handleOpenDialog = (exp?: WorkExperience) => {
     if (exp) {
@@ -88,180 +108,207 @@ export function WorkExperienceSection({ onUpdate }: WorkExperienceSectionProps) 
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    try {
-      const payload = {
-        company: formData.company,
-        job_title: formData.job_title,
-        description: formData.description,
-        start_date: formData.start_date,
-        end_date: formData.is_current ? null : formData.end_date || null,
-        is_current: formData.is_current,
-      };
-
-      if (editingId) {
-        await apiClient.patch(`/users/me/work-experience/${editingId}`, payload);
-        toast.success(t("common.saved"));
-      } else {
-        await apiClient.post("/users/me/work-experience", payload);
-        toast.success(t("common.saved"));
-      }
-      setIsDialogOpen(false);
-      await fetchExperiences();
-      onUpdate?.();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || t("error.title"));
-    } finally {
-      setSubmitting(false);
-    }
+    const payload: WorkExperienceInput = {
+      company: formData.company,
+      job_title: formData.job_title,
+      description: formData.description,
+      start_date: formData.start_date,
+      end_date: formData.is_current ? null : formData.end_date || null,
+      is_current: formData.is_current,
+    };
+    saveMutation.mutate({ id: editingId, input: payload });
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(t("common.confirmDelete"))) return;
-    try {
-      await apiClient.delete(`/users/me/work-experience/${id}`);
-      toast.success(t("common.deletedSuccess"));
-      await fetchExperiences();
-      onUpdate?.();
-    } catch (err) {
-      toast.error(t("error.title"));
-    }
+  const handleDelete = (id: number) => {
+    if (!confirm(t("common.confirmDelete", { defaultValue: "Are you sure you want to delete this experience?" }))) return;
+    deleteMutation.mutate(id);
   };
 
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-soft mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold">{t("cv.workExperience")}</h3>
-        <Button onClick={() => handleOpenDialog()} variant="outline" size="sm" className="gap-2">
-          <Plus className="h-4 w-4" /> {t("cv.addExperience")}
+    <div className="rounded-2xl border border-[#E9ECEF] bg-white p-6 shadow-xs mb-6">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <Briefcase className="h-5 w-5 text-[#7135E8]" />
+          <h3 className="text-base font-bold text-[#212529]">
+            {t("cv.workExperience", { defaultValue: "Work Experience" })}
+          </h3>
+        </div>
+        <Button
+          onClick={() => handleOpenDialog()}
+          size="sm"
+          className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold gap-1.5 shadow-xs"
+        >
+          <Plus className="h-4 w-4" />
+          <span>{t("cv.addExperience", { defaultValue: "Add Experience" })}</span>
         </Button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex justify-center p-6">
+          <Loader2 className="h-6 w-6 animate-spin text-[#7135E8]" />
         </div>
       ) : experiences.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">{t("cv.noWorkExperience")}</p>
+        <div className="p-6 text-center text-xs text-[#6C757D] rounded-xl border border-dashed border-[#E9ECEF]">
+          <p>{t("cv.noWorkExperience", { defaultValue: "No work experience added yet." })}</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {experiences.map((exp) => (
             <div
               key={exp.id}
-              className="group relative rounded-xl border p-4 hover:border-primary/50 transition-colors"
+              className="rounded-xl border border-[#E9ECEF] bg-white p-4.5 hover:border-[#7135E8] transition-colors"
             >
-              <div className="absolute right-4 top-4 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-blue-600"
-                  onClick={() => handleOpenDialog(exp)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-red-600"
-                  onClick={() => handleDelete(exp.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-bold text-[#212529]">{exp.job_title}</h4>
+                  <p className="text-xs font-semibold text-[#7135E8] mt-0.5">{exp.company}</p>
+                  <p className="text-[11px] text-[#6C757D] mt-1 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>
+                      {formatDate(exp.start_date)} - {exp.is_current ? t("common.present", { defaultValue: "Present" }) : exp.end_date ? formatDate(exp.end_date) : "N/A"}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenDialog(exp)}
+                    className="rounded p-1.5 text-[#6C757D] hover:bg-[#F8F9FA] hover:text-[#7135E8] transition-colors"
+                    title={t("common.edit", { defaultValue: "Edit" })}
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(exp.id)}
+                    className="rounded p-1.5 text-[#DC3545] hover:bg-[#DC3545]/10 transition-colors"
+                    title={t("common.delete", { defaultValue: "Delete" })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <h4 className="font-semibold">{exp.job_title}</h4>
-              <p className="text-sm text-muted-foreground mb-2">{exp.company}</p>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-                <Calendar className="h-3.5 w-3.5" />
-                {exp.start_date ? formatDate(exp.start_date, i18n.language) : ""} -{" "}
-                {exp.is_current
-                  ? t("cv.present")
-                  : exp.end_date
-                    ? formatDate(exp.end_date, i18n.language)
-                    : ""}
-              </div>
-              {exp.description && <p className="text-sm">{exp.description}</p>}
+              {exp.description && (
+                <p className="text-xs text-[#6C757D] mt-2 whitespace-pre-line leading-relaxed border-t border-[#E9ECEF] pt-2">
+                  {exp.description}
+                </p>
+              )}
             </div>
           ))}
         </div>
       )}
 
+      {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-md bg-white border-[#E9ECEF]">
           <DialogHeader>
-            <DialogTitle>{editingId ? t("cv.editExperience") : t("cv.addExperience")}</DialogTitle>
+            <DialogTitle className="text-base font-bold text-[#212529]">
+              {editingId
+                ? t("cv.editExperience", { defaultValue: "Edit Work Experience" })
+                : t("cv.addExperience", { defaultValue: "Add Work Experience" })}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="company">{t("cv.company")}</Label>
+
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.jobTitle", { defaultValue: "Job Title" })}
+              </Label>
               <Input
-                id="company"
-                required
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job_title">{t("cv.jobTitle")}</Label>
-              <Input
-                id="job_title"
                 required
                 value={formData.job_title}
                 onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                placeholder="Software Engineer"
+                className="border-[#E9ECEF] text-xs"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="start_date">{t("cv.startDate")}</Label>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.company", { defaultValue: "Company" })}
+              </Label>
+              <Input
+                required
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                placeholder="Company Name"
+                className="border-[#E9ECEF] text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#212529]">
+                  {t("cv.startDate", { defaultValue: "Start Date" })}
+                </Label>
                 <Input
-                  id="start_date"
-                  type="date"
                   required
+                  type="date"
                   value={formData.start_date}
                   onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  className="border-[#E9ECEF] text-xs"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="end_date">{t("cv.endDate")}</Label>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#212529]">
+                  {t("cv.endDate", { defaultValue: "End Date" })}
+                </Label>
                 <Input
-                  id="end_date"
                   type="date"
-                  required={!formData.is_current}
                   disabled={formData.is_current}
                   value={formData.end_date}
                   onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  className="border-[#E9ECEF] text-xs"
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+
+            <div className="flex items-center gap-2 pt-1">
               <Checkbox
                 id="is_current"
                 checked={formData.is_current}
                 onCheckedChange={(checked) =>
-                  setFormData({ ...formData, is_current: checked as boolean })
+                  setFormData({ ...formData, is_current: !!checked })
                 }
               />
-              <Label htmlFor="is_current">{t("cv.currentlyWorkHere")}</Label>
+              <Label htmlFor="is_current" className="text-xs cursor-pointer text-[#212529]">
+                {t("cv.currentlyWorking", { defaultValue: "I currently work here" })}
+              </Label>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">{t("cv.description")}</Label>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#212529]">
+                {t("cv.description", { defaultValue: "Description & Achievements" })}
+              </Label>
               <Textarea
-                id="description"
-                rows={4}
+                rows={3}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe responsibilities and accomplishments..."
+                className="border-[#E9ECEF] text-xs leading-relaxed"
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t("common.cancel")}
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[#E9ECEF]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="border-[#E9ECEF] text-xs text-[#6C757D]"
+              >
+                {t("common.cancel", { defaultValue: "Cancel" })}
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("common.save")}
+              <Button
+                type="submit"
+                disabled={saveMutation.isPending}
+                className="bg-[#7135E8] text-white hover:bg-[#5e26cb] text-xs font-semibold"
+              >
+                {saveMutation.isPending ? "Saving..." : t("common.save", { defaultValue: "Save" })}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

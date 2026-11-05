@@ -1,12 +1,16 @@
-import { createFileRoute, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
-import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
-import { ROLE_HOME } from "@/constants/roles";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 
 export const Route = createFileRoute("/dashboard")({
-  component: DashboardLayout,
+  component: DashboardRoute,
 });
 
+function DashboardRoute() {
+  return (
+    <RoleGuard role="beneficiary" allow={["/dashboard/settings"]}>
+      <Outlet />
+    </RoleGuard>
+  );
 function DashboardLayout() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();

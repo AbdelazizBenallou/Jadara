@@ -1,3 +1,18 @@
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
+import {
+  getCurrentUser,
+  login as loginRequest,
+  logout as logoutRequest,
+} from "@/api/auth";
+import type { LoginCredentials, User } from "@/types/user";
+
+export type { User, UserSocial } from "@/types/user";
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Role } from "@/constants/roles";
@@ -65,7 +80,7 @@ function normalizeUser(data: UserPayload): User {
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
-  login: (data: Record<string, unknown>) => Promise<User | void>;
+  login: (data: LoginCredentials) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   refreshUser: () => Promise<User | null>;
@@ -74,7 +89,9 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
-  login: async () => {},
+  login: async () => {
+    throw new Error("AuthProvider is not mounted");
+  },
   logout: async () => {},
   updateUser: () => {},
   refreshUser: async () => null,
@@ -96,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  // Initialize auth state on mount
   useEffect(() => {
     let mounted = true;
 
@@ -120,6 +136,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const profile = await getCurrentUser();
+        if (mounted) setUser(profile);
+      } catch {
+        if (mounted) setUser(null);
         const restoredUser = await initialProfilePromise;
         if (mounted) {
           setUser(restoredUser);
@@ -129,14 +149,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
         }
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
     restoreSession();
 
+    const handleSessionExpired = () => setUser(null);
+    window.addEventListener("auth-refresh-failed", handleSessionExpired);
+    window.addEventListener("auth:session-expired", handleSessionExpired);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("auth-refresh-failed", handleSessionExpired);
+      window.removeEventListener("auth:session-expired", handleSessionExpired);
     // Listen for refresh failures broadcast by the Axios interceptor
     const handleRefreshFailed = () => {
       if (mounted) {
@@ -157,6 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [queryClient]);
 
+  const login = async (credentials: LoginCredentials) => {
+    const authenticatedUser = await loginRequest(credentials);
+    setUser(authenticatedUser);
+    return authenticatedUser;
+  };
+
+  const logout = async () => {
+    await logoutRequest();
+    setUser(null);
   const login = async (credentials: Record<string, unknown>) => {
     const res = await apiClient.post("/auth/login", credentials);
     if (res.data?.data?.user) {
@@ -194,6 +229,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
+    <AuthContext.Provider
+      value={{ user, isLoading, login, logout, updateUser }}
+    >
     <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>

@@ -1,3 +1,5 @@
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import { createFileRoute, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 
@@ -5,9 +7,15 @@ import { useAuth } from "@/context/AuthContext";
 import { ROLE_HOME } from "@/constants/roles";
 
 export const Route = createFileRoute("/company")({
-  component: CompanyLayout,
+  component: CompanyRoute,
 });
 
+function CompanyRoute() {
+  return (
+    <RoleGuard role="company">
+      <Outlet />
+    </RoleGuard>
+  );
 function CompanyLayout() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();

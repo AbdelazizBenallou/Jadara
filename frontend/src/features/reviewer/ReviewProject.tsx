@@ -19,89 +19,16 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { apiClient } from "@/api/client";
+import { getReview, submitRating, updateRating } from "@/api/reviews";
+import { useAuth } from "@/context/AuthContext";
+import { queryKeys } from "@/lib/query-keys";
+import { getErrorMessage } from "@/lib/notify";
+import type { ReviewUser } from "@/types/review";
 
-interface Profile {
-  first_name: string;
-  last_name: string;
-  headline?: string | null;
-  avatar_url?: string | null;
-  bio?: string | null;
-  location?: string | null;
-}
-
-interface ReviewUser {
-  id: number;
-  email: string;
-  profile: Profile | null;
-}
-
-interface ReviewDomain {
-  id: number;
-  name: string;
-}
-
-interface Evidence {
-  id: number;
-  project_id: number;
-  type: string;
-  title: string;
-  description?: string | null;
-  file_url?: string | null;
-  download_url?: string | null;
-}
-
-interface Project {
-  id: number;
-  title: string;
-  description: string;
-  status?: string;
-  created_at?: string | null;
-  user: ReviewUser;
-  domain?: ReviewDomain | null;
-  evidence?: Evidence[];
-}
-
-interface Review {
-  id: number;
-  rating: number;
-  feedback: string | null;
-  created_at: string;
-  reviewer?: ReviewUser;
-}
-
-interface ProjectReviewResponse {
-  id: number;
-  project_id: number;
-  status: string;
-  rating: {
-    average: number | null;
-    count: number;
-  };
-  reviews: Review[];
-  project: Project;
-}
-
-interface ReviewFormValues {
-  rating: number;
-  feedback: string;
-}
-
-function getResponseData<T>(value: unknown): T {
-  if (
-    value &&
-    typeof value === "object" &&
-    "data" in value
-  ) {
-    return (value as { data: T }).data;
-  }
-
-  return value as T;
-}
-
-function getTalentName(user?: ReviewUser | null, t?: any) {
+function getTalentName(user?: ReviewUser | null, t?: (key: string, options?: { defaultValue?: string }) => string) {
   if (!user) return t ? t("reviewer.unknownTalent", { defaultValue: "Unknown talent" }) : "Unknown talent";
 
   const profile = user.profile;
@@ -116,7 +43,7 @@ function getTalentName(user?: ReviewUser | null, t?: any) {
   return fullName || user.email;
 }
 
-function getInitials(user?: ReviewUser | null, t?: any) {
+function getInitials(user?: ReviewUser | null, t?: (key: string, options?: { defaultValue?: string }) => string) {
   const profile = user?.profile;
   const defaultInitials = t ? t("reviewer.initials", { defaultValue: "JT" }) : "JT";
 
@@ -144,7 +71,7 @@ function formatDate(value?: string | null, lng?: string) {
   }).format(date);
 }
 
-function normalizeStatus(status?: string, t?: any) {
+function normalizeStatus(status?: string, t?: TFunction) {
   if (!status) return t ? t("status.pending", { defaultValue: "Pending" }) : "Pending";
 
   if (t) {
@@ -184,6 +111,7 @@ function getEvidenceIcon(type?: string) {
 
 export default function ReviewProject() {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const params = useParams({ strict: false });
@@ -200,39 +128,20 @@ export default function ReviewProject() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const query = useQuery({
-    queryKey: ["reviewer", "review-project", reviewId],
+    queryKey: queryKeys.reviews.detail(reviewId),
     enabled: Boolean(reviewId),
-    queryFn: async () => {
-      const response = await apiClient.get(
-        `/reviews/${reviewId}`,
-      );
-
-      const data = getResponseData<any>(
-        response.data,
-      );
-
-      if (data?.project?.users) {
-        data.project.user = {
-          id: data.project.users.id,
-          email: data.project.users.email,
-          profile: data.project.users.profiles,
-        };
-      }
-
-      return data as ProjectReviewResponse;
-    },
+    queryFn: () => getReview(reviewId),
   });
 
   const reviewData = query.data;
   const project = reviewData?.project;
 
   const existingReview = useMemo(() => {
-    if (!reviewData?.reviews?.length) {
-      return null;
-    }
-
-    return reviewData.reviews[0];
-  }, [reviewData]);
+    return (
+      reviewData?.reviews?.find((review) => review.reviewer.id === user?.id) ??
+      null
+    );
+  }, [reviewData, user?.id]);
 
   const evidence = project?.evidence ?? [];
 
@@ -260,22 +169,11 @@ export default function ReviewProject() {
     setSubmitError(null);
 
     try {
+      const input = { rating, feedback };
       if (existingReview) {
-        await apiClient.put(
-          `/reviews/${reviewId}/rate`,
-          {
-            rating,
-            feedback,
-          },
-        );
+        await updateRating(reviewId, input);
       } else {
-        await apiClient.post(
-          `/reviews/${reviewId}/rate`,
-          {
-            rating,
-            feedback,
-          },
-        );
+        await submitRating(reviewId, input);
       }
 
       await query.refetch();
@@ -285,13 +183,9 @@ export default function ReviewProject() {
       navigate({
         to: "/reviewer",
       });
-    } catch (error: any) {
+    } catch (error) {
       setSubmitError(
-        error?.response?.data?.message ||
-          t("reviewer.reviewProject.submitError", {
-            defaultValue:
-              "Unable to submit your review. Please try again.",
-          }),
+        getErrorMessage(error, "reviewer.reviewProject.submitError"),
       );
     } finally {
       setIsSubmitting(false);

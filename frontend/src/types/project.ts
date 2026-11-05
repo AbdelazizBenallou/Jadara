@@ -28,6 +28,18 @@ export interface ProjectReview {
   } | null;
 }
 
+export interface ProjectUser {
+  id?: number;
+  email?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  profiles?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    avatar_url?: string | null;
+  } | null;
+}
+
 export interface Project {
   id: number;
   user_id?: number;
@@ -41,6 +53,8 @@ export interface Project {
   sub_domain?: SubDomain | null;
   sub_domains?: SubDomain | null;
   domain?: { id: number; name: string } | null;
+  user?: ProjectUser | null;
+  users?: ProjectUser | null;
   evidence?: Evidence[];
   evidence_count?: number;
   rating?: { average: number; count: number } | null;

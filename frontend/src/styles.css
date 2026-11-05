@@ -1,7 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700;800&family=Tajawal:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700;800&family=Tajawal:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "./landing.css";
+@import "./landing-members.css";
+@import "./admin.css";
 
 /* ─────────────────────────────────────────────────────────────
    JADARA Design System v1 — Token Layer
@@ -175,9 +178,12 @@
   --color-sidebar-border: var(--sidebar-border);
 
   /* ── Typography (§3) — font families ── */
-  --font-sans: "IBM Plex Sans Arabic", "Inter", "Tajawal", system-ui, -apple-system, sans-serif;
+  --font-sans:
+    "IBM Plex Sans Arabic", "Inter", "Tajawal", system-ui, -apple-system,
+    sans-serif;
   --font-display:
-    "Tajawal", "Lama Sans", "IBM Plex Sans Arabic", "Inter", system-ui, -apple-system, sans-serif;
+    "Tajawal", "Lama Sans", "IBM Plex Sans Arabic", "Inter", system-ui,
+    -apple-system, sans-serif;
 
   /* ── Shadows (§6 — light mode only) ── */
   --shadow-sm: 0 1px 2px rgba(38, 12, 50, 0.06);
@@ -277,7 +283,13 @@
   /* Gradient */
   --gradient-hero: linear-gradient(to bottom, #ffffff 0%, #f9f3fc 100%);
   /* Continuous page gradient: white → brand-50 → brand-100 → brand-200 */
-  --gradient-page: linear-gradient(to bottom, #ffffff 0%, #f9f3fc 25%, #f1e3f7 60%, #e2c9ee 100%);
+  --gradient-page: linear-gradient(
+    to bottom,
+    #ffffff 0%,
+    #f9f3fc 25%,
+    #f1e3f7 60%,
+    #e2c9ee 100%
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════

@@ -25,7 +25,8 @@
     "company": "Entreprise",
     "partner": "Partenaire (Entreprise)",
     "admin": "Administrateur",
-    "trainer": "Formateur"
+    "trainer": "Formateur",
+    "organization": "Organisation"
   },
   "status": {
     "verified": "Vérifié",
@@ -113,7 +114,8 @@
     "id": "[FR] ID",
     "role": "[FR] Role",
     "backToHome": "[FR] Back to Home",
-    "locale": "[FR] en"
+    "locale": "[FR] en",
+    "other": "Autre"
   },
   "empty": {
     "title": "Rien à afficher",
@@ -125,6 +127,18 @@
     "invalidType": "Type de fichier invalide. Autorisés : {{accept}}",
     "fileTooLarge": "Fichier trop volumineux. Taille maximale : {{maxSize}}Mo",
     "uploadFailed": "Échec du téléchargement. Veuillez réessayer."
+  },
+  "errors": {
+    "network": "Erreur réseau. Vérifiez votre connexion et réessayez.",
+    "timeout": "La requête a expiré. Veuillez réessayer.",
+    "unauthorized": "Votre session a expiré. Veuillez vous reconnecter.",
+    "forbidden": "Vous n'avez pas l'autorisation d'effectuer cette action.",
+    "notFound": "La ressource demandée est introuvable.",
+    "conflict": "Cet élément existe déjà ou entre en conflit avec un autre.",
+    "validation": "Veuillez vérifier les informations saisies.",
+    "rateLimited": "Trop de requêtes. Veuillez patienter puis réessayer.",
+    "server": "Le serveur a rencontré une erreur. Veuillez réessayer plus tard.",
+    "unknown": "Une erreur inattendue s'est produite. Veuillez réessayer."
   },
   "footer": {
     "rights": "Tous droits réservés.",
@@ -182,7 +196,7 @@
       "btn": "Créez votre compte maintenant",
       "titlePre": "Prêt à transformer vos compétences en ",
       "titleHighlight": "opportunité",
-      "titlePost": " ?"
+      "titlePost": " ?"
     }
   },
   "about": {
@@ -195,7 +209,146 @@
     "vision": "Nous ambitionnons que Jadara devienne la référence nationale de confiance pour la documentation des compétences de la jeunesse algérienne.",
     "communityTitle": "Communauté Jadara",
     "community": "La communauté Jadara grandit jour après jour à travers des rencontres et des ateliers de terrain réunissant des jeunes, des formateurs et des experts, avec le soutien de partenaires de terrain, au premier rang desquels la Direction de la Jeunesse et des Sports de Tiaret. Ensemble, nous construisons un environnement qui relie les jeunes aux compétences de demain, et ouvre la voie à l'échange d'expériences et à la construction de projets communs concrets.",
-    "discoverPlatform": "Découvrir la plateforme"
+    "discoverPlatform": "Découvrir la plateforme",
+    "members": {
+      "eyebrow": "Les visages",
+      "titleLine1": "Rencontrez",
+      "titleLine2": "la communauté.",
+      "lead": "Les membres de Jadara sont des bâtisseurs, analystes, designers et créateurs venus de toute l'Algérie. Explorez les domaines où ils documentent leur travail, et découvrez comment la preuve remplace les suppositions.",
+      "index": "Index des domaines",
+      "edition": "Édition 2026",
+      "quote": "Un profil doit montrer ce qu'une personne sait faire, pas seulement ce qu'elle a étudié. Chaque projet, chaque preuve et chaque compétence vérifiée rapproche d'une reconnaissance réelle.",
+      "quoteBy": "Le principe Jadara",
+      "statFields": "Domaines à explorer",
+      "statLanguages": "Langues de l'interface",
+      "statStandard": "Standard partagé",
+      "statEdition": "Édition",
+      "filterLabel": "Filtrer les domaines des membres",
+      "filterAll": "Tous",
+      "filterBuild": "Construire",
+      "filterData": "Data",
+      "filterSecurity": "Sécurité",
+      "filterDesign": "Design",
+      "countLabel": "domaines affichés",
+      "joinNote": "Chaque profil commence par une compétence documentée.",
+      "join": "Rejoindre Jadara",
+      "fields": {
+        "web": {
+          "title": "Développement Web",
+          "desc": "Interfaces, API et produits full-stack conçus pour le web.",
+          "skills": "Frontend · Backend · Full-stack"
+        },
+        "mobile": {
+          "title": "Développement Mobile",
+          "desc": "Applications natives et multiplateformes.",
+          "skills": "Android · iOS · Multiplateforme"
+        },
+        "data": {
+          "title": "Data Science & IA",
+          "desc": "Analyse, apprentissage automatique et systèmes intelligents.",
+          "skills": "Analyse · ML · Deep learning"
+        },
+        "security": {
+          "title": "Cybersécurité",
+          "desc": "Systèmes, applications et réseaux sécurisés.",
+          "skills": "Réseau · AppSec · Pentest"
+        },
+        "cloud": {
+          "title": "Cloud & DevOps",
+          "desc": "Infrastructure cloud, automatisation et livraison.",
+          "skills": "Cloud · DevOps · CI/CD"
+        },
+        "design": {
+          "title": "Design UI/UX",
+          "desc": "Interfaces et expériences produit guidées par la recherche.",
+          "skills": "Recherche · UI · Design systems"
+        },
+        "game": {
+          "title": "Développement de Jeux",
+          "desc": "Mondes jouables, mécaniques et systèmes de jeu.",
+          "skills": "Game design · Programmation · Art"
+        },
+        "databases": {
+          "title": "Bases de données",
+          "desc": "Modèles de données, stockage et administration fiables.",
+          "skills": "SQL · NoSQL · Administration"
+        },
+        "graphic": {
+          "title": "Design Graphique",
+          "desc": "Identité visuelle, mise en page éditoriale et systèmes de marque.",
+          "skills": "Branding · Mise en page · Illustration"
+        },
+        "marketing": {
+          "title": "Marketing Digital",
+          "desc": "Campagnes, contenu et croissance d'audience sur les canaux numériques.",
+          "skills": "Stratégie · Contenu · Analyse"
+        },
+        "finance": {
+          "title": "Finance & Comptabilité",
+          "desc": "Budgétisation, reporting et gestion financière des organisations.",
+          "skills": "Comptabilité · Analyse · Reporting"
+        },
+        "entrepreneurship": {
+          "title": "Entrepreneuriat",
+          "desc": "Transformer des idées en produits, services et projets durables.",
+          "skills": "Stratégie · Opérations · Croissance"
+        },
+        "nursing": {
+          "title": "Soins Infirmiers",
+          "desc": "Soins aux patients, soutien clinique et santé communautaire.",
+          "skills": "Soins · Premiers secours · Éducation santé"
+        },
+        "nutrition": {
+          "title": "Nutrition & Bien-être",
+          "desc": "Alimentation, bien-être et accompagnement vers un mode de vie sain.",
+          "skills": "Nutrition · Menus · Bien-être"
+        },
+        "teaching": {
+          "title": "Enseignement & Formation",
+          "desc": "Ingénierie pédagogique, pratique de classe et formation professionnelle.",
+          "skills": "Pédagogie · Programme · Animation"
+        },
+        "translation": {
+          "title": "Traduction & Langues",
+          "desc": "Communication multilingue en arabe, français et anglais.",
+          "skills": "Traduction · Interprétation · Révision"
+        },
+        "music": {
+          "title": "Musique & Son",
+          "desc": "Interprétation, production et design sonore pour les projets créatifs.",
+          "skills": "Interprétation · Production · Son"
+        },
+        "film": {
+          "title": "Cinéma & Photographie",
+          "desc": "Narration visuelle par la photographie, la vidéo et le montage.",
+          "skills": "Photo · Vidéo · Montage"
+        },
+        "electrical": {
+          "title": "Électricité",
+          "desc": "Installation, maintenance et systèmes électriques sûrs.",
+          "skills": "Installation · Maintenance · Sécurité"
+        },
+        "construction": {
+          "title": "Construction & Menuiserie",
+          "desc": "Bâtiment, travail du bois et savoir-faire de chantier.",
+          "skills": "Menuiserie · Finitions · Chantier"
+        },
+        "culinary": {
+          "title": "Arts Culinaires",
+          "desc": "Cuisine professionnelle, pâtisserie et service alimentaire.",
+          "skills": "Cuisine · Pâtisserie · Service"
+        }
+      },
+      "collectiveLabel": "Portrait collectif",
+      "collectiveCaption": "La communauté Jadara, réunie à Tiaret.",
+      "collectiveAlt": "La communauté Jadara réunie.",
+      "filterTechnology": "Technologie",
+      "filterBusiness": "Business",
+      "filterHealth": "Santé",
+      "filterEducation": "Éducation",
+      "filterArts": "Arts",
+      "filterTrades": "Métiers"
+    }
   },
   "faq": {
     "title": "Questions fréquentes",
@@ -218,7 +371,25 @@
     "q8": "Les entreprises peuvent-elles voir mon profil sans mon consentement ?",
     "a8": "Non, vous contrôlez la visibilité de votre profil pour les entreprises partenaires à tout moment via les paramètres de confidentialité de votre compte.",
     "q9": "Mes données personnelles sont-elles sécurisées ?",
-    "a9": "Oui, nous accordons une importance primordiale à votre vie privée et à la protection de vos données. Nous suivons des normes strictes de sécurité ; pour plus de détails, consultez notre [Politique de confidentialité](/privacy-policy)."
+    "a9": "Oui, nous accordons une importance primordiale à votre vie privée et à la protection de vos données. Nous suivons des normes strictes de sécurité ; pour plus de détails, consultez notre [Politique de confidentialité](/privacy-policy).",
+    "topics": "Sujets",
+    "all": "Toutes les questions",
+    "answers": "réponses",
+    "results": "résultats",
+    "browse": "Parcourir les réponses",
+    "searchPlaceholder": "Rechercher une question...",
+    "emptyTitle": "Aucune question trouvée",
+    "emptyText": "Essayez un autre mot-clé ou affichez toutes les questions.",
+    "clearFilters": "Afficher toutes les questions",
+    "helpTitle": "Besoin d'aide ?",
+    "helpText": "Notre équipe est là pour répondre à tout ce qui n'est pas couvert ci-dessus.",
+    "contactCta": "Contacter l'équipe",
+    "categories": {
+      "gettingStarted": "Premiers pas",
+      "evidence": "Preuves et documents",
+      "verification": "Vérification et badges",
+      "account": "Compte et confidentialité"
+    }
   },
   "contact": {
     "title": "Contactez-nous",
@@ -226,8 +397,11 @@
     "name": "Nom complet",
     "subject": "Sujet",
     "message": "Message",
+    "description": "Description",
     "send": "Envoyer le message",
     "sent": "Votre message a été envoyé avec succès. Nous vous contacterons bientôt.",
+    "note": "Ce formulaire ouvre votre application e-mail avec votre message prêt à être envoyé.",
+    "opened": "Votre application e-mail s'ouvre avec votre message prêt à être envoyé.",
     "infoT": "Coordonnées",
     "addr": "Alger, Algérie"
   },
@@ -804,7 +978,13 @@
     "skillUpdateError": "[FR] Failed to update skill",
     "skillDeleted": "[FR] Skill deleted successfully",
     "skillDeleteError": "[FR] Failed to delete skill",
-    "addSkill": "[FR] Add Skill"
+    "addSkill": "[FR] Add Skill",
+    "domain": "Domaine",
+    "activityOverview": "Aperçu de l'activité",
+    "lastSevenDays": "7 derniers jours",
+    "requestStatus": "Statut des demandes",
+    "recentSample": "Dernières demandes d'inscription",
+    "breadcrumbRoot": "Admin"
   },
   "trainer": {
     "title": "Tableau de bord formateur",
@@ -1222,6 +1402,31 @@
     "domainsSelected": "{{count}} domaines sélectionnés",
     "domainsSelectedCompact": "+{{count}} autres",
     "noDomainsAvailable": "Aucun domaine disponible",
-    "noDomainsFound": "Aucun domaine trouvé."
+    "noDomainsFound": "Aucun domaine trouvé.",
+    "roleOrgDesc": "Rejoignez-nous en tant qu’organisation et publiez des opportunités",
+    "loginSuccess": "Connexion réussie",
+    "beneficiaryCreated": "Compte créé avec succès",
+    "demandSubmitted": "Demande envoyée avec succès",
+    "rolesLoadError": "Impossible de charger les rôles",
+    "rolesEmpty": "Aucun rôle d’inscription n’est disponible pour le moment.",
+    "roleUnavailableDesc": "L’inscription pour ce rôle n’est pas encore disponible.",
+    "chooseAnotherRole": "Choisir un autre rôle"
+  },
+  "organization": {
+    "regTitle": "Inscription de l’organisation",
+    "regSubtitle": "Créez le compte de votre organisation pour publier des opportunités",
+    "stepAccount": "Compte",
+    "stepDetails": "Organisation",
+    "nextBtn": "Continuer",
+    "contactName": "Nom complet du contact",
+    "orgName": "Nom de l’organisation",
+    "description": "Brève description",
+    "website": "Site web (facultatif)",
+    "uploadDoc": "Document justificatif",
+    "uploadHelper": "Téléversez un document officiel pour vérifier votre organisation",
+    "submitReg": "Soumettre l’inscription",
+    "pendingTitle": "Inscription envoyée",
+    "pendingDesc": "L’inscription de votre organisation est en attente de vérification. Nous vous contacterons dès son approbation.",
+    "requiredFields": "Le nom de l’organisation et le nom du contact sont obligatoires"
   }
 }

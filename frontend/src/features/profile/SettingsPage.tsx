@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
-import { apiClient } from "@/api/client";
+import { changePassword } from "@/api/auth";
+import { getErrorMessage } from "@/lib/notify";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import type { Role } from "@/constants/roles";
@@ -24,11 +26,23 @@ export function SettingsPage() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const userRole = (user?.role?.toLowerCase() as Role) || "beneficiary";
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const passwordMutation = useMutation({
+    mutationFn: changePassword,
+    onSuccess: () => {
+      toast.success(t("common.saved", { defaultValue: "Saved successfully." }));
+      setTimeout(() => {
+        logout();
+        navigate({ to: "/login" });
+      }, 1000);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "common.error"));
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!currentPassword) {
@@ -41,24 +55,7 @@ export function SettingsPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await apiClient.post("/auth/change-password", {
-        oldPassword: currentPassword,
-        newPassword,
-      });
-
-      toast.success(t("common.saved", { defaultValue: "Saved successfully." }));
-
-      // Invalidate session on frontend and redirect
-      setTimeout(() => {
-        logout();
-        navigate({ to: "/login" });
-      }, 1000);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to change password");
-      setIsSubmitting(false);
-    }
+    passwordMutation.mutate({ oldPassword: currentPassword, newPassword });
   };
 
   return (
@@ -139,8 +136,8 @@ export function SettingsPage() {
           </div>
 
           <div className="flex items-center justify-end pt-2">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
+            <Button type="submit" disabled={passwordMutation.isPending}>
+              {passwordMutation.isPending
                 ? t("common.loading", { defaultValue: "Loading..." })
                 : t("common.save", { defaultValue: "Save" })}
             </Button>

@@ -11,6 +11,7 @@ export const minioClient = new Client({
 
 export const BUCKETS = {
   avatars: "avatars",
+  covers: "covers",
   documents: "documents",
   evidence: "evidence",
   certifications: "certifications",
