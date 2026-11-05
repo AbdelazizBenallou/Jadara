@@ -288,6 +288,35 @@ export const demandRepository = {
     });
   },
 
+  async findCompanyByUserId(userId: number) {
+    return prisma.companies.findUnique({
+      where: { user_id: userId },
+      select: { id: true, user_id: true, name: true },
+    });
+  },
+
+  /**
+   * Concurrency-safe atomic company provisioning. Uses PostgreSQL ON CONFLICT (user_id)
+   * via Prisma upsert to guarantee idempotency and avoid transaction abortion on concurrent approvals.
+   */
+  async upsertCompany(
+    tx: Prisma.TransactionClient,
+    data: {
+      userId: number;
+      name: string;
+    },
+  ) {
+    return tx.companies.upsert({
+      where: { user_id: data.userId },
+      update: {},
+      create: {
+        user_id: data.userId,
+        name: data.name,
+      },
+      select: { id: true, user_id: true, name: true },
+    });
+  },
+
   async findDocumentObjectsByDemand(demandId: number) {
     return prisma.documents.findMany({
       where: { demand_id: demandId },

@@ -2,10 +2,10 @@ import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 
-type Permission = { id: number; name: string };
-type Role = { id: number; name: string };
+export type Permission = { id: number; name: string };
+export type Role = { id: number; name: string };
 
-const PERMISSION_NAMES = [
+export const PERMISSION_NAMES = [
   // Users / Roles / Permissions
   "manage_users",
   "manage_roles",
@@ -69,9 +69,24 @@ const PERMISSION_NAMES = [
   // Public published-activities feed: granted to EVERY baseline role so any
   // authenticated user can browse active published activities.
   "view_published_activities",
+
+  // Company System — Opportunities, Registrations & Company
+  "view_company_profile",
+  "create_opportunity",
+  "view_own_opportunities",
+  "update_opportunity",
+  "publish_opportunity",
+  "close_opportunity",
+  "delete_opportunity",
+  "view_opportunity_registrations",
+  "search_talent",
+  "browse_opportunities",
+  "register_opportunity",
+  "view_own_registrations",
+  "manage_companies",
 ];
 
-const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
+export const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
   Beneficiary: [
     "update_profile",
     "view_domains",
@@ -85,6 +100,11 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
     // Volunteer applications
     "apply_to_activity",
     "view_own_applications",
+
+    // Company System
+    "browse_opportunities",
+    "register_opportunity",
+    "view_own_registrations",
   ],
 
   Reviewer: [
@@ -93,6 +113,9 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
     "view_skills",
     "review_projects",
     "view_published_activities",
+
+    // Company System
+    "browse_opportunities",
   ],
 
   Company: [
@@ -100,6 +123,18 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
     "view_domains",
     "view_skills",
     "view_published_activities",
+
+    // Company System
+    "view_company_profile",
+    "create_opportunity",
+    "view_own_opportunities",
+    "update_opportunity",
+    "publish_opportunity",
+    "close_opportunity",
+    "delete_opportunity",
+    "view_opportunity_registrations",
+    "search_talent",
+    "browse_opportunities",
   ],
 
   Organization: [
@@ -125,6 +160,9 @@ const BASELINE_ROLE_PERMISSIONS: Record<string, string[]> = {
 
     // Completion
     "confirm_completion",
+
+    // Company System
+    "browse_opportunities",
   ],
 };
 
@@ -136,7 +174,7 @@ const DIRECT_REGISTRATION_ROLE_NAMES = ["Beneficiary"];
 // an Admin decision.
 const DEMAND_ROLE_NAMES = ["Reviewer", "Company", "Organization"];
 
-const ROLE_NAMES = [...DEMAND_ROLE_NAMES, ...DIRECT_REGISTRATION_ROLE_NAMES, "Admin"];
+export const ROLE_NAMES = [...DEMAND_ROLE_NAMES, ...DIRECT_REGISTRATION_ROLE_NAMES, "Admin"];
 
 const DEFAULT_USERS = [
   {
@@ -184,7 +222,7 @@ function must<T>(value: T | undefined | null, label: string): T {
   return value;
 }
 
-async function seedPermissions(
+export async function seedPermissions(
   prisma: PrismaClient,
 ): Promise<Map<string, Permission>> {
   const permissions = new Map<string, Permission>();
@@ -204,7 +242,7 @@ async function seedPermissions(
   return permissions;
 }
 
-async function seedRoles(
+export async function seedRoles(
   prisma: PrismaClient,
 ): Promise<Map<string, Role>> {
   const roles = new Map<string, Role>();
@@ -231,7 +269,7 @@ for (const name of ROLE_NAMES) {
   return roles;
 }
 
-async function seedRolePermissions(
+export async function seedRolePermissions(
   prisma: PrismaClient,
   roles: Map<string, Role>,
   permissions: Map<string, Permission>,

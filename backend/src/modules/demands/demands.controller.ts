@@ -49,7 +49,12 @@ export const demandController = {
 
     const data = req.body as ReviewDemandInput;
     const adminId = req.user!.userId;
-    const demand = await demandService.approve(id, adminId, data.note);
+    const demand = await demandService.approve(
+      id,
+      adminId,
+      data.note,
+      data.company_name,
+    );
     response.success(res, demand, "Demand approved");
   }),
 

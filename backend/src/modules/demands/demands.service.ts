@@ -33,6 +33,27 @@ function parseOrganizationDetails(details: unknown): OrganizationDetails | null 
     : null;
 }
 
+type CompanyDetails = {
+  name: string;
+};
+
+function parseCompanyDetails(details: unknown): CompanyDetails | null {
+  if (details === null || typeof details !== "object") return null;
+  const value = details as Record<string, unknown>;
+  if (typeof value.name === "string" && value.name.trim() !== "") {
+    return { name: value.name.trim() };
+  }
+  if (
+    value.company !== null &&
+    typeof value.company === "object" &&
+    typeof (value.company as Record<string, unknown>).name === "string" &&
+    ((value.company as Record<string, unknown>).name as string).trim() !== ""
+  ) {
+    return { name: ((value.company as Record<string, unknown>).name as string).trim() };
+  }
+  return null;
+}
+
 export const demandService = {
   /**
    * Public submission for Reviewer, Company and Organization.
@@ -70,6 +91,11 @@ export const demandService = {
       }
     }
 
+    let company: CompanyDetails | null = null;
+    if (role === "Company") {
+      company = data.company ?? null;
+    }
+
     if (files.length === 0) {
       throw new AppError("At least one supporting document is required", 400);
     }
@@ -80,6 +106,13 @@ export const demandService = {
         throw new AppError("Some domains do not exist", 400);
       }
     }
+
+    const details =
+      role === "Organization" && organization
+        ? (organization as object)
+        : role === "Company" && company
+        ? { name: company.name }
+        : undefined;
 
     const passwordHash = await hash.password(data.password);
 
@@ -95,7 +128,7 @@ export const demandService = {
         applicantEmail: data.email,
         applicantFirstName: data.first_name,
         applicantLastName: data.last_name,
-        ...(organization ? { details: organization as object } : {}),
+        ...(details ? { details } : {}),
         domainIds: data.domain_ids,
       });
 
@@ -194,17 +227,47 @@ export const demandService = {
   /**
    * Grants the requested role and activates the account.
    */
-  async approve(id: number, adminId: number, note?: ReviewDemandInput["note"]) {
+  async approve(
+    id: number,
+    adminId: number,
+    note?: ReviewDemandInput["note"],
+    companyName?: ReviewDemandInput["company_name"],
+  ) {
     const demand = await this.loadReviewable(id, adminId);
 
+    // Validate owning user before performing any transaction writes
+    if (demand.user_id === null) {
+      throw new AppError("Demand has no associated user account", 400);
+    }
+    const userId = demand.user_id;
+
+    // For Company demands, resolve company name using precedence rule before transaction writes:
+    // 1. Use a valid company name already stored in demand.details.
+    // 2. If absent, require a valid company_name supplied by Admin.
+    // 3. Never fall back to applicant's personal name or literal "Company".
+    let resolvedCompanyName: string | null = null;
+    if (demand.roles.name === "Company") {
+      const stored = parseCompanyDetails(demand.details);
+      if (stored) {
+        resolvedCompanyName = stored.name;
+      } else if (typeof companyName === "string" && companyName.trim() !== "") {
+        resolvedCompanyName = companyName.trim();
+      } else {
+        throw new AppError(
+          "Company name is required to approve a Company demand (none stored in demand or provided by reviewer)",
+          400,
+        );
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
-      await demandRepository.activateUser(tx, demand.user_id!, demand.role_id);
+      await demandRepository.activateUser(tx, userId, demand.role_id);
 
       // Reviewer is bound to a single review domain.
       if (demand.roles.name === "Reviewer" && demand.demand_domains.length > 0) {
         await demandRepository.assignReviewerDomain(
           tx,
-          demand.user_id!,
+          userId,
           demand.demand_domains[0].domain_id,
         );
       }
@@ -213,10 +276,10 @@ export const demandService = {
       if (demand.roles.name === "Organization") {
         const details = parseOrganizationDetails(demand.details);
         if (details) {
-          const existing = await demandRepository.findOrganizationByUserId(demand.user_id!);
+          const existing = await demandRepository.findOrganizationByUserId(userId);
           if (!existing) {
             await demandRepository.createOrganization(tx, {
-              userId: demand.user_id!,
+              userId,
               name: details.name,
               email: details.email ?? demand.applicant_email ?? "",
               description: details.description,
@@ -226,6 +289,14 @@ export const demandService = {
             });
           }
         }
+      }
+
+      // Approved Company demand provisions the user's owned company.
+      if (demand.roles.name === "Company" && resolvedCompanyName) {
+        await demandRepository.upsertCompany(tx, {
+          userId,
+          name: resolvedCompanyName,
+        });
       }
 
       await demandRepository.recordDecision(tx, {

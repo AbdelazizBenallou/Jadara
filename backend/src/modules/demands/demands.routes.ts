@@ -96,6 +96,13 @@ const router = Router();
  *                     type: string
  *                   location:
  *                     type: string
+ *               company:
+ *                 type: object
+ *                 description: Optional when role is Company
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     example: Algeria Tech Corp
  *               files:
  *                 type: array
  *                 items:
@@ -210,6 +217,10 @@ router.get("/:id", getUserRateLimit, demandController.getById);
  *               note:
  *                 type: string
  *                 maxLength: 1000
+ *               company_name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 description: Optional company name for Company demand approval (used when demand has no stored name)
  *     responses:
  *       200:
  *         description: Demand approved
